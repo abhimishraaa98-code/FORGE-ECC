@@ -23,8 +23,9 @@ import { formatPatchValidation, validateReviewPatch } from "./core/patch-validat
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { analyzeDependencyImpact, formatDependencyImpact } from "./core/dependency-impact.js";
+import { analyzeEngineeringRisk, formatEngineeringRisk } from "./core/engineering-risk.js";
 
-const VERSION = "0.28.0";
+const VERSION = "0.29.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -184,6 +185,14 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE run failed: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "risk": {
+      const pathIndex=rest.indexOf("--path");
+      const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":rest.find(arg=>!arg.startsWith("--"))??".");
+      const json=rest.includes("--json");
+      try { const report=await analyzeEngineeringRisk(target);process.stdout.write(json?JSON.stringify(report,null,2)+"\\n":formatEngineeringRisk(report)+"\\n"); }
+      catch(error){process.stderr.write("FORGE engineering risk analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
       return;
     }
     case "impact": {
