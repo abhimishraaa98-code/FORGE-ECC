@@ -227,6 +227,10 @@ node dist/cli.js runs .
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
 | `forge quality [path]` | Generate a static quality report with evidence and recommendations |
+| `forge risk [path]` | Rank structural engineering hotspots by dependency and quality signals |
+| `forge change-risk [path] [--base REV]` | Prioritize changed files by downstream impact and recommend test candidates |
+| `forge snapshot [path]` | Capture a local engineering intelligence snapshot |
+| `forge timeline [path]` | Compare the latest saved snapshot with its predecessor |
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
 | `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
