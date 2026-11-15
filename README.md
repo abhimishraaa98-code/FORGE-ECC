@@ -58,7 +58,7 @@ The orchestration engine coordinates text proposals only. It does not execute sh
 
 ### Local Web Dashboard — available (early)
 
-Start a read-only local dashboard with `forge dashboard [path]` (optional `--port 4173`). It displays project metrics, language composition, detected stack, saved runs, warnings, and a static architecture snapshot. The server binds to `127.0.0.1` only and exposes GET-only project-data endpoints; it is not a public hosting server.
+Start a read-only local dashboard with `forge dashboard [path]` (optional `--port 4173`). It displays project metrics, language composition, detected stack, the specialist-agent roster, saved runs, warnings, and a static architecture snapshot. Its agent endpoint exposes only public metadata, not private instructions or local file paths. The server binds to `127.0.0.1` only and exposes GET-only project-data endpoints; it is not a public hosting server.
 
 ### Persistent Runs and AI Provider — available (early)
 
