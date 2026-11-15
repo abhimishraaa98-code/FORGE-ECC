@@ -187,8 +187,11 @@ async function main(args: string[]): Promise<void> {
     }
     case "search": {
       const pathIndex=rest.indexOf("--path"),limitIndex=rest.indexOf("--limit");
+      const optionValues=new Set<number>();
+      if(pathIndex>=0)optionValues.add(pathIndex+1);
+      if(limitIndex>=0)optionValues.add(limitIndex+1);
       const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
-      const query=rest.filter((arg,index)=>!arg.startsWith("--")&&index!==pathIndex+1&&index!==limitIndex+1).join(" ").trim();
+      const query=rest.filter((arg,index)=>!arg.startsWith("--")&&!optionValues.has(index)).join(" ").trim();
       const limit=limitIndex>=0?Number(rest[limitIndex+1]):80;
       try { const report=await searchWorkspace(target,query,limit);process.stdout.write(JSON.stringify(report,null,2)+"\n"); }
       catch(error){process.stderr.write("FORGE code search failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
