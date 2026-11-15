@@ -188,17 +188,17 @@ async function main(args: string[]): Promise<void> {
     }
     case "quality": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge quality [path] [--json]\\n");
+        process.stdout.write("Usage: forge quality [path] [--json]\n");
         return;
       }
       const json = rest.includes("--json");
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const report = await auditProject(path.resolve(target));
-        process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\\n` : `${formatQualityAudit(report)}\\n`);
+        process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : `${formatQualityAudit(report)}\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE quality audit failed: ${message}\\n`);
+        process.stderr.write(`FORGE quality audit failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
