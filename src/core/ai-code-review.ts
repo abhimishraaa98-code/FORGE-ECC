@@ -60,7 +60,7 @@ export async function generateAIReview(report:CodeReviewReport,provider:AgentPro
  ].join("\n\n")},completedDependencies:[]});
  let parsed:unknown;try{parsed=JSON.parse(response.content);}catch{throw new Error("AI provider response was not valid JSON. No AI findings were accepted.");}
  const suggestions=parseSuggestions((parsed as {suggestions?:unknown})?.suggestions,new Set(excerpts.map(x=>x.file)));
- return {provider:response.provider,model:response.model,suggestions,warnings:excerpts.length<report.filesReviewed.length?["AI review context was capped; not every reviewed file was sent to the provider."]:[]};
+ return {provider:response.provider,...(response.model ? {model:response.model} : {}),suggestions,warnings:excerpts.length<report.filesReviewed.length?["AI review context was capped; not every reviewed file was sent to the provider."]:[]};
 }
 export function formatAIReview(result:AIReviewResult):string{
  return ["## AI review suggestions","- Provider: "+result.provider+(result.model?" ("+result.model+")":""),...(result.suggestions.length?result.suggestions.map(s=>"- **AI "+s.severity.toUpperCase()+"** — `"+s.file+":"+s.line+"`: "+s.title+"\n  "+s.explanation+"\n  Suggested next step: "+s.recommendation+"\n  Confidence: "+s.confidence+(s.patch?"\n  Patch preview (not applied):\n```diff\n"+s.patch+"\n```":"")):["- No valid AI suggestions returned."]),...result.warnings.map(w=>"- "+w),"- AI output is advisory and may be incorrect. Verify each finding before acting."].join("\n");
