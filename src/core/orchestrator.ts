@@ -55,7 +55,7 @@ export interface RunRecord {
   events: Array<{
     at: string;
     taskId: string;
-    type: "approval_required" | "started" | "completed" | "failed" | "blocked";
+    type: "approval_required" | "approved" | "rejected" | "started" | "completed" | "failed" | "blocked";
     message: string;
   }>;
 }
@@ -156,7 +156,7 @@ export async function advanceRun(
       record.status = "pending";
       continue;
     }
-    if (record.task.requiresApproval && !approvedTaskIds.has(record.task.id)) {
+    if (record.task.requiresApproval && record.approval?.decision !== "approved" && !approvedTaskIds.has(record.task.id)) {
       record.status = "awaiting_approval";
       if (!run.tasks.find(previous => previous.task.id === record.task.id)?.status || run.tasks.find(previous => previous.task.id === record.task.id)?.status !== "awaiting_approval") {
         next.events.push({ at: timestamp(), taskId: record.task.id, type: "approval_required", message: "Explicit approval is required before this task can be sent to the provider." });
