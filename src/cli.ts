@@ -7,7 +7,7 @@ import { formatProjectReport, inspectProject } from "./core/project-inspector.js
 import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
