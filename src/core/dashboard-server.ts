@@ -230,7 +230,8 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           tasks: run.tasks.map(record => ({
             id: record.task.id, title: record.task.title, agent: record.task.agent, status: record.status,
             result: record.result ? { provider: record.result.provider, model: record.result.model, content: record.result.content } : undefined,
-            error: record.error,\n            approval: record.approval,
+            error: record.error,
+            approval: record.approval,
           })),
           events: run.events.map(event => ({ at: event.at, taskId: event.taskId, type: event.type, message: event.message })),
         })));
