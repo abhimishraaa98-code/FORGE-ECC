@@ -119,9 +119,9 @@ npm install
 
 Create a local FORGE workspace (existing files are never overwritten):
 
-\`\`\`bash
+```bash
 npm run dev -- init .
-\`\`\`
+```
 
 This creates a `.forge/` directory with starter agent roles, reusable workflow skills, a project configuration, and a memory guide. These are local prompt/workflow assets; they do not launch autonomous agents or call an AI provider.
 
@@ -139,14 +139,32 @@ npm run dev -- map .
 npm run dev -- map . --json
 ```
 
-Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\nnpm run dev -- health .\nnpm run dev -- health . --json\n```\n\nDiscover and explicitly run a verification check:\n\n```bash\nnpm run dev -- verify --list\nnpm run dev -- verify test\nnpm run dev -- verify build --path ./my-app\n```\n\nBuild and run the compiled CLI:
+Generate a quality report:
+
+```bash
+npm run dev -- quality .
+npm run dev -- quality . --json
+npm run dev -- health .
+npm run dev -- health . --json
+```
+
+Discover and explicitly run a verification check:
+
+```bash
+npm run dev -- verify --list
+npm run dev -- verify test
+npm run dev -- verify build --path ./my-app
+```
+
+Build and run the compiled CLI:
 
 ```bash
 npm run build
 node dist/cli.js inspect .
 node dist/cli.js map .
 node dist/cli.js agents .
-node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js runs .
+node dist/cli.js plan --goal "Improve project reliability"
+node dist/cli.js runs .
 ```
 
 ## CLI reference
@@ -157,9 +175,17 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge health [path]` | Generate a combined project health report and save a snapshot |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
+| `forge quality [path]` | Generate a static quality report with evidence and recommendations |
+| `forge health [path]` | Generate a combined project health report and save a snapshot |
+| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
+| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
-| `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
+| `forge map [path]` | Map JavaScript/TypeScript modules and imports |
+| `forge agents [path]` | List built-in and workspace agent roles |
+| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |
+| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |
+| `forge runs [path]` | List saved local run history |
+| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
 | Add `--json` | Emit machine-readable JSON |
 
