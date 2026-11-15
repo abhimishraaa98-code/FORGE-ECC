@@ -78,8 +78,8 @@ export async function decideTaskApproval(
   const run = await loadRun(projectPath, runId);
   const record = run.tasks.find(item => item.task.id === taskId);
   if (!record) throw new Error("Task not found in this run.");
-  if (record.status !== "awaiting_approval") throw new Error("Only tasks awaiting approval can receive a decision.");
   if (record.approval) throw new Error("This task already has an approval decision.");
+  if (record.status !== "awaiting_approval") throw new Error("Only tasks awaiting approval can receive a decision.");
   const at = new Date().toISOString();
   const safeReviewer = reviewer.trim().slice(0, 80) || "local-user";
   const safeReason = reason?.trim().slice(0, 1000);
