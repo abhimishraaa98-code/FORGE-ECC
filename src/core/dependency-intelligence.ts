@@ -150,9 +150,11 @@ export async function analyzeDependencies(inputPath: string, options: { auditRep
   let lockName: string | null = null, lock: JsonObject | null = null;
   for (const candidate of lockCandidates) { lock = await readJson(path.join(root, candidate)); if (lock) { lockName = candidate; break; } }
   const lockPackages = npmLockPackages(lock);
+  const auditPath = options.auditReport ?? (await exists(path.join(root, "npm-audit.json")) ? "npm-audit.json" : undefined);
+  const outdatedPath = options.outdatedReport ?? (await exists(path.join(root, "npm-outdated.json")) ? "npm-outdated.json" : undefined);
   const [audit, outdated] = await Promise.all([
-    readInside(root, options.auditReport ?? (await exists(path.join(root, "npm-audit.json")) ? "npm-audit.json" : undefined)),
-    readInside(root, options.outdatedReport ?? (await exists(path.join(root, "npm-outdated.json")) ? "npm-outdated.json" : undefined))
+    readInside(root, auditPath),
+    readInside(root, outdatedPath)
   ]);
   const vulnerabilityMap = npmAuditEntries(audit.value);
   const outdatedMap = npmOutdatedEntries(outdated.value);
