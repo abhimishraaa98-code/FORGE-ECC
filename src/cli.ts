@@ -197,16 +197,16 @@ async function main(args: string[]): Promise<void> {
       try {
         if (listOnly) {
           const checks = await discoverChecks(target);
-          process.stdout.write(checks.length ? checks.map(check => `${check.name.padEnd(20)} ${check.command}`).join("\\n") + "\\n" : "No selectable npm scripts found.\\n");
+          process.stdout.write(checks.length ? checks.map(check => `${check.name.padEnd(20)} ${check.command}`).join("\n") + "\n" : "No selectable npm scripts found.\n");
           return;
         }
         if (!script) throw new Error("Choose one script explicitly. Usage: forge verify SCRIPT [--path PROJECT], or use --list to discover scripts.");
         const result = await runVerification(target, script);
-        process.stdout.write(`${formatVerificationResult(result)}\\n`);
+        process.stdout.write(`${formatVerificationResult(result)}\n`);
         if (result.status !== "passed") process.exitCode = 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE verification failed: ${message}\\n`);
+        process.stderr.write(`FORGE verification failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
