@@ -34,6 +34,17 @@ Build a static map of JavaScript and TypeScript source files:
 
 This is a heuristic source map, not a compiler-level dependency graph. Path aliases, generated modules, and dynamic imports assembled at runtime may not resolve.
 
+### Quality Intelligence — available (early)
+
+Run `forge quality [path]` to generate a static engineering quality report with:
+- A transparent rule-based score and grade (not a certification)
+- Evidence-backed findings with severity and recommended next steps
+- Project metrics for manifests, source files, tests, and CI workflows
+- Basic repository hygiene, test/CI presence, TypeScript strict-mode, lockfile, and local `.env` presence checks
+- JSON output via `--json`
+
+The scanner does not read `.env` contents, execute project code, install dependencies, run tests, or query vulnerability databases. A detected file is evidence of presence only; absence of a finding does not prove quality or security.
+
 ### Agent Registry and Planning — available (early)
 
 - Built-in specialist roles for planning, architecture, code review, testing, and security
@@ -104,7 +115,7 @@ npm run dev -- map .
 npm run dev -- map . --json
 ```
 
-Build and run the compiled CLI:
+Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\n```\n\nBuild and run the compiled CLI:
 
 ```bash
 npm run build
@@ -122,6 +133,7 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
+| `forge quality [path]` | Generate a static quality report with evidence and recommendations |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
 | Add `--json` | Emit machine-readable JSON |
