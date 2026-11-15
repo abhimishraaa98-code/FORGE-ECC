@@ -5,7 +5,7 @@ import { initializeProject } from "./core/project-init.js";
 import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.js";
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
