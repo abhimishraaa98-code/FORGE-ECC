@@ -244,10 +244,10 @@ async function main(args: string[]): Promise<void> {
       const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
       try {
         const report = await analyzeGitChanges(target, base);
-        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatGitIntelligence(report) + "\\n");
+        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\n" : formatGitIntelligence(report) + "\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE Git analysis failed: ${message}\\n`);
+        process.stderr.write(`FORGE Git analysis failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
