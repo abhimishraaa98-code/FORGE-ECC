@@ -10,7 +10,7 @@ import { saveRun, listRuns, loadRun } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -88,11 +88,15 @@ async function main(args: string[]): Promise<void> {
     }
     case "plan": {
       const goalIndex = rest.indexOf("--goal");
-      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1).join(" ").trim() : "";
+      const pathIndex = rest.indexOf("--path");
+      const goalEnd = pathIndex >= 0 ? pathIndex : rest.length;
+      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd).join(" ").trim() : "";
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
         const plan = createReviewPlan(goal);
+        const saved = await saveRun(target, plan);
         process.stdout.write(`${JSON.stringify(plan, null, 2)}\\n`);
-        process.stdout.write("\\nThis is a deterministic draft plan. No AI provider was called and no files or commands were executed.\\n");
+        process.stdout.write(`\\nDraft plan saved to ${path.relative(target, saved)}. No AI provider was called and no files or commands were executed.\\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE could not create a plan: ${message}\\n`);
