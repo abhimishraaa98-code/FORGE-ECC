@@ -4,7 +4,7 @@ import path from "node:path";
 const MAX_ENTRIES = 200;
 const MAX_PREVIEW_BYTES = 128 * 1024;
 const IGNORED_DIRECTORIES = new Set([".git", "node_modules", ".forge", "dist", "build", "coverage", ".next"]);
-const BLOCKED_NAME = /(^|[. _-])(env|secret|secrets|credential|credentials|private|token|password)([. _-]|$)|(^|\\/)(id_rsa|id_ed25519)(\\.|$)/i;
+const BLOCKED_NAME = /(^|[. _-])(env|secret|secrets|credential|credentials|private|token|password)([. _-]|$)/i;
 const PREVIEW_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx", ".txt",
   ".html", ".css", ".scss", ".sass", ".less", ".yml", ".yaml", ".toml", ".xml",
