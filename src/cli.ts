@@ -39,7 +39,10 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   quality [path]   Generate an evidence-based static engineering quality report
-  snapshot [path]   Capture a local engineering intelligence snapshot\n  timeline [path]   Compare the latest snapshot with its predecessor\n  change-risk [path] Analyze changed-file risk, downstream impact, and test candidates\n  risk [path]      Rank engineering hotspots using dependency and quality signals
+  snapshot [path]   Capture a local engineering intelligence snapshot
+  timeline [path]   Compare the latest snapshot with its predecessor
+  change-risk [path] Analyze changed-file risk, downstream impact, and test candidates
+  risk [path]      Rank engineering hotspots using dependency and quality signals
   health [path]    Generate a unified project health report and save a snapshot
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
@@ -192,14 +195,14 @@ async function main(args: string[]): Promise<void> {
     }
     case "snapshot": {
       const target=path.resolve(rest.find(arg=>!arg.startsWith("--"))??".");
-      try { const comparison=await captureIntelligenceSnapshot(target);process.stdout.write(formatIntelligenceComparison(comparison)+"\\n"); }
-      catch(error){process.stderr.write("FORGE snapshot failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { const comparison=await captureIntelligenceSnapshot(target);process.stdout.write(formatIntelligenceComparison(comparison)+"\n"); }
+      catch(error){process.stderr.write("FORGE snapshot failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "timeline": {
       const target=path.resolve(rest.find(arg=>!arg.startsWith("--"))??".");
-      try { const comparison=await compareLatestIntelligence(target);process.stdout.write(comparison?formatIntelligenceComparison(comparison)+"\\n":"No engineering snapshots found. Run forge snapshot . first.\\n"); }
-      catch(error){process.stderr.write("FORGE timeline failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { const comparison=await compareLatestIntelligence(target);process.stdout.write(comparison?formatIntelligenceComparison(comparison)+"\n":"No engineering snapshots found. Run forge snapshot . first.\n"); }
+      catch(error){process.stderr.write("FORGE timeline failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "change-risk": {
@@ -215,8 +218,8 @@ async function main(args: string[]): Promise<void> {
       const pathIndex=rest.indexOf("--path");
       const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":rest.find(arg=>!arg.startsWith("--"))??".");
       const json=rest.includes("--json");
-      try { const report=await analyzeEngineeringRisk(target);process.stdout.write(json?JSON.stringify(report,null,2)+"\\n":formatEngineeringRisk(report)+"\\n"); }
-      catch(error){process.stderr.write("FORGE engineering risk analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { const report=await analyzeEngineeringRisk(target);process.stdout.write(json?JSON.stringify(report,null,2)+"\n":formatEngineeringRisk(report)+"\n"); }
+      catch(error){process.stderr.write("FORGE engineering risk analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "impact": {
