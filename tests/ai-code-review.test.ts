@@ -5,7 +5,7 @@ import type {CodeReviewReport} from "../src/core/code-review.js";
 const base:CodeReviewReport={root:process.cwd(),generatedAt:new Date().toISOString(),scope:"source-files",base:"HEAD",filesReviewed:["package.json"],findings:[],summary:{high:0,medium:0,low:0},warnings:[]};
 describe("AI code review",()=>{
  it("accepts only structured suggestions for supplied files",async()=>{
-  const provider:AgentProvider={name:"test",complete:vi.fn(async()=>({provider:"test",model:"mock",content:JSON.stringify({suggestions:[{file:"package.json",line:1,severity:"low",title:"Check config",explanation:"Potential concern",recommendation:"Verify it",confidence:"medium",patch:"--- a/package.json\\n+++ b/package.json\\n@@ -1 +1 @@\\n- old\\n+ new"},{file:"secret.ts",line:1,severity:"high",title:"Invented",explanation:"x",recommendation:"x",confidence:"high"}]})}))};
+  const provider:AgentProvider={name:"test",complete:vi.fn(async()=>({provider:"test",model:"mock",content:JSON.stringify({suggestions:[{file:"package.json",line:1,severity:"low",title:"Check config",explanation:"Potential concern",recommendation:"Verify it",confidence:"medium",patch:"--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n- old\n+ new"},{file:"secret.ts",line:1,severity:"high",title:"Invented",explanation:"x",recommendation:"x",confidence:"high"}]})}))};
   const result=await generateAIReview(base,provider);expect(result.suggestions).toHaveLength(1);expect(result.suggestions[0]?.file).toBe("package.json");expect(result.suggestions[0]?.patch).toContain("@@ -1 +1 @@");
  });
  it("rejects malformed provider output",async()=>{
