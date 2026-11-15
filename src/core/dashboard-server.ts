@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import { inspectProject } from "./project-inspector.js";
 import { mapArchitecture } from "./architecture-map.js";
 import { listRuns } from "./run-store.js";
+import { loadAgentRegistry } from "./agent-registry.js";
 
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -19,7 +20,7 @@ const PAGE = String.raw`<!doctype html>
 <section class="hero"><div class="eyebrow">ENGINEERING CONTROL CENTER / 01</div><h1>Build with context.<br>Ship with confidence.</h1><p>A live overview of your codebase, architecture signals and AI-assisted engineering runs.</p></section>
 <section class="grid" id="metrics"><div class="card"><div class="metric-label">Source files</div><div class="metric">—</div><div class="metric-sub">Scanning workspace</div></div><div class="card"><div class="metric-label">Directories</div><div class="metric">—</div><div class="metric-sub">Project structure</div></div><div class="card"><div class="metric-label">Dependencies</div><div class="metric">—</div><div class="metric-sub">Production + development</div></div><div class="card"><div class="metric-label">Saved runs</div><div class="metric">—</div><div class="metric-sub">Local execution history</div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Language composition</h2><span class="pill">PROJECT INTELLIGENCE</span></div><div id="languages" class="list"><div class="loading">Loading language data…</div></div></div><div class="card"><div class="section-head"><h2>Detected stack</h2><span class="pill">ENVIRONMENT</span></div><div id="stack" class="list"><div class="loading">Detecting frameworks…</div></div></div></section>
-<section class="section columns"><div class="card"><div class="section-head"><h2>Recent runs</h2><span class="pill">LOCAL HISTORY</span></div><div id="runs"><div class="loading">Loading saved runs…</div></div></div><div class="card"><div class="section-head"><h2>Project signals</h2><span class="pill">INSIGHTS</span></div><div id="signals" class="list"><div class="loading">Collecting project signals…</div></div></div></section>
+<section class="section columns"><div class="card"><div class="section-head"><h2>Specialist agents</h2><span class="pill">AGENT REGISTRY</span></div><div id="agents"><div class="loading">Loading agent roles…</div></div></div><div class="card"><div class="section-head"><h2>Recent runs</h2><span class="pill">LOCAL HISTORY</span></div><div id="runs"><div class="loading">Loading saved runs…</div></div></div><div class="card"><div class="section-head"><h2>Project signals</h2><span class="pill">INSIGHTS</span></div><div id="signals" class="list"><div class="loading">Collecting project signals…</div></div></div></section>
 <section class="section card"><div class="section-head"><h2>Architecture snapshot</h2><div class="actions"><span class="pill">STATIC IMPORT MAP</span><button class="btn" id="refreshMap">Refresh map</button></div></div><div id="architecture" class="architecture"><div class="loading">Architecture map will appear here.</div></div></section>
 <footer class="footer"><span>FORGE v0.6.0 · EARLY ACCESS</span><span>Read-only dashboard · Data stays on this machine</span></footer>
 </main>
@@ -33,9 +34,10 @@ const total=Math.max(1,s.languages.reduce((n,x)=>n+x.files,0));el("languages").i
 const stack=[...(data.packageManagers||[]),...(data.frameworks||[])];el("stack").innerHTML=stack.length?stack.map(x=>'<div class="rowitem"><b>'+esc(x)+'</b><span class="pill">DETECTED</span></div>').join(""):'<div class="empty">No common stack detected.</div>';
 const signals=[["Important files",data.importantFiles.length],["Available scripts",Object.keys(data.scripts).length],["Scan warnings",data.warnings.length],["Architecture candidates","Refresh below"]];el("signals").innerHTML=signals.map(([k,v])=>'<div class="rowitem"><b>'+esc(k)+'</b><span class="pill">'+esc(v)+'</span></div>').join("")+(data.warnings.length?'<div class="error">'+data.warnings.map(esc).join("<br>")+'</div>':"");
 }catch(error){el("metrics").innerHTML='<div class="card error">Dashboard error: '+esc(error.message)+'</div>';}}
+async function loadAgents(){try{const data=await api("/api/agents");el("agents").innerHTML=data.length?data.map(agent=>'<div class="rowitem"><div><b>'+esc(agent.name)+'</b><div class="run-meta">'+esc(agent.description)+'</div></div><span class="pill">'+esc(agent.source)+'</span></div>').join(""):'<div class="empty">No agent roles found.</div>';}catch(error){el("agents").innerHTML='<div class="error">'+esc(error.message)+'</div>';}}
 async function loadRuns(){try{const data=await api("/api/runs");el("runs").innerHTML=data.length?data.slice(0,7).map(run=>'<div class="run"><div class="run-title"><span class="run-goal">'+esc(run.goal)+'</span><span class="pill">'+esc(run.status)+'</span></div><div class="run-meta">'+esc(run.id)+' · '+esc(new Date(run.createdAt).toLocaleString())+' · '+run.tasks.length+' tasks</div></div>').join(""):'<div class="empty">No saved runs yet. Create one with <code>forge plan --goal "..."</code>.</div>';}catch(error){el("runs").innerHTML='<div class="error">'+esc(error.message)+'</div>';}}
 async function loadMap(){el("architecture").innerHTML='<div class="loading">Mapping source relationships…</div>';try{const data=await api("/api/architecture");el("architecture").innerHTML=data.nodes.length?data.nodes.slice(0,36).map(node=>'<div class="node">'+esc(node.file)+'<small>'+esc(node.role)+' · '+node.imports.length+' imports · '+node.lines+' lines</small></div>').join(""):'<div class="empty">No supported source files found.</div>';}catch(error){el("architecture").innerHTML='<div class="error">'+esc(error.message)+'</div>';}}
-el("refreshMap").addEventListener("click",loadMap);loadOverview();loadRuns();loadMap();
+el("refreshMap").addEventListener("click",loadMap);loadOverview();loadAgents();loadRuns();loadMap();
 </script></body></html>`;
 
 export interface DashboardOptions {
@@ -82,6 +84,13 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           warnings: report.warnings,
           runCount: runs.length,
         }));
+        return;
+      }
+      if (requestUrl.pathname === "/api/agents") {
+        const agents = await loadAgentRegistry(projectPath);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(agents.map(agent => ({
+          id: agent.id, name: agent.name, description: agent.description, source: agent.source,
+        }))));
         return;
       }
       if (requestUrl.pathname === "/api/runs") {
