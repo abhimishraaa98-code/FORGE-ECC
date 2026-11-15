@@ -8,6 +8,11 @@ describe("project health report",()=>{let root="";afterEach(async()=>{if(root)aw
   root=await mkdtemp(path.join(os.tmpdir(),"forge-health-"));
   const report=await generateProjectHealth(root);
   expect(report.current.quality.score).toBeGreaterThanOrEqual(0);
+  expect(report.current.engineeringScore.score).toBeGreaterThanOrEqual(0);
+  expect(report.current.engineeringScore.score).toBeLessThanOrEqual(100);
+  expect(report.current.engineeringScore.confidencePercent).toBe(50);
+  expect(report.current.engineeringScore.dimensions.find(item=>item.id==="dependency-security")?.available).toBe(false);
+  expect(report.current.dependencySecurity.assessed).toBe(false);
   expect(report.current.quality.bySeverity).toHaveProperty("high");
   expect(report.current.verification.successRate).toBeNull();
   expect(Array.isArray(report.current.project.languages)).toBe(true);
