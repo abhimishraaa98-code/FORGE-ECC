@@ -294,10 +294,22 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations and contribu
 MIT. See [LICENSE](LICENSE).
 
 
-## Code Search & Symbol Intelligence (v0.26.0)
+## Code Search & Symbol Intelligence (v0.27.0)
 
 Search source files from the dashboard or CLI. Results include file paths, line/column positions, source snippets, and TypeScript AST-based declaration/reference classification. The scanner skips hidden files, common generated/dependency directories, sensitive filename patterns, symlinks, and files larger than 256 KiB.
 
 ```bash
 forge search calculateTotal --path .
+```
+
+
+### Dependency & Change Impact Intelligence — available (early, v0.27.0)
+
+Run `forge impact [path]` to compare the working tree with `HEAD`, map changed files to downstream importers, inspect direct npm dependencies, identify external imports missing from `package.json`, flag possible unused declarations, compare manifest dependency changes with a Git base, and check npm v2/v3 lockfile root metadata. Use `--base REV` and `--json` for comparison and machine-readable output.
+
+The report is static and advisory. It does not query registries, install packages, audit vulnerabilities, or prove that a dependency is unused. Dynamic imports, aliases, configuration/plugin usage, runtime loading, and non-npm ecosystems may not be fully represented.
+
+```bash
+npm run dev -- impact .
+npm run dev -- impact . --base main --json
 ```
