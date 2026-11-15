@@ -3,6 +3,8 @@ import { inspectProject } from "./project-inspector.js";
 import { mapArchitecture } from "./architecture-map.js";
 import { decideTaskApproval, listRuns, loadRun } from "./run-store.js";
 import { loadAgentRegistry } from "./agent-registry.js";
+import { auditProject } from "./quality-audit.js";
+import { listVerifications } from "./verification-history.js";
 
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -21,10 +23,10 @@ const PAGE = String.raw`<!doctype html>
 <section class="grid" id="metrics"><div class="card"><div class="metric-label">Source files</div><div class="metric">—</div><div class="metric-sub">Scanning workspace</div></div><div class="card"><div class="metric-label">Directories</div><div class="metric">—</div><div class="metric-sub">Project structure</div></div><div class="card"><div class="metric-label">Dependencies</div><div class="metric">—</div><div class="metric-sub">Production + development</div></div><div class="card"><div class="metric-label">Saved runs</div><div class="metric">—</div><div class="metric-sub">Local execution history</div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Language composition</h2><span class="pill">PROJECT INTELLIGENCE</span></div><div id="languages" class="list"><div class="loading">Loading language data…</div></div></div><div class="card"><div class="section-head"><h2>Detected stack</h2><span class="pill">ENVIRONMENT</span></div><div id="stack" class="list"><div class="loading">Detecting frameworks…</div></div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Specialist agents</h2><span class="pill">AGENT REGISTRY</span></div><div id="agents"><div class="loading">Loading agent roles…</div></div></div><div class="card"><div class="section-head"><h2>Recent runs</h2><span class="pill">LOCAL HISTORY</span></div><div id="runs"><div class="loading">Loading saved runs…</div></div></div><div class="card"><div class="section-head"><h2>Project signals</h2><span class="pill">INSIGHTS</span></div><div id="signals" class="list"><div class="loading">Collecting project signals…</div></div></div></section>
-<section class="section card"><div class="section-head"><h2>Run inspector</h2><span id="inspectorLabel" class="pill">SELECT A RUN</span></div><div id="runInspector" class="inspector"><div class="empty">Select a saved run to inspect its task results and approval state.</div></div></section>
+<section class="section columns"><div class="card"><div class="section-head"><h2>Engineering quality</h2><span class="pill">STATIC AUDIT</span></div><div id="qualityPanel" class="list"><div class="loading">Loading quality findings…</div></div></div><div class="card"><div class="section-head"><h2>Verification history</h2><span class="pill">REAL COMMAND RESULTS</span></div><div id="verificationPanel" class="list"><div class="loading">Loading verification history…</div></div></div></section>\n<section class="section card"><div class="section-head"><h2>Run inspector</h2><span id="inspectorLabel" class="pill">SELECT A RUN</span></div><div id="runInspector" class="inspector"><div class="empty">Select a saved run to inspect its task results and approval state.</div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Agent activity</h2><div class="activity-toolbar"><span id="activityUpdated" class="pill">Waiting for data</span><button class="btn" id="refreshActivity">Refresh</button></div></div><div id="activity" class="activity"><div class="loading">Loading task activity…</div></div></div><div class="card"><div class="section-head"><h2>Task status</h2><span class="pill">LATEST RUN</span></div><div id="taskStatus" class="task-grid"><div class="loading">Waiting for a saved run…</div></div></div></section>
 <section class="section card"><div class="section-head"><h2>Architecture snapshot</h2><div class="actions"><span class="pill">STATIC IMPORT MAP</span><button class="btn" id="refreshMap">Refresh map</button></div></div><div class="graph-wrap"><svg id="architectureGraph" viewBox="0 0 900 360" role="img" aria-label="Interactive source module dependency graph"><text x="24" y="35" fill="#8e9aab">Loading architecture graph…</text></svg><div class="graph-hint">Select a node to inspect imports and incoming dependencies. Lines represent detected relative imports.</div></div><div id="graphDetail" class="graph-detail">Choose a module in the graph.</div><div id="architecture" class="architecture"></div></section>
-<footer class="footer"><span>FORGE v0.8.0 · EARLY ACCESS</span><span>Read-only dashboard · Data stays on this machine</span></footer>
+<footer class="footer"><span>FORGE v0.15.0 · EARLY ACCESS</span><span>Read-only dashboard · Data stays on this machine</span></footer>
 </main>
 <script>
 const el=id=>document.getElementById(id);
@@ -59,7 +61,20 @@ function renderGraph(data){
  if(nodes.length===0)svg.innerHTML='<text x="24" y="35" fill="#8e9aab">No source modules found.</text>';
 }
 async function loadMap(){el("architecture").innerHTML='<div class="loading">Mapping source relationships…</div>';try{const data=await api("/api/architecture");renderGraph(data);el("architecture").innerHTML=data.nodes.slice(0,36).map(node=>'<div class="node">'+esc(node.file)+'<small>'+esc(node.role)+' · '+node.imports.length+' imports · '+node.lines+' lines</small></div>').join("")+(data.nodes.length>36?'<div class="muted">Showing 36 of '+data.nodes.length+' modules; graph displays up to 48.</div>':"");}catch(error){el("architecture").innerHTML='<div class="error">'+esc(error.message)+'</div>';el("architectureGraph").innerHTML='<text x="24" y="35" fill="#fca5a5">'+esc(error.message)+'</text>';}}
-el("refreshMap").addEventListener("click",loadMap);el("refreshActivity").addEventListener("click",()=>{loadActivity();loadRuns();});loadOverview();loadAgents();loadRuns();loadActivity();loadMap();setInterval(()=>{loadActivity();loadRuns();},5000);
+async function loadQuality(){
+ try{const data=await api("/api/quality");
+ const head='<div class="rowitem"><b>Rule-based score</b><span class="pill">'+esc(data.score)+'/100 · '+esc(data.grade)+'</span></div><div class="run-meta">'+esc(data.findings.length)+' findings · '+esc(data.metrics.sourceFiles)+' source files · '+esc(data.metrics.testFiles)+' test files</div>';
+ const items=data.findings.slice(0,6).map(item=>'<div class="rowitem"><div><b>'+esc(item.title)+'</b><div class="run-meta">'+esc(item.recommendation)+'</div></div><span class="pill">'+esc(item.severity)+'</span></div>').join("");
+ el("qualityPanel").innerHTML=head+(items||'<div class="empty">No findings from available static checks.</div>')+'<div class="run-meta">Static heuristic only — not a security certification.</div>';
+ }catch(error){el("qualityPanel").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
+}
+async function loadVerifications(){
+ try{const data=await api("/api/verifications");
+ if(!data.length){el("verificationPanel").innerHTML='<div class="empty">No verification runs yet. Use forge verify SCRIPT.</div>';return;}
+ el("verificationPanel").innerHTML=data.slice(0,8).map(item=>'<div class="rowitem"><div><b>'+esc(item.script)+'</b><div class="run-meta">'+esc(new Date(item.startedAt).toLocaleString())+' · '+esc(item.durationMs)+' ms</div></div><span class="pill">'+esc(item.status)+'</span></div>').join("");
+ }catch(error){el("verificationPanel").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
+}
+el("refreshMap").addEventListener("click",loadMap);el("refreshActivity").addEventListener("click",()=>{loadActivity();loadRuns();});loadOverview();loadAgents();loadRuns();loadActivity();loadMap();loadQuality();loadVerifications();setInterval(()=>{loadActivity();loadRuns();loadVerifications();},5000);
 </script></body></html>`;
 
 export interface DashboardOptions {
@@ -175,6 +190,21 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           id: run.id, goal: run.goal, status: run.status, createdAt: run.createdAt,
           tasks: run.tasks.map(task => ({ id: task.task.id, title: task.task.title, agent: task.task.agent, status: task.status })),
           events: run.events.map(event => ({ at: event.at, taskId: event.taskId, type: event.type, message: event.message })),
+        }))));
+        return;
+      }
+      if (requestUrl.pathname === "/api/quality") {
+        const report = await auditProject(projectPath);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({
+          score: report.score, grade: report.grade, generatedAt: report.generatedAt, metrics: report.metrics,
+          findings: report.findings.map(item => ({ id: item.id, severity: item.severity, title: item.title, recommendation: item.recommendation })),
+        }));
+        return;
+      }
+      if (requestUrl.pathname === "/api/verifications") {
+        const history = await listVerifications(projectPath, 25);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(history.map(item => ({
+          id: item.id, script: item.script, status: item.status, exitCode: item.exitCode, durationMs: item.durationMs, startedAt: item.startedAt, finishedAt: item.finishedAt,
         }))));
         return;
       }
