@@ -35,7 +35,7 @@ function updateGuidance(item: DependencyRecord): { title: string; rationale: str
   const outdated = item.outdated!;
   const current = versionParts(outdated.current), wanted = versionParts(outdated.wanted), latest = versionParts(outdated.latest);
   const isMajor = Boolean(current && latest && latest[0] !== current[0]);
-  if (wanted && current && wanted[0] === current[0] && (wanted[1] > current[1] || wanted[2] > current[2])) {
+  if (wanted && current && wanted[0] !== undefined && wanted[1] !== undefined && wanted[2] !== undefined && current[0] !== undefined && current[1] !== undefined && current[2] !== undefined && wanted[0] === current[0] && (wanted[1] > current[1] || wanted[2] > current[2])) {
     return {
       title: "Review a compatible update",
       rationale: `npm outdated reports ${outdated.current} installed and ${outdated.wanted} wanted within the declared range; latest is ${outdated.latest}.`,
