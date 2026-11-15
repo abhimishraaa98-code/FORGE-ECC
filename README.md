@@ -34,6 +34,18 @@ Build a static map of JavaScript and TypeScript source files:
 
 This is a heuristic source map, not a compiler-level dependency graph. Path aliases, generated modules, and dynamic imports assembled at runtime may not resolve.
 
+### Verification Engine — available (early)
+
+Use `forge verify --list` to discover package scripts without running them. Choose one explicitly with `forge verify test` or `forge verify build --path ./project`. FORGE captures the selected script's output, exit code, duration, timestamps, and final status. The result is based on the process exit code—not a static prediction.
+
+Safety boundaries:
+- No script runs during discovery; execution requires a named script.
+- Lifecycle hooks named `pre*` and `post*` are excluded from discovery and cannot be selected directly.
+- No dependency installation or automatic script selection.
+- A selected package script can itself run arbitrary project commands. Review the script in `package.json` before executing it, and use a trusted project directory.
+- Output capture is capped at 64 KiB and execution timeout defaults to two minutes.
+- Results are printed to the terminal; persistent verification history and CI integrations are future work.
+
 ### Quality Intelligence — available (early)
 
 Run `forge quality [path]` to generate a static engineering quality report with:
@@ -115,7 +127,7 @@ npm run dev -- map .
 npm run dev -- map . --json
 ```
 
-Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\n```\n\nBuild and run the compiled CLI:
+Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\n```\n\nDiscover and explicitly run a verification check:\n\n```bash\nnpm run dev -- verify --list\nnpm run dev -- verify test\nnpm run dev -- verify build --path ./my-app\n```\n\nBuild and run the compiled CLI:
 
 ```bash
 npm run build
@@ -133,7 +145,7 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge quality [path]` | Generate a static quality report with evidence and recommendations |
+| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script and report its real exit status |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
 | Add `--json` | Emit machine-readable JSON |
