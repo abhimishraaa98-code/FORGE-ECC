@@ -21,8 +21,9 @@ import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
+import { searchWorkspace } from "./core/code-search.js";
 
-const VERSION = "0.25.0";
+const VERSION = "0.26.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -182,6 +183,15 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE run failed: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "search": {
+      const pathIndex=rest.indexOf("--path"),limitIndex=rest.indexOf("--limit");
+      const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
+      const query=rest.filter((arg,index)=>!arg.startsWith("--")&&index!==pathIndex+1&&index!==limitIndex+1).join(" ").trim();
+      const limit=limitIndex>=0?Number(rest[limitIndex+1]):80;
+      try { const report=await searchWorkspace(target,query,limit);process.stdout.write(JSON.stringify(report,null,2)+"\n"); }
+      catch(error){process.stderr.write("FORGE code search failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "dashboard": {
