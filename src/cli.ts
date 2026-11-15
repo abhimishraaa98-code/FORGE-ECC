@@ -27,8 +27,9 @@ import { analyzeEngineeringRisk, formatEngineeringRisk } from "./core/engineerin
 import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/change-intelligence.js";
 import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntelligenceComparison } from "./core/intelligence-timeline.js";
 import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
+import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
 
-const VERSION = "0.33.0";
+const VERSION = "0.34.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -427,6 +428,23 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE deep analysis failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "remediate": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge remediate [path] [--audit-report FILE] [--outdated-report FILE] [--json]\\n");
+        return;
+      }
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      const target = path.resolve(rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--audit-report" && rest[index - 1] !== "--outdated-report") ?? ".");
+      try {
+        const auditReport = option("--audit-report"), outdatedReport = option("--outdated-report");
+        const plan = await generateRemediationPlan(target, { ...(auditReport ? { auditReport } : {}), ...(outdatedReport ? { outdatedReport } : {}) });
+        process.stdout.write(rest.includes("--json") ? JSON.stringify(plan, null, 2) + "\\n" : formatRemediationPlan(plan) + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE remediation planning failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
