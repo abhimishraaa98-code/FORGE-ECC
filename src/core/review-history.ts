@@ -27,7 +27,8 @@ export async function listReviews(root:string):Promise<ReviewRecord[]>{
 export interface ReviewComparison {added:string[];resolved:string[];persistent:string[];}
 function key(f:{file:string;ruleId?:string;title:string;line:number}){return [f.file,f.ruleId??"AI",f.title].join("::");}
 export function compareReviews(before:ReviewRecord,after:ReviewRecord):ReviewComparison{
- const oldSet=new Set(before.report.findings.map(key));const newSet=new Set(after.report.findings.map(key));
+ const oldFindings=[...before.report.findings,...(before.ai?.suggestions??[])];const newFindings=[...after.report.findings,...(after.ai?.suggestions??[])];
+ const oldSet=new Set(oldFindings.map(key));const newSet=new Set(newFindings.map(key));
  return {added:[...newSet].filter(x=>!oldSet.has(x)).sort(),resolved:[...oldSet].filter(x=>!newSet.has(x)).sort(),persistent:[...newSet].filter(x=>oldSet.has(x)).sort()};
 }
 export function formatReviewRecord(record:ReviewRecord):string{
