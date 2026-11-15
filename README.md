@@ -368,3 +368,17 @@ Review reports before sharing; they can contain package and environment metadata
 - **Dependency security (25%)** — imported local npm audit findings. If no audit report is available, this dimension is excluded and clearly marked **NOT ASSESSED**.
 
 The score is the weighted average of available dimensions only; evidence coverage is the sum of their weights. It is a prioritization heuristic, not a certification or proof that a project is secure. Architecture metrics remain visible as context but are not used as a proxy for code quality. The dashboard Project Health Center shows the score, coverage, dimensions and dependency assessment status. Older health snapshots remain readable; only new snapshots contain the expanded score fields.
+
+
+### Automated Remediation Planner — available (v0.34.0)
+
+Run `forge remediate .` to create a prioritized, reviewable dependency remediation plan. It combines imported npm audit findings, outdated-package reports, lockfile versions, and license metadata. Critical and high vulnerability findings appear first; compatible wanted-version updates are distinguished from major-version review, and unknown or copyleft license metadata is surfaced for human review.
+
+Provide current local evidence with `npm audit --json > npm-audit.json` and `npm outdated --json > npm-outdated.json`, then run:
+
+```bash
+forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.json
+forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.json --json
+```
+
+The planner never installs, upgrades, removes, or modifies dependencies and never executes suggested commands. Vulnerability and outdated status are not assessed when reports are absent. Suggested versions are candidates, not compatibility guarantees; review release notes, peer dependencies, lockfile changes, and project checks before acting. License classifications are heuristic metadata signals, not legal advice. Only npm manifests and npm lockfiles are currently supported.
