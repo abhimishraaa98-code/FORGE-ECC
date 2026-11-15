@@ -20,8 +20,9 @@ import { reviewProject, formatCodeReview } from "./core/code-review.js";
 import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
+import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 
-const VERSION = "0.22.0";
+const VERSION = "0.23.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -41,6 +42,7 @@ Commands:
   review-show ID   Display one saved review snapshot
   review-compare A B Compare two saved reviews
   patch-check ID N  Dry-run validate AI patch N from a saved review
+  regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -288,6 +290,22 @@ async function main(args: string[]): Promise<void> {
       const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
       try { if(ids.length<2)throw new Error("Usage: forge review-compare REVIEW_ID_A REVIEW_ID_B --path PROJECT"); const [a,b]=await Promise.all([loadReview(target,ids[0]!),loadReview(target,ids[1]!)]);const diff=compareReviews(a,b);process.stdout.write(["Review comparison", "Added ("+diff.added.length+")",...diff.added.map(x=>"+ "+x),"Resolved ("+diff.resolved.length+")",...diff.resolved.map(x=>"- "+x),"Persistent ("+diff.persistent.length+")",...diff.persistent.map(x=>"= "+x)].join("\n")+"\n"); }
       catch(error){process.stderr.write("FORGE review comparison failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
+      return;
+    }
+    case "regression": {
+      const pathIndex=rest.indexOf("--path");
+      const baseIndex=rest.indexOf("--base");
+      const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--base")??".");
+      const base=baseIndex>=0?rest[baseIndex+1]??"HEAD":"HEAD";
+      const json=rest.includes("--json");
+      try {
+        const report=await generateRegressionReport(target,base);
+        process.stdout.write(json?JSON.stringify(report,null,2)+"\\n":formatRegressionReport(report)+"\\n");
+        if(report.summary.regressions>0)process.exitCode=1;
+      } catch(error) {
+        process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.exitCode=1;
+      }
       return;
     }
     case "patch-check": {
