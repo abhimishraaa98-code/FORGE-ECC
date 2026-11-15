@@ -46,6 +46,9 @@ describe("local dashboard server", () => {
       expect(runList[0].tasks[0]).not.toHaveProperty("prompt");
     }
 
+    const runDetail = await fetch(base + "/api/runs/forge-not-found");
+    expect(runDetail.status).toBe(500);
+
     const agents = await fetch(base + "/api/agents");
     expect(agents.status).toBe(200);
     const agentList = await agents.json();
