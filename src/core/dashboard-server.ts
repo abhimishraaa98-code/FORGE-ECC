@@ -8,6 +8,7 @@ import { listVerifications } from "./verification-history.js";
 import { generateProjectHealth } from "./project-health.js";
 import { listReviews } from "./review-history.js";
 import { generateRegressionReport } from "./regression-intelligence.js";
+import { listWorkspaceDirectory, readWorkspaceFile } from "./workspace-browser.js";
 
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -27,7 +28,8 @@ const PAGE = String.raw`<!doctype html>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Language composition</h2><span class="pill">PROJECT INTELLIGENCE</span></div><div id="languages" class="list"><div class="loading">Loading language data…</div></div></div><div class="card"><div class="section-head"><h2>Detected stack</h2><span class="pill">ENVIRONMENT</span></div><div id="stack" class="list"><div class="loading">Detecting frameworks…</div></div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Specialist agents</h2><span class="pill">AGENT REGISTRY</span></div><div id="agents"><div class="loading">Loading agent roles…</div></div></div><div class="card"><div class="section-head"><h2>Recent runs</h2><span class="pill">LOCAL HISTORY</span></div><div id="runs"><div class="loading">Loading saved runs…</div></div></div><div class="card"><div class="section-head"><h2>Project signals</h2><span class="pill">INSIGHTS</span></div><div id="signals" class="list"><div class="loading">Collecting project signals…</div></div></div></section>
 <section class="section card"><div class="section-head"><h2>Project Health Center</h2><div class="actions"><span class="pill">SNAPSHOT + TRENDS</span><button class="btn" id="refreshHealth">Refresh snapshot</button></div></div><div id="healthPanel" class="list"><div class="loading">Generating project health snapshot…</div></div></section>\n<section class="section columns"><div class="card"><div class="section-head"><h2>Regression intelligence</h2><div class="actions"><span class="pill">VERIFICATION TRENDS</span><button class="btn" id="refreshRegression">Refresh</button></div></div><div id="regressionPanel" class="list"><div class="loading">Comparing saved verification runs…</div></div></div><div class="card"><div class="section-head"><h2>Code review history</h2><div class="actions"><span class="pill">SAVED REVIEWS</span><button class="btn" id="refreshReviews">Refresh</button></div></div><div id="reviewPanel" class="list"><div class="loading">Loading saved review snapshots…</div></div></div></section>
-<section class="section columns"><div class="card"><div class="section-head"><h2>Engineering quality</h2><span class="pill">STATIC AUDIT</span></div><div id="qualityPanel" class="list"><div class="loading">Loading quality findings…</div></div></div><div class="card"><div class="section-head"><h2>Verification history</h2><span class="pill">REAL COMMAND RESULTS</span></div><div id="verificationPanel" class="list"><div class="loading">Loading verification history…</div></div></div></section>\n<section class="section card"><div class="section-head"><h2>Run inspector</h2><span id="inspectorLabel" class="pill">SELECT A RUN</span></div><div id="runInspector" class="inspector"><div class="empty">Select a saved run to inspect its task results and approval state.</div></div></section>
+<section class="section columns"><div class="card"><div class="section-head"><h2>Engineering quality</h2><span class="pill">STATIC AUDIT</span></div><div id="qualityPanel" class="list"><div class="loading">Loading quality findings…</div></div></div><div class="card"><div class="section-head"><h2>Verification history</h2><span class="pill">REAL COMMAND RESULTS</span></div><div id="verificationPanel" class="list"><div class="loading">Loading verification history…</div></div></div></section>\n<section class="section card"><div class="section-head"><h2>Workspace explorer</h2><span class="pill">SAFE FILE PREVIEW</span></div><div class="columns"><div><div class="actions"><button class="btn" id="workspaceUp">↑ Up</button><span id="workspacePath" class="pill">/</span></div><div id="workspaceFiles" class="list" style="margin-top:10px"><div class="loading">Loading workspace files…</div></div></div><div><div id="workspacePreview" class="inspector"><div class="empty">Select a source file to preview it here.</div></div></div></div></section>
+<section class="section card"><div class="section-head"><h2>Run inspector</h2><span id="inspectorLabel" class="pill">SELECT A RUN</span></div><div id="runInspector" class="inspector"><div class="empty">Select a saved run to inspect its task results and approval state.</div></div></section>
 <section class="section columns"><div class="card"><div class="section-head"><h2>Agent activity</h2><div class="activity-toolbar"><span id="activityUpdated" class="pill">Waiting for data</span><button class="btn" id="refreshActivity">Refresh</button></div></div><div id="activity" class="activity"><div class="loading">Loading task activity…</div></div></div><div class="card"><div class="section-head"><h2>Task status</h2><span class="pill">LATEST RUN</span></div><div id="taskStatus" class="task-grid"><div class="loading">Waiting for a saved run…</div></div></div></section>
 <section class="section card"><div class="section-head"><h2>Architecture snapshot</h2><div class="actions"><span class="pill">STATIC IMPORT MAP</span><button class="btn" id="refreshMap">Refresh map</button></div></div><div class="graph-wrap"><svg id="architectureGraph" viewBox="0 0 900 360" role="img" aria-label="Interactive source module dependency graph"><text x="24" y="35" fill="#8e9aab">Loading architecture graph…</text></svg><div class="graph-hint">Select a node to inspect imports and incoming dependencies. Lines represent detected relative imports.</div></div><div id="graphDetail" class="graph-detail">Choose a module in the graph.</div><div id="architecture" class="architecture"></div></section>
 <footer class="footer"><span>FORGE v0.24.0 · ENGINEERING INTELLIGENCE</span><span>Read-only dashboard · Data stays on this machine</span></footer>
@@ -99,13 +101,30 @@ async function loadQuality(){
  el("qualityPanel").innerHTML=head+(items||'<div class="empty">No findings from available static checks.</div>')+'<div class="run-meta">Static heuristic only — not a security certification.</div>';
  }catch(error){el("qualityPanel").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
 }
+let workspaceDirectory="";
+async function loadWorkspace(pathValue=workspaceDirectory){
+ workspaceDirectory=pathValue;
+ try{
+  const data=await api("/api/workspace?path="+encodeURIComponent(workspaceDirectory));
+  workspaceDirectory=data.path;el("workspacePath").textContent="/"+(data.path||"");
+  el("workspaceFiles").innerHTML=data.entries.length?data.entries.map(item=>'<div class="rowitem"><button class="btn" data-workspace-kind="'+esc(item.kind)+'" data-workspace-path="'+esc(item.path)+'">'+(item.kind==="directory"?"▸ ":"") +esc(item.name)+'</button><span class="pill">'+(item.kind==="file"?esc(item.size)+" B":"FOLDER")+'</span></div>').join(""):'<div class="empty">No previewable files or folders here.</div>';
+  if(data.truncated)el("workspaceFiles").insertAdjacentHTML("beforeend",'<div class="run-meta">Showing first 200 entries.</div>');
+  el("workspaceFiles").querySelectorAll("[data-workspace-path]").forEach(button=>button.addEventListener("click",()=>button.dataset.workspaceKind==="directory"?loadWorkspace(button.dataset.workspacePath):previewWorkspace(button.dataset.workspacePath)));
+ }catch(error){el("workspaceFiles").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
+}
+async function previewWorkspace(filePath){
+ try{const file=await api("/api/workspace/file?path="+encodeURIComponent(filePath));
+ el("workspacePreview").innerHTML='<div><b>'+esc(file.name)+'</b><div class="run-meta">'+esc(file.path)+' · '+esc(file.size)+' bytes</div></div><pre style="white-space:pre;overflow:auto;max-height:520px;background:#0b1018;border:1px solid var(--line);padding:14px;border-radius:9px;font:12px/1.6 ui-monospace,monospace">'+esc(file.content)+'</pre>';
+ }catch(error){el("workspacePreview").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
+}
 async function loadVerifications(){
  try{const data=await api("/api/verifications");
  if(!data.length){el("verificationPanel").innerHTML='<div class="empty">No verification runs yet. Use forge verify SCRIPT.</div>';return;}
  el("verificationPanel").innerHTML=data.slice(0,8).map(item=>'<div class="rowitem"><div><b>'+esc(item.script)+'</b><div class="run-meta">'+esc(new Date(item.startedAt).toLocaleString())+' · '+esc(item.durationMs)+' ms</div></div><span class="pill">'+esc(item.status)+'</span></div>').join("");
  }catch(error){el("verificationPanel").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
 }
-el("refreshMap").addEventListener("click",loadMap);el("refreshHealth").addEventListener("click",loadHealth);el("refreshRegression").addEventListener("click",loadRegression);el("refreshReviews").addEventListener("click",loadReviews);el("refreshActivity").addEventListener("click",()=>{loadActivity();loadRuns();});loadOverview();loadAgents();loadRuns();loadActivity();loadMap();loadQuality();loadVerifications();loadHealth();loadRegression();loadReviews();setInterval(()=>{loadActivity();loadRuns();loadVerifications();},5000);
+el("workspaceUp").addEventListener("click",()=>loadWorkspace(workspaceDirectory.includes("/")?workspaceDirectory.slice(0,workspaceDirectory.lastIndexOf("/")):""));
+el("refreshMap").addEventListener("click",loadMap);loadWorkspace();el("refreshHealth").addEventListener("click",loadHealth);el("refreshRegression").addEventListener("click",loadRegression);el("refreshReviews").addEventListener("click",loadReviews);el("refreshActivity").addEventListener("click",()=>{loadActivity();loadRuns();});loadOverview();loadAgents();loadRuns();loadActivity();loadMap();loadQuality();loadVerifications();loadHealth();loadRegression();loadReviews();setInterval(()=>{loadActivity();loadRuns();loadVerifications();},5000);
 </script></body></html>`;
 
 export interface DashboardOptions {
@@ -258,6 +277,18 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         const base = requestUrl.searchParams.get("base") ?? "HEAD";
         const report = await generateRegressionReport(projectPath, base);
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(report));
+        return;
+      }
+      if (requestUrl.pathname === "/api/workspace") {
+        const relativePath = requestUrl.searchParams.get("path") ?? "";
+        const listing = await listWorkspaceDirectory(projectPath, relativePath);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(listing));
+        return;
+      }
+      if (requestUrl.pathname === "/api/workspace/file") {
+        const relativePath = requestUrl.searchParams.get("path") ?? "";
+        const file = await readWorkspaceFile(projectPath, relativePath);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(file));
         return;
       }
       if (requestUrl.pathname === "/api/architecture") {
