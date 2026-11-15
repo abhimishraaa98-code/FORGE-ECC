@@ -227,6 +227,7 @@ node dist/cli.js runs .
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
 | `forge quality [path]` | Generate a static quality report with evidence and recommendations |
+| `forge deps [path] [--audit-report FILE] [--outdated-report FILE]` | Inventory npm dependencies and import local audit/outdated reports |
 | `forge risk [path]` | Rank structural engineering hotspots by dependency and quality signals |
 | `forge change-risk [path] [--base REV]` | Prioritize changed files by downstream impact and recommend test candidates |
 | `forge snapshot [path]` | Capture a local engineering intelligence snapshot |
@@ -345,3 +346,14 @@ This is static, heuristic prioritization—not a defect prediction or causal ana
 Capture a local structural-risk snapshot with `forge snapshot .` and compare the latest capture with its predecessor using `forge timeline .`. Snapshots include the analysis timestamp, available Git commit, hotspot severity counts, architecture size, quality findings, and the top hotspot files. The dashboard provides a read-only timeline view of saved captures.
 
 Snapshots are written to `.forge/intelligence/`, use private local file permissions, and are not uploaded or committed by FORGE. The trend is a comparison of saved static-analysis snapshots, not continuous monitoring or a guarantee of quality. A first snapshot establishes a baseline; capture another after meaningful changes to see a comparison.
+
+
+### Dependency Security & License Intelligence — v0.32.0
+
+Run `forge deps .` for an offline npm dependency inventory, including direct/transitive packages, lockfile versions, available license metadata, and coarse license categories. FORGE never installs packages or contacts registries during this command. Vulnerability and outdated status are explicitly **NOT ASSESSED** unless you provide locally generated reports:
+
+- `npm audit --json > npm-audit.json` then `forge deps . --audit-report npm-audit.json`
+- `npm outdated --json > npm-outdated.json` then `forge deps . --outdated-report npm-outdated.json`
+- Both reports: `forge deps . --audit-report npm-audit.json --outdated-report npm-outdated.json`
+
+Review reports before sharing; they can contain package and environment metadata. Report paths must remain inside the analyzed project. This first release parses npm manifests and package-lock/npm-shrinkwrap data only. pnpm/Yarn, abandoned-package detection, full SPDX license expression evaluation, and legal compatibility analysis are not implemented. The dashboard displays the local dependency inventory and clearly labels missing security reports as unassessed.
