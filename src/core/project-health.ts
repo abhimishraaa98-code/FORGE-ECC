@@ -7,7 +7,7 @@ import { listVerifications } from "./verification-history.js";
 
 const HISTORY_DIR = path.join(".forge", "health");
 const MAX_SNAPSHOTS = 100;
-export interface HealthSnapshot { id:string; generatedAt:string; quality:{score:number;grade:string;findings:number;bySeverity:Record<FindingSeverity,number>}; verification:{total:number;passed:number;failed:number;successRate:number|null;recent:Array<{script:string;status:string;durationMs:number;startedAt:string}>}; project:{files:number;directories:number;languages:Array<{name:string;files:number}>}; architecture:{nodes:number;edges:number;entryPoints:number;externalPackages:number}; }
+export interface HealthSnapshot { id:string; generatedAt:string; quality:{score:number;grade:string;findings:number;bySeverity:Record<FindingSeverity,number>}; verification:{total:number;passed:number;failed:number;timedOut:number;spawnErrors:number;successRate:number|null;recent:Array<{script:string;status:string;durationMs:number;startedAt:string}>}; project:{files:number;directories:number;languages:Array<{name:string;files:number}>}; architecture:{nodes:number;edges:number;entryPoints:number;externalPackages:number}; }
 export interface ProjectHealthReport { root:string; generatedAt:string; current:HealthSnapshot; history:HealthSnapshot[]; notes:string[]; }
 
 async function loadSnapshots(root:string):Promise<HealthSnapshot[]> {
@@ -32,7 +32,7 @@ export async function generateProjectHealth(inputPath:string):Promise<ProjectHea
  const current:HealthSnapshot={
   id:"health-"+now.getTime().toString(36)+"-"+Math.random().toString(36).slice(2,7),generatedAt:now.toISOString(),
   quality:{score:audit.score,grade:audit.grade,findings:audit.findings.length,bySeverity},
-  verification:{total:verification.length,passed,failed:verification.filter(v=>v.status!=="passed").length,successRate:completed?Math.round(passed/completed*100):null,recent:verification.slice(0,12).map(v=>({script:v.script,status:v.status,durationMs:v.durationMs,startedAt:v.startedAt}))},
+  verification:{total:verification.length,passed,failed:verification.filter(v=>v.status==="failed").length,timedOut:verification.filter(v=>v.status==="timed_out").length,spawnErrors:verification.filter(v=>v.status==="spawn_error").length,successRate:completed?Math.round(passed/completed*100):null,recent:verification.slice(0,12).map(v=>({script:v.script,status:v.status,durationMs:v.durationMs,startedAt:v.startedAt}))},
   project:{files:project.summary.filesScanned,directories:project.summary.directoriesScanned,languages:project.summary.languages.slice(0,12)},
   architecture:{nodes:architecture.nodes.length,edges:architecture.edges.length,entryPoints:architecture.entryPoints.length,externalPackages:architecture.externalPackages.length}
  };
