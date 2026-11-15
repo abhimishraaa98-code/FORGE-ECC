@@ -8,7 +8,7 @@ const run=promisify(execFile);
 describe("code review",()=>{let root:string|undefined;afterEach(async()=>{if(root)await rm(root,{recursive:true,force:true});});
 it("reports heuristic findings with file and line evidence",async()=>{
  root=await mkdtemp(path.join(os.tmpdir(),"forge-review-"));await mkdir(path.join(root,"src"));
- await writeFile(path.join(root,"src","sample.ts"),"export const safe = 1;\neval(input);\nnode.innerHTML = value;\n");
+ await writeFile(path.join(root,"src","sample.ts"),"export const safe = 1;");
  await run("git",["init",root]);await run("git",["-C",root,"config","user.email","forge@example.invalid"]);await run("git",["-C",root,"config","user.name","FORGE Tests"]);await run("git",["-C",root,"add","."]);await run("git",["-C",root,"commit","-m","baseline"]);
  await writeFile(path.join(root,"src","sample.ts"),"export const safe = 1;\neval(input);\nnode.innerHTML = value;\n");
  const report=await reviewProject(root);expect(report.findings.some(f=>f.ruleId==="FORGE-R001"&&f.line===2)).toBe(true);expect(report.summary.medium).toBeGreaterThan(0);
