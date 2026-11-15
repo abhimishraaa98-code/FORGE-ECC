@@ -44,6 +44,16 @@ describe("local dashboard server", () => {
     expect(typeof qualityReport.score).toBe("number");
     expect(Array.isArray(qualityReport.findings)).toBe(true);
 
+    const regression = await fetch(base + "/api/regression");
+    expect(regression.status).toBe(200);
+    const regressionReport = await regression.json();
+    expect(regressionReport.summary).toHaveProperty("regressions");
+    expect(Array.isArray(regressionReport.checks)).toBe(true);
+
+    const reviews = await fetch(base + "/api/reviews");
+    expect(reviews.status).toBe(200);
+    expect(Array.isArray(await reviews.json())).toBe(true);
+
     const verifications = await fetch(base + "/api/verifications");
     expect(verifications.status).toBe(200);
     expect(Array.isArray(await verifications.json())).toBe(true);
