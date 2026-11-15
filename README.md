@@ -34,6 +34,15 @@ Build a static map of JavaScript and TypeScript source files:
 
 This is a heuristic source map, not a compiler-level dependency graph. Path aliases, generated modules, and dynamic imports assembled at runtime may not resolve.
 
+### Agent Registry and Planning — available (early)
+
+- Built-in specialist roles for planning, architecture, code review, testing, and security
+- Workspace Markdown agents in `.forge/agents/`, with local definitions overriding built-ins
+- `forge agents [path]` to inspect the available roles
+- `forge plan --goal "..." ` to create a deterministic, dependency-aware draft plan
+
+The planning command is intentionally transparent: it creates a structured draft, not an AI-generated analysis. It does not execute commands or change project files.
+
 ### Orchestration Core — available (early library API)
 
 The first orchestration foundation is now in `src/core/orchestrator.ts`:
@@ -85,6 +94,8 @@ Build and run the compiled CLI:
 npm run build
 node dist/cli.js inspect .
 node dist/cli.js map .
+node dist/cli.js agents .
+node dist/cli.js plan --goal "Improve project reliability"
 ```
 
 ## CLI reference
@@ -95,7 +106,7 @@ node dist/cli.js map .
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge map [path]` | Map JavaScript/TypeScript modules and imports |
+| `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create a deterministic draft task plan |
 | Add `--json` | Emit machine-readable JSON |
 
 During development, prefix commands with `npm run dev --`. After building, use the `forge` executable or `node dist/cli.js`.
