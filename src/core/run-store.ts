@@ -66,3 +66,39 @@ export async function listRuns(projectPath: string): Promise<RunRecord[]> {
   }
   return runs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
+
+export async function decideTaskApproval(
+  projectPath: string,
+  runId: string,
+  taskId: string,
+  decision: "approved" | "rejected",
+  reviewer: string,
+  reason?: string,
+): Promise<RunRecord> {
+  const run = await loadRun(projectPath, runId);
+  const record = run.tasks.find(item => item.task.id === taskId);
+  if (!record) throw new Error("Task not found in this run.");
+  if (record.status !== "awaiting_approval") throw new Error("Only tasks awaiting approval can receive a decision.");
+  if (record.approval) throw new Error("This task already has an approval decision.");
+  const at = new Date().toISOString();
+  const safeReviewer = reviewer.trim().slice(0, 80) || "local-user";
+  const safeReason = reason?.trim().slice(0, 1000);
+  record.approval = { decision, reviewer: safeReviewer, ...(safeReason ? { reason: safeReason } : {}), at };
+  if (decision === "approved") {
+    record.status = "pending";
+    run.status = "pending";
+  } else {
+    record.status = "failed";
+    record.error = safeReason || "Task rejected during human review.";
+    run.status = "failed";
+  }
+  run.updatedAt = at;
+  run.events.push({
+    at, taskId, type: decision,
+    message: decision === "approved"
+      ? `Approved by ${safeReviewer}. Task is ready for an explicit subsequent run.`
+      : `Rejected by ${safeReviewer}.${safeReason ? ` Reason: ${safeReason}` : ""}`,
+  });
+  await saveRun(projectPath, run);
+  return run;
+}
