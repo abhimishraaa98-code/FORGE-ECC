@@ -2,9 +2,17 @@
 
 ### The AI Engineering Workbench
 
+<p align="center">
+  <a href="https://forge-ecc.vercel.app"><strong>Live FORGE Site ↗</strong></a> ·
+  <a href="https://github.com/ansh44233/FORGE-ECC"><strong>Source Code</strong></a>
+</p>
+
+> **Current project status — v0.34.0:** FORGE has a growing local-first TypeScript CLI and local engineering dashboard. The public Vercel site is a product landing page with an illustrative preview; it is not yet a hosted, multi-user code-analysis service. The latest site redesign is deployed at [forge-ecc.vercel.app](https://forge-ecc.vercel.app).
+
+
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fansh44233%2FFORGE-ECC)
 
-**[FORGE Product Site / Dashboard Preview](https://github.com/ansh44233/FORGE-ECC/tree/main/public)** · [GitHub Repository](https://github.com/ansh44233/FORGE-ECC)
+**[Live FORGE Product Site](https://forge-ecc.vercel.app)** · [Dashboard source](https://github.com/ansh44233/FORGE-ECC/tree/main/public) · [GitHub Repository](https://github.com/ansh44233/FORGE-ECC)
 
 > The public page is a product overview with an illustrative dashboard preview. The full engineering dashboard runs locally against a project you choose; it is not a hosted remote code scanner.
 
@@ -393,7 +401,7 @@ The planner never installs, upgrades, removes, or modifies dependencies and neve
 
 ## Deploy the public FORGE site
 
-The repository includes a Vercel configuration for the static product page in `public/index.html`.
+The repository includes a Vercel configuration for the static product page in `public/index.html`. The current production deployment is [forge-ecc.vercel.app](https://forge-ecc.vercel.app).
 
 1. Select **Deploy with Vercel** above, or import `ansh44233/FORGE-ECC` in Vercel.
 2. Keep the repository root as the project root.
