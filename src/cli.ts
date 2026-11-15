@@ -13,6 +13,7 @@ import { startDashboard } from "./core/dashboard-server.js";
 import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
 import { discoverChecks, formatVerificationResult, runVerification } from "./core/verification.js";
 import { compareVerification, formatVerificationComparison, listVerifications, saveVerification } from "./core/verification-history.js";
+import { formatProjectHealthMarkdown, generateProjectHealth } from "./core/project-health.js";
 
 const VERSION = "0.14.0";
 
@@ -26,6 +27,7 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   quality [path]   Generate an evidence-based static engineering quality report
+  health [path]    Generate a unified project health report and save a snapshot
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -226,6 +228,19 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not load verification history: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "health": {
+      const json = rest.includes("--json");
+      const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
+      try {
+        const report = await generateProjectHealth(target);
+        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\n" : formatProjectHealthMarkdown(report) + "\n");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE health report failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
