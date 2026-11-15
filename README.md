@@ -34,6 +34,19 @@ Build a static map of JavaScript and TypeScript source files:
 
 This is a heuristic source map, not a compiler-level dependency graph. Path aliases, generated modules, and dynamic imports assembled at runtime may not resolve.
 
+### Orchestration Core — available (early library API)
+
+The first orchestration foundation is now in `src/core/orchestrator.ts`:
+
+- Typed task contracts and dependency-aware execution order
+- Validation for duplicate IDs, missing dependencies, and dependency cycles
+- Provider abstraction so model vendors can be integrated independently
+- Explicit per-task approval gates before provider submission
+- Run events, task results, and failure/blocking states
+- Deterministic offline demo provider for development and tests
+
+This is an orchestration library foundation, not yet a connected AI-agent product. The demo provider produces clearly labelled proposals; FORGE does not execute shell commands, modify project files, or contact an AI service. CLI controls, persistent run history, and real provider adapters remain future work.
+
 ## Quick start
 
 Requirements: Node.js 22 or newer and npm.
@@ -103,7 +116,7 @@ During development, prefix commands with `npm run dev --`. After building, use t
 | Project Intelligence | Deeper language support, entry-point discovery, dependency insights |
 | Planning Engine | Turn goals into reviewable, file-aware implementation plans |
 | Quality Engine | Run project checks and summarize actual command output |
-| Agent Orchestration | Coordinate specialist roles through explicit task contracts |
+| Agent Orchestration | Add CLI controls, persistent run history, and real provider adapters |
 | Project Memory | Store decisions and conventions locally with user control |
 | Integrations | Connect supported coding agents and developer tools |
 | Web Workbench | Visualize project intelligence, plans, and verified results |
