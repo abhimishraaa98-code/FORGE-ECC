@@ -11,8 +11,9 @@ import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
 import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
+import { discoverChecks, formatVerificationResult, runVerification } from "./core/verification.js";
 
-const VERSION = "0.12.0";
+const VERSION = "0.13.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -24,6 +25,8 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   quality [path]   Generate an evidence-based static engineering quality report
+  verify --list    Discover available npm scripts without running them
+  verify SCRIPT    Explicitly run one selected npm script and record its result
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles
   plan --goal TEXT Create and save a reviewable draft plan
@@ -182,6 +185,28 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not start dashboard: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "verify": {
+      const listOnly = rest.includes("--list");
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const script = rest.find(arg => !arg.startsWith("--"));
+      try {
+        if (listOnly) {
+          const checks = await discoverChecks(target);
+          process.stdout.write(checks.length ? checks.map(check => `${check.name.padEnd(20)} ${check.command}`).join("\\n") + "\\n" : "No selectable npm scripts found.\\n");
+          return;
+        }
+        if (!script) throw new Error("Choose one script explicitly. Usage: forge verify SCRIPT [--path PROJECT], or use --list to discover scripts.");
+        const result = await runVerification(target, script);
+        process.stdout.write(`${formatVerificationResult(result)}\\n`);
+        if (result.status !== "passed") process.exitCode = 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE verification failed: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
