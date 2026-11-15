@@ -4,50 +4,103 @@
 
 **Understand the codebase. Plan the change. Verify the result.**
 
-FORGE is an open-source engineering workbench for building safer, more understandable AI-assisted software workflows. Its goal is to help developers inspect projects, create evidence-backed implementation plans, run quality checks, and coordinate specialist tools without surrendering control of their code.
+FORGE is an independent, open-source engineering workbench for developers. It is being built around a simple principle: AI-assisted engineering should understand a project before proposing changes, show evidence for its conclusions, and keep developers in control.
 
-> FORGE is an independent project. It is not a fork, rebrand, or continuation of another engineering toolkit.
+> FORGE is an original implementation. It is not a fork, rebrand, or continuation of another toolkit.
 
-## Project principles
+## What works today
 
-- **Understand before changing:** inspect project structure and conventions before proposing edits.
-- **Evidence over confidence:** reports should point to files, commands, and test results.
-- **Human control:** potentially destructive actions require explicit approval.
-- **Local-first foundations:** project metadata and notes stay in the workspace unless an integration is deliberately configured.
-- **Composable by design:** keep the core small and make integrations replaceable.
+### Project Intelligence
 
-## Planned capabilities
+The first FORGE capability scans a local project and reports:
 
-| Area | Direction |
-| --- | --- |
-| Project intelligence | Detect project languages, package managers, scripts, and key files |
-| Planning | Turn a goal into a reviewable implementation plan |
-| Quality checks | Run existing project checks and summarize their actual results |
-| Agent workflows | Coordinate specialist roles through explicit task contracts |
-| Project memory | Store decisions and conventions locally, with user control |
-| Integrations | Connect supported coding agents and developer tools |
+- Source-file counts grouped by recognized language
+- Common package managers and project manifests
+- Detected frameworks and developer tools
+- Production and development dependency counts
+- Available npm scripts
+- Important configuration and documentation files
+- Scan notes, including file-limit and local environment-file warnings
 
-These are roadmap items, not claims that every capability is already implemented.
+The scanner skips common generated and dependency directories, including `node_modules`, `.git`, `dist`, and `build`. It has a 5,000-file safety limit.
 
-## Development
+## Quick start
 
 Requirements: Node.js 22 or newer and npm.
 
 ```bash
+git clone https://github.com/ansh44233/FORGE-ECC.git
+cd FORGE-ECC
 npm install
-npm run dev -- --help
-npm test
+npm run dev -- inspect .
+```
+
+Print machine-readable JSON:
+
+```bash
+npm run dev -- inspect . --json
+```
+
+Build and run the compiled CLI:
+
+```bash
+npm run build
+node dist/cli.js inspect .
+```
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `forge help` | Show CLI help |
+| `forge version` | Show version |
+| `forge inspect [path]` | Inspect a project |
+| `forge inspect [path] --json` | Output JSON |
+
+During development, use `npm run dev --` before the command. After building, use the `forge` executable or `node dist/cli.js`.
+
+## Engineering principles
+
+- **Understand before changing:** inspect project structure and conventions first.
+- **Evidence over confidence:** distinguish detected facts from assumptions.
+- **Human control:** potentially destructive actions must be reviewable and explicitly approved.
+- **Local-first foundations:** do not transmit project data unless an integration is deliberately configured.
+- **Composable architecture:** keep the core small and integrations replaceable.
+- **Honest status:** roadmap features are never presented as already implemented.
+
+## Roadmap
+
+| Area | Planned direction |
+| --- | --- |
+| Project Intelligence | Deeper architecture mapping, entry-point discovery, dependency insights |
+| Planning Engine | Turn goals into reviewable, file-aware implementation plans |
+| Quality Engine | Run project checks and summarize actual command output |
+| Agent Orchestration | Coordinate specialist roles through explicit task contracts |
+| Project Memory | Store decisions and conventions locally with user control |
+| Integrations | Connect supported coding agents and developer tools |
+
+Roadmap items are plans, not claims of existing functionality.
+
+## Development
+
+```bash
+npm install
 npm run typecheck
+npm test
 npm run build
 ```
 
-## Current status
+GitHub Actions runs typechecking, tests, and a production build for pushes and pull requests targeting `main`.
 
-Early foundation. The initial CLI exposes help and version information. Project inspection, planning, orchestration, and integrations will be added incrementally with tests and documented limitations.
+## Security
+
+FORGE is early-stage software. Its project scanner reads local file names and selected project metadata; it does not execute scanned project files. Reports are not security audits and do not guarantee that a project is safe.
+
+Never commit API keys, credentials, or private project data. See [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security issues should be reported privately; see [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations and contribution guidance.
 
 ## License
 
