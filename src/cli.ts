@@ -202,7 +202,8 @@ async function main(args: string[]): Promise<void> {
       const option = (name:string) => { const index=rest.indexOf(name); return index>=0 ? rest[index+1] : undefined; };
       const target=path.resolve(rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--audit-report"&&rest[index-1]!=="--outdated-report")??".");
       try {
-        const report=await analyzeDependencies(target,{auditReport:option("--audit-report"),outdatedReport:option("--outdated-report")});
+        const auditReport=option("--audit-report"),outdatedReport=option("--outdated-report");
+        const report=await analyzeDependencies(target,{...(auditReport?{auditReport}:{}),...(outdatedReport?{outdatedReport}:{})});
         process.stdout.write(rest.includes("--json")?JSON.stringify(report,null,2)+"\\n":formatDependencyIntelligence(report)+"\\n");
       } catch(error) {
         process.stderr.write("FORGE dependency analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");
