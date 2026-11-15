@@ -42,7 +42,7 @@ function classifyLicense(value: string | null): DependencyRecord["licenseClass"]
 }
 function safeName(name: string): boolean { return NAME.test(name) && !name.split("/").some(part => part === "." || part === ".."); }
 function packageNameFromLockPath(key: string): string | null {
-  const match = key.match(/(?:^|\/)node_modules\/(.+)$/);
+  const match = key.match(/(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)$/);
   if (!match) return null;
   const name = match[1]!;
   return safeName(name) ? name : null;
