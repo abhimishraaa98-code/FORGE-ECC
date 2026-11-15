@@ -11,7 +11,7 @@ import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
 
-const VERSION = "0.8.0";
+const VERSION = "0.9.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
