@@ -47,6 +47,10 @@ Safety boundaries:
 - Every completed run is saved under `.forge/verifications/` as a local JSON record. `forge verify-history` lists recent runs; `forge verify-history --path ./project` targets another project.
 - Each new result is compared with the previous run of the same script and marked baseline, regression, improvement, or unchanged. Comparisons currently use pass/fail status, not flaky-test analysis or semantic output diffs.
 
+### Git Intelligence — available (early)
+
+Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
+
 ### Deep Code Intelligence — available (early)
 
 Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
@@ -152,6 +156,8 @@ npm run dev -- health .
 npm run dev -- health . --json
 npm run dev -- deep .
 npm run dev -- deep . --json
+npm run dev -- git .
+npm run dev -- git . --base main --json
 ```
 
 Discover and explicitly run a verification check:
@@ -184,6 +190,7 @@ node dist/cli.js runs .
 | `forge quality [path]` | Generate a static quality report with evidence and recommendations |
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
+| `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
