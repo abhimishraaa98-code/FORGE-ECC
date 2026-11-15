@@ -89,13 +89,13 @@ async function main(args: string[]): Promise<void> {
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const agents = await loadAgentRegistry(path.resolve(target));
-        process.stdout.write("FORGE agent registry\\n\\n");
+        process.stdout.write("FORGE agent registry\n\n");
         for (const agent of agents) {
-          process.stdout.write(`  ${agent.id.padEnd(20)} ${agent.name} [${agent.source}]\\n    ${agent.description}\\n`);
+          process.stdout.write(`  ${agent.id.padEnd(20)} ${agent.name} [${agent.source}]\n    ${agent.description}\n`);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE could not load agents: ${message}\\n`);
+        process.stderr.write(`FORGE could not load agents: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -109,11 +109,11 @@ async function main(args: string[]): Promise<void> {
       try {
         const plan = createReviewPlan(goal);
         const saved = await saveRun(target, plan);
-        process.stdout.write(`${JSON.stringify(plan, null, 2)}\\n`);
-        process.stdout.write(`\\nDraft plan saved to ${path.relative(target, saved)}. No AI provider was called and no files or commands were executed.\\n`);
+        process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+        process.stdout.write(`\nDraft plan saved to ${path.relative(target, saved)}. No AI provider was called and no files or commands were executed.\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE could not create a plan: ${message}\\n`);
+        process.stderr.write(`FORGE could not create a plan: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -122,10 +122,10 @@ async function main(args: string[]): Promise<void> {
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const runs = await listRuns(path.resolve(target));
-        process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\\n") + "\\n" : "No saved FORGE runs.\\n");
+        process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`Could not list run history: ${message}\\n`);
+        process.stderr.write(`Could not list run history: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -137,10 +137,10 @@ async function main(args: string[]): Promise<void> {
       try {
         if (!id) throw new Error("Usage: forge show-run RUN_ID [--path PROJECT]");
         const run = await loadRun(path.resolve(target), id);
-        process.stdout.write(`${JSON.stringify(run, null, 2)}\\n`);
+        process.stdout.write(`${JSON.stringify(run, null, 2)}\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`Could not load run: ${message}\\n`);
+        process.stderr.write(`Could not load run: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -158,15 +158,15 @@ async function main(args: string[]): Promise<void> {
         if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) in your local environment before using forge run.");
         const provider = new OpenAICompatibleProvider({ apiKey, model, baseUrl });
         const plan = createReviewPlan(goal);
-        process.stdout.write(`Starting ${plan.id} with provider ${provider.name} (model ${model})...\\n`);
+        process.stdout.write(`Starting ${plan.id} with provider ${provider.name} (model ${model})...\n`);
         const completed = await advanceRun(plan, provider);
         const saved = await saveRun(target, completed);
-        process.stdout.write(`Run status: ${completed.status}\\nSaved history: ${path.relative(target, saved)}\\n`);
-        for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\\n`);
+        process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
+        for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\n`);
         if (completed.status === "failed") process.exitCode = 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE run failed: ${message}\\n`);
+        process.stderr.write(`FORGE run failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -176,7 +176,7 @@ async function main(args: string[]): Promise<void> {
       const portIndex = rest.indexOf("--port");
       const portValue = portIndex >= 0 ? Number(rest[portIndex + 1]) : 4173;
       if (!Number.isInteger(portValue) || portValue < 0 || portValue > 65535) {
-        process.stderr.write("Dashboard port must be an integer from 0 to 65535.\\n");
+        process.stderr.write("Dashboard port must be an integer from 0 to 65535.\n");
         process.exitCode = 1;
         return;
       }
@@ -184,13 +184,13 @@ async function main(args: string[]): Promise<void> {
         const dashboard = await startDashboard({ projectPath: target, port: portValue });
         const address = dashboard.server.address();
         const actualPort = address && typeof address !== "string" ? address.port : portValue;
-        process.stdout.write(`FORGE dashboard: http://127.0.0.1:${actualPort}\\nProject: ${target}\\nPress Ctrl+C to stop.\\n`);
+        process.stdout.write(`FORGE dashboard: http://127.0.0.1:${actualPort}\nProject: ${target}\nPress Ctrl+C to stop.\n`);
         const shutdown = () => dashboard.server.close(() => process.exit(0));
         process.once("SIGINT", shutdown);
         process.once("SIGTERM", shutdown);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`Could not start dashboard: ${message}\\n`);
+        process.stderr.write(`Could not start dashboard: ${message}\n`);
         process.exitCode = 1;
       }
       return;
@@ -239,10 +239,10 @@ async function main(args: string[]): Promise<void> {
       const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
       try {
         const report = await analyzeCodebase(target);
-        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatCodebaseAnalysis(report) + "\\n");
+        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\n" : formatCodebaseAnalysis(report) + "\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE deep analysis failed: ${message}\\n`);
+        process.stderr.write(`FORGE deep analysis failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
