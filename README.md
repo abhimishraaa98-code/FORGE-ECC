@@ -51,7 +51,11 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
-### Code Review Engine — available (early)\n\nRun `forge review [path]` to inspect changed JavaScript/TypeScript files for a small set of deterministic risk patterns, with file/line evidence, severity, and remediation guidance. Use `--base REV` to choose the comparison revision, `--all` to review all supported source files, and `--json` for structured output. The initial rules flag dynamic evaluation, shell-execution APIs, HTML injection sinks, TypeScript error suppression, empty catch blocks, and dangerous HTML rendering. This is **not an AI-generated review**, compiler analysis, or security audit; results are heuristic candidates and can be false positives. The command reads source files and does not edit code, execute tests, or call an AI provider.\n\n### Deep Code Intelligence — available (early)
+### Code Review Engine — available (early)
+
+Run `forge review [path]` to inspect changed JavaScript/TypeScript files for a small set of deterministic risk patterns, with file/line evidence, severity, and remediation guidance. Use `--base REV` to choose the comparison revision, `--all` to review all supported source files, and `--json` for structured output. The initial rules flag dynamic evaluation, shell-execution APIs, HTML injection sinks, TypeScript error suppression, empty catch blocks, and dangerous HTML rendering. This is **not an AI-generated review**, compiler analysis, or security audit; results are heuristic candidates and can be false positives. The command reads source files and does not edit code, execute tests, or call an AI provider.
+
+### Deep Code Intelligence — available (early)
 
 Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
 
@@ -157,7 +161,10 @@ npm run dev -- health . --json
 npm run dev -- deep .
 npm run dev -- deep . --json
 npm run dev -- git .
-npm run dev -- git . --base main --json\nnpm run dev -- review .\nnpm run dev -- review . --base main --json\nnpm run dev -- review . --all
+npm run dev -- git . --base main --json
+npm run dev -- review .
+npm run dev -- review . --base main --json
+npm run dev -- review . --all
 ```
 
 Discover and explicitly run a verification check:
@@ -190,7 +197,8 @@ node dist/cli.js runs .
 | `forge quality [path]` | Generate a static quality report with evidence and recommendations |
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
-| `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |\n| `forge review [path] [--base REV] [--all]` | Review changed or all source files for deterministic risk patterns with line evidence |
+| `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
+| `forge review [path] [--base REV] [--all]` | Review changed or all source files for deterministic risk patterns with line evidence |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
