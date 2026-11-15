@@ -12,8 +12,9 @@ import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
 import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
 import { discoverChecks, formatVerificationResult, runVerification } from "./core/verification.js";
+import { compareVerification, formatVerificationComparison, listVerifications, saveVerification } from "./core/verification-history.js";
 
-const VERSION = "0.13.0";
+const VERSION = "0.14.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -27,6 +28,7 @@ Commands:
   quality [path]   Generate an evidence-based static engineering quality report
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
+  verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles
   plan --goal TEXT Create and save a reviewable draft plan
@@ -202,11 +204,28 @@ async function main(args: string[]): Promise<void> {
         }
         if (!script) throw new Error("Choose one script explicitly. Usage: forge verify SCRIPT [--path PROJECT], or use --list to discover scripts.");
         const result = await runVerification(target, script);
-        process.stdout.write(`${formatVerificationResult(result)}\n`);
+        const comparison = await compareVerification(target, result);
+        await saveVerification(target, result);
+        process.stdout.write(`${formatVerificationResult(result)}\n\n${formatVerificationComparison(comparison)}\n`);
+        process.stdout.write(`\nSaved verification history: ${path.relative(target, path.join(target, ".forge", "verifications", result.id + ".json"))}\n`);
         if (result.status !== "passed") process.exitCode = 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE verification failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "verify-history": {
+      const targetIndex = rest.indexOf("--path");
+      const target = path.resolve(targetIndex >= 0 ? rest[targetIndex + 1] ?? "." : ".");
+      try {
+        const history = await listVerifications(target);
+        if (!history.length) { process.stdout.write("No saved verification runs.\\n"); return; }
+        process.stdout.write(history.map(item => `${item.startedAt}  ${item.status.padEnd(12)} ${item.script.padEnd(16)} ${item.durationMs} ms  ${item.id}`).join("\\n") + "\\n");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`Could not load verification history: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
