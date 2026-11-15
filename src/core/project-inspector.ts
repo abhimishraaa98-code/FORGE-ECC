@@ -96,7 +96,9 @@ function detectFrameworks(pkg: Record<string, unknown> | null): string[] {
     expo: "Expo", tailwindcss: "Tailwind CSS", prisma: "Prisma",
     "@prisma/client": "Prisma", "drizzle-orm": "Drizzle ORM"
   };
-  return [...new Set(Object.keys(known).filter(key => deps[key]).map(key => known[key]))].sort();
+  return [...new Set(Object.keys(known).flatMap(key =>
+    deps[key] && known[key] ? [known[key]] : []
+  ))].sort();
 }
 
 export async function inspectProject(inputPath: string): Promise<ProjectReport> {
@@ -160,7 +162,7 @@ export async function inspectProject(inputPath: string): Promise<ProjectReport> 
     scripts: Object.fromEntries(Object.entries(scripts).sort(([a], [b]) => a.localeCompare(b))),
     dependencies: { production: Object.keys(production).length, development: Object.keys(development).length },
     importantFiles,
-    topLevel: [...new Set(walkResult.files.map(file => file.split("/")[0]))].sort(),
+    topLevel: [...new Set(walkResult.files.map(file => file.split("/")[0] ?? file))].sort(),
     warnings
   };
 }
