@@ -20,7 +20,7 @@ export interface AIReviewResult {
 const MAX_FILE_CHARS=12_000;
 const MAX_TOTAL_CHARS=36_000;
 function validPatch(patch:string,file:string):boolean{
- const lines=patch.split(/\\r?\\n/);const headers=lines.filter(line=>line.startsWith("--- ")||line.startsWith("+++ "));
+ const lines=patch.split(/\r?\n/);const headers=lines.filter(line=>line.startsWith("--- ")||line.startsWith("+++ "));
  if(headers.length!==2||headers[0]!==`--- a/${file}`||headers[1]!==`+++ b/${file}`)return false;
  if(lines.some(line=>line.startsWith("--- /")||line.startsWith("+++ /")||line.includes("../")))return false;
  return lines.some(line=>line.startsWith("@@ "));
