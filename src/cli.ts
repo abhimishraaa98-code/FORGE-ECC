@@ -19,8 +19,9 @@ import { analyzeGitChanges, formatGitIntelligence } from "./core/git-intelligenc
 import { reviewProject, formatCodeReview } from "./core/code-review.js";
 import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
+import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 
-const VERSION = "0.21.0";
+const VERSION = "0.22.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -39,6 +40,7 @@ Commands:
   review-history [path] List saved review snapshots
   review-show ID   Display one saved review snapshot
   review-compare A B Compare two saved reviews
+  patch-check ID N  Dry-run validate AI patch N from a saved review
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -286,6 +288,23 @@ async function main(args: string[]): Promise<void> {
       const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
       try { if(ids.length<2)throw new Error("Usage: forge review-compare REVIEW_ID_A REVIEW_ID_B --path PROJECT"); const [a,b]=await Promise.all([loadReview(target,ids[0]!),loadReview(target,ids[1]!)]);const diff=compareReviews(a,b);process.stdout.write(["Review comparison", "Added ("+diff.added.length+")",...diff.added.map(x=>"+ "+x),"Resolved ("+diff.resolved.length+")",...diff.resolved.map(x=>"- "+x),"Persistent ("+diff.persistent.length+")",...diff.persistent.map(x=>"= "+x)].join("\\n")+"\\n"); }
       catch(error){process.stderr.write("FORGE review comparison failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      return;
+    }
+    case "patch-check": {
+      const id=rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--path") ?? "";
+      const pathIndex=rest.indexOf("--path");
+      const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
+      const numberArg=rest.find((arg,index)=>index>0&&!arg.startsWith("--")&&rest[index-1]!==id&&rest[index-1]!=="--path");
+      try {
+        if(!id||!numberArg)throw new Error("Usage: forge patch-check REVIEW_ID SUGGESTION_NUMBER --path PROJECT");
+        const record=await loadReview(target,id);
+        const result=await validateReviewPatch(target,record,Number(numberArg));
+        process.stdout.write(formatPatchValidation(result)+"\\n");
+        if(result.status!=="applicable")process.exitCode=1;
+      } catch(error) {
+        process.stderr.write("FORGE patch validation failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.exitCode=1;
+      }
       return;
     }
     case "git": {
