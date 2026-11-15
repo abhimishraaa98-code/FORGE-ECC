@@ -47,6 +47,10 @@ Safety boundaries:
 - Every completed run is saved under `.forge/verifications/` as a local JSON record. `forge verify-history` lists recent runs; `forge verify-history --path ./project` targets another project.
 - Each new result is compared with the previous run of the same script and marked baseline, regression, improvement, or unchanged. Comparisons currently use pass/fail status, not flaky-test analysis or semantic output diffs.
 
+### Deep Code Intelligence — available (early)
+
+Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
+
 ### Project Health Center — available (early)
 
 Generate a unified health snapshot with `forge health [path]` or `forge health . --json`. The report combines:
@@ -146,6 +150,8 @@ npm run dev -- quality .
 npm run dev -- quality . --json
 npm run dev -- health .
 npm run dev -- health . --json
+npm run dev -- deep .
+npm run dev -- deep . --json
 ```
 
 Discover and explicitly run a verification check:
@@ -177,6 +183,7 @@ node dist/cli.js runs .
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
 | `forge quality [path]` | Generate a static quality report with evidence and recommendations |
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
+| `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
