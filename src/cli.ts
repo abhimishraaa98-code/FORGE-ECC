@@ -300,10 +300,10 @@ async function main(args: string[]): Promise<void> {
       const json=rest.includes("--json");
       try {
         const report=await generateRegressionReport(target,base);
-        process.stdout.write(json?JSON.stringify(report,null,2)+"\\n":formatRegressionReport(report)+"\\n");
+        process.stdout.write(json?JSON.stringify(report,null,2)+"\n":formatRegressionReport(report)+"\n");
         if(report.summary.regressions>0)process.exitCode=1;
       } catch(error) {
-        process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
       }
       return;
