@@ -30,6 +30,12 @@ describe("local dashboard server", () => {
     expect(overview.status).toBe(200);
     expect((await overview.json()).runCount).toBe(0);
 
+    const architecture = await fetch(base + "/api/architecture");
+    expect(architecture.status).toBe(200);
+    const graph = await architecture.json();
+    expect(Array.isArray(graph.nodes)).toBe(true);
+    expect(Array.isArray(graph.edges)).toBe(true);
+
     const agents = await fetch(base + "/api/agents");
     expect(agents.status).toBe(200);
     const agentList = await agents.json();
