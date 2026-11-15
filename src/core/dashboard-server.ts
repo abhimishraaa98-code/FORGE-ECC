@@ -234,7 +234,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
             approval: record.approval,
           })),
           events: run.events.map(event => ({ at: event.at, taskId: event.taskId, type: event.type, message: event.message })),
-        })));
+        }));
         return;
       }
       if (requestUrl.pathname === "/api/runs") {
