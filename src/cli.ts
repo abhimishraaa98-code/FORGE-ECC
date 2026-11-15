@@ -9,8 +9,9 @@ import { createReviewPlan } from "./core/review-planner.js";
 import { saveRun, listRuns, loadRun } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
+import { startDashboard } from "./core/dashboard-server.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -27,6 +28,7 @@ Commands:
   run --goal TEXT  Run the plan using a configured AI provider
   runs [path]      List locally saved run history
   show-run ID      Display one saved run (use --path for project directory)
+  dashboard [path] Start the local read-only web dashboard
   version          Print the installed version
   help             Show this help message
 
@@ -42,6 +44,7 @@ Examples:
   forge plan --goal "Add authentication safely"
   forge run --goal "Review the API design"
   forge runs .
+  forge dashboard .
 `.trim();
 
 async function main(args: string[]): Promise<void> {
@@ -153,6 +156,30 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE run failed: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "dashboard": {
+      const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
+      const portIndex = rest.indexOf("--port");
+      const portValue = portIndex >= 0 ? Number(rest[portIndex + 1]) : 4173;
+      if (!Number.isInteger(portValue) || portValue < 0 || portValue > 65535) {
+        process.stderr.write("Dashboard port must be an integer from 0 to 65535.\\n");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const dashboard = await startDashboard({ projectPath: target, port: portValue });
+        const address = dashboard.server.address();
+        const actualPort = address && typeof address !== "string" ? address.port : portValue;
+        process.stdout.write(`FORGE dashboard: http://127.0.0.1:${actualPort}\\nProject: ${target}\\nPress Ctrl+C to stop.\\n`);
+        const shutdown = () => dashboard.server.close(() => process.exit(0));
+        process.once("SIGINT", shutdown);
+        process.once("SIGTERM", shutdown);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`Could not start dashboard: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
