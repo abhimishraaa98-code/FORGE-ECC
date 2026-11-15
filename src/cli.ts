@@ -46,12 +46,12 @@ async function main(args: string[]): Promise<void> {
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const result = await initializeProject(path.resolve(target));
-        process.stdout.write(`FORGE initialized in ${path.resolve(target)}\\n`);
-        for (const file of result.created) process.stdout.write(`  created  ${file}\\n`);
-        for (const file of result.skipped) process.stdout.write(`  kept     ${file} (already exists)\\n`);
+        process.stdout.write(`FORGE initialized in ${path.resolve(target)}\n`);
+        for (const file of result.created) process.stdout.write(`  created  ${file}\n`);
+        for (const file of result.skipped) process.stdout.write(`  kept     ${file} (already exists)\n`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE could not initialize this project: ${message}\\n`);
+        process.stderr.write(`FORGE could not initialize this project: ${message}\n`);
         process.exitCode = 1;
       }
       return;
