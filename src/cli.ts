@@ -22,7 +22,7 @@ import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 
-const VERSION = "0.24.0";
+const VERSION = "0.25.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
