@@ -55,7 +55,7 @@ async function resolveWorkspacePath(rootPath: string, relativePath: string): Pro
 }
 
 function isBlocked(name: string): boolean {
-  return BLOCKED_NAME.test(name) || /\\.(pem|key|p12|pfx|keystore)$/i.test(name);
+  return BLOCKED_NAME.test(name) || /\.(pem|key|p12|pfx|keystore)$/i.test(name);
 }
 
 export async function listWorkspaceDirectory(projectPath: string, relativePath = ""): Promise<WorkspaceDirectory> {
