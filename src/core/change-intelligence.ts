@@ -1,6 +1,6 @@
 import path from "node:path";
 import { analyzeEngineeringRisk } from "./engineering-risk.js";
-import { analyzeGitChanges } from "./git-intelligence.js";
+import { analyzeGitChanges, type GitIntelligenceReport } from "./git-intelligence.js";
 import { mapArchitecture } from "./architecture-map.js";
 
 export type ChangeRiskLevel = "high" | "elevated" | "moderate" | "low";
@@ -39,9 +39,16 @@ function isTestFile(file: string): boolean {
 }
 export async function analyzeChangeIntelligence(inputPath: string, base = "HEAD"): Promise<ChangeIntelligenceReport> {
   const root = path.resolve(inputPath);
-  const [git, structural, architecture] = await Promise.all([
-    analyzeGitChanges(root, base), analyzeEngineeringRisk(root), mapArchitecture(root)
+  const [gitResult, structural, architecture] = await Promise.all([
+    analyzeGitChanges(root, base).catch((error): GitIntelligenceReport => ({
+      root, generatedAt: new Date().toISOString(), branch: "(Git unavailable)", base,
+      changes: [], impact: [], suggestedTests: [],
+      risk: { level: "low", reasons: [] },
+      warnings: ["Git change analysis is unavailable: " + (error instanceof Error ? error.message : String(error))]
+    })),
+    analyzeEngineeringRisk(root), mapArchitecture(root)
   ]);
+  const git = gitResult;
   const testFiles = architecture.nodes.map(node => node.file).filter(isTestFile);
   const riskByFile = new Map(structural.hotspots.map(item => [item.file, item]));
   const impactByFile = new Map(git.impact.map(item => [item.file, item.affected]));
