@@ -10,8 +10,9 @@ import { saveRun, listRuns, loadRun } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
+import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
 
-const VERSION = "0.11.0";
+const VERSION = "0.12.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -22,6 +23,7 @@ Usage:
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
+  quality [path]   Generate an evidence-based static engineering quality report
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles
   plan --goal TEXT Create and save a reviewable draft plan
@@ -180,6 +182,23 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not start dashboard: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "quality": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge quality [path] [--json]\\n");
+        return;
+      }
+      const json = rest.includes("--json");
+      const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
+      try {
+        const report = await auditProject(path.resolve(target));
+        process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\\n` : `${formatQualityAudit(report)}\\n`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE quality audit failed: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
