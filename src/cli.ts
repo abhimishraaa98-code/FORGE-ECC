@@ -28,7 +28,7 @@ import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/chan
 import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntelligenceComparison } from "./core/intelligence-timeline.js";
 import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
 
-const VERSION = "0.32.0";
+const VERSION = "0.33.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -44,7 +44,7 @@ Commands:
   timeline [path]   Compare the latest snapshot with its predecessor
   change-risk [path] Analyze changed-file risk, downstream impact, and test candidates
   risk [path]      Rank engineering hotspots using dependency and quality signals
-  health [path]    Generate a unified project health report and save a snapshot
+  health [path]    Generate a unified engineering score, evidence coverage, and health snapshot
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
   review [path]    Review changed source files; add --ai for provider-backed suggestions
