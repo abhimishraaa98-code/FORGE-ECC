@@ -248,7 +248,7 @@ async function main(args: string[]): Promise<void> {
       const all = rest.includes("--all");
       const pathIndex = rest.indexOf("--path");
       const baseIndex = rest.indexOf("--base");
-      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : rest.find(arg => !arg.startsWith("--")) ?? ".");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : rest.find((arg,index) => !arg.startsWith("--") && rest[index-1] !== "--base" && rest[index-1] !== "--path") ?? ".");
       const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
       try {
         const report = await reviewProject(target, { base, all });
