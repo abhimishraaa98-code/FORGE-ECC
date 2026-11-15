@@ -1,6 +1,6 @@
 {
   "name": "forge-engineering-workbench",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "private": false,
   "description": "An open-source AI engineering workbench for project understanding, planning, and verified workflows.",
   "type": "module",
@@ -29,7 +29,9 @@
   "devDependencies": {
     "@types/node": "^22.15.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.3",
     "vitest": "^3.1.1"
+  },
+  "dependencies": {
+    "typescript": "^5.8.3"
   }
 }
