@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import { mapArchitecture } from "./architecture-map.js";
+import { analyzeCodebase } from "./code-intelligence.js";
 
 const execFileAsync=promisify(execFile);
 export interface GitChange { status:string; file:string; }
@@ -41,7 +41,7 @@ export async function analyzeGitChanges(inputPath:string,base="HEAD"):Promise<Gi
  changes.sort((a,b)=>a.file.localeCompare(b.file));
  let impact:GitIntelligenceReport["impact"]=[];
  try{
-  const architecture=await mapArchitecture(root);
+  const architecture=await analyzeCodebase(root);
   const byFile=new Map(architecture.impact.map(item=>[item.file,item.affected]));
   impact=changes.filter(c=>c.status!=="D").map(c=>({file:c.file,affected:byFile.get(c.file)??[]})).filter(item=>item.affected.length);
   warnings.push(...architecture.warnings);
