@@ -2,6 +2,13 @@
 
 ### The AI Engineering Workbench
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fansh44233%2FFORGE-ECC)
+
+**[FORGE Product Site / Dashboard Preview](https://github.com/ansh44233/FORGE-ECC/tree/main/public)** · [GitHub Repository](https://github.com/ansh44233/FORGE-ECC)
+
+> The public page is a product overview with an illustrative dashboard preview. The full engineering dashboard runs locally against a project you choose; it is not a hosted remote code scanner.
+
+
 **Understand the codebase. Map its architecture. Plan the change. Verify the result.**
 
 FORGE is an independent, open-source engineering workbench for developers. It is being built around a simple principle: AI-assisted engineering should understand a project before proposing changes, show evidence for its conclusions, and keep developers in control.
@@ -382,3 +389,15 @@ forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.j
 ```
 
 The planner never installs, upgrades, removes, or modifies dependencies and never executes suggested commands. Vulnerability and outdated status are not assessed when reports are absent. Suggested versions are candidates, not compatibility guarantees; review release notes, peer dependencies, lockfile changes, and project checks before acting. License classifications are heuristic metadata signals, not legal advice. Only npm manifests and npm lockfiles are currently supported.
+
+
+## Deploy the public FORGE site
+
+The repository includes a Vercel configuration for the static product page in `public/index.html`.
+
+1. Select **Deploy with Vercel** above, or import `ansh44233/FORGE-ECC` in Vercel.
+2. Keep the repository root as the project root.
+3. Use the included `vercel.json` settings: build command `npm run build`, output directory `public`.
+4. Deploy. Vercel will provide a temporary `*.vercel.app` URL; add a custom domain later when you purchase one.
+
+The public page is separate from the local engineering dashboard. To inspect a real codebase, install FORGE and run `forge dashboard ./your-project` on the machine containing that project. The public preview uses clearly labelled sample data and does not expose local project files.
