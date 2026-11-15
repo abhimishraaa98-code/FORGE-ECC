@@ -71,6 +71,11 @@ describe("local dashboard server", () => {
     const verifications = await fetch(base + "/api/verifications");
     expect(verifications.status).toBe(200);
     expect(Array.isArray(await verifications.json())).toBe(true);
+    const riskReportResponse = await fetch(base + "/api/engineering-risk");
+    expect(riskReportResponse.status).toBe(200);
+    const riskReport = await riskReportResponse.json();
+    expect(Array.isArray(riskReport.hotspots)).toBe(true);
+    expect(riskReport.summary).toHaveProperty("high");
     const dependencyGraph = await fetch(base + "/api/dependency-graph");
     expect(dependencyGraph.status).toBe(200);
     const dependencyReport = await dependencyGraph.json();
