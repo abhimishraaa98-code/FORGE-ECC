@@ -16,8 +16,9 @@ import { compareVerification, formatVerificationComparison, listVerifications, s
 import { formatProjectHealthMarkdown, generateProjectHealth } from "./core/project-health.js";
 import { analyzeCodebase, formatCodebaseAnalysis } from "./core/code-intelligence.js";
 import { analyzeGitChanges, formatGitIntelligence } from "./core/git-intelligence.js";
+import { reviewProject, formatCodeReview } from "./core/code-review.js";
 
-const VERSION = "0.18.0";
+const VERSION = "0.19.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -32,6 +33,7 @@ Commands:
   health [path]    Generate a unified project health report and save a snapshot
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
+  review [path]    Review changed source files for evidence-backed risk patterns
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -232,6 +234,23 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not load verification history: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "review": {
+      const json = rest.includes("--json");
+      const all = rest.includes("--all");
+      const pathIndex = rest.indexOf("--path");
+      const baseIndex = rest.indexOf("--base");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : rest.find(arg => !arg.startsWith("--")) ?? ".");
+      const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
+      try {
+        const report = await reviewProject(target, { base, all });
+        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatCodeReview(report) + "\\n");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE code review failed: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
