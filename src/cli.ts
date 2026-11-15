@@ -18,8 +18,9 @@ import { analyzeCodebase, formatCodebaseAnalysis } from "./core/code-intelligenc
 import { analyzeGitChanges, formatGitIntelligence } from "./core/git-intelligence.js";
 import { reviewProject, formatCodeReview } from "./core/code-review.js";
 import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
+import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 
-const VERSION = "0.19.0";
+const VERSION = "0.21.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -35,6 +36,9 @@ Commands:
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
   review [path]    Review changed source files; add --ai for provider-backed suggestions
+  review-history [path] List saved review snapshots
+  review-show ID   Display one saved review snapshot
+  review-compare A B Compare two saved reviews
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -248,20 +252,40 @@ async function main(args: string[]): Promise<void> {
       const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
       try {
         const report = await reviewProject(target, { base, all });
+        let ai;
         if (rest.includes("--ai")) {
           const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
           if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) before using --ai.");
           const provider = new OpenAICompatibleProvider({ apiKey, model: process.env.FORGE_MODEL ?? "gpt-4.1-mini", baseUrl: process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1" });
-          const ai = await generateAIReview(report, provider);
-          process.stdout.write(json ? JSON.stringify({ ...report, ai }, null, 2) + "\\n" : formatCodeReview(report) + "\\n\\n" + formatAIReview(ai) + "\\n");
-        } else {
-          process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatCodeReview(report) + "\\n");
+          ai = await generateAIReview(report, provider);
         }
+        const saved = await saveReview(target, report, ai);
+        process.stdout.write(json ? JSON.stringify({ ...saved, reviewId: saved.id }, null, 2) + "\\n" : formatCodeReview(report) + (ai ? "\\n\\n" + formatAIReview(ai) : "") + "\\n\\nSaved review: " + saved.id + "\\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE code review failed: ${message}\\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "review-history": {
+      const target = path.resolve(rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--path") ?? ".");
+      try { const records=await listReviews(target); process.stdout.write(records.length?records.map(r=>r.id+"  "+r.createdAt+"  "+r.report.findings.length+" static findings").join("\\n")+"\\n":"No saved reviews found.\\n"); }
+      catch(error){process.stderr.write("FORGE review history failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      return;
+    }
+    case "review-show": {
+      const id=rest.find(arg=>!arg.startsWith("--")) ?? "";
+      const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
+      try { const record=await loadReview(target,id); process.stdout.write(formatReviewRecord(record)+"\\n"); }
+      catch(error){process.stderr.write("FORGE could not load review: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      return;
+    }
+    case "review-compare": {
+      const ids=rest.filter((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--path");
+      const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
+      try { if(ids.length<2)throw new Error("Usage: forge review-compare REVIEW_ID_A REVIEW_ID_B --path PROJECT"); const [a,b]=await Promise.all([loadReview(target,ids[0]!),loadReview(target,ids[1]!)]);const diff=compareReviews(a,b);process.stdout.write(["Review comparison", "Added ("+diff.added.length+")",...diff.added.map(x=>"+ "+x),"Resolved ("+diff.resolved.length+")",...diff.resolved.map(x=>"- "+x),"Persistent ("+diff.persistent.length+")",...diff.persistent.map(x=>"= "+x)].join("\\n")+"\\n"); }
+      catch(error){process.stderr.write("FORGE review comparison failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
       return;
     }
     case "git": {
