@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { inspectProject } from "./project-inspector.js";
 
@@ -63,16 +63,14 @@ function packageName(specifier: string): string {
 
 export async function mapArchitecture(inputPath: string): Promise<ArchitectureMap> {
   const root = path.resolve(inputPath);
-  const project = await inspectProject(root);
-  const sourceFiles = project.topLevel.length >= 0
-    ? (await import("node:fs/promises")).readdir(root, { recursive: true, withFileTypes: true }).then(entries =>
-        entries
-          .filter(entry => entry.isFile())
-          .map(entry => String((entry as { parentPath?: string }).parentPath
-            ? path.relative(root, path.join((entry as { parentPath: string }).parentPath, entry.name)).split(path.sep).join("/")
-            : entry.name))
-      )
-    : [];
+  await inspectProject(root);
+  const entries = await readdir(root, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries
+    .filter(entry => entry.isFile())
+    .map(entry => {
+      const parentPath = (entry as { parentPath?: string }).parentPath ?? root;
+      return path.relative(root, path.join(parentPath, entry.name)).split(path.sep).join("/");
+    });
   const filtered = sourceFiles.filter(file => SOURCE_EXTENSIONS.has(path.extname(file)) &&
     !file.split("/").some(part => [".git", "node_modules", "dist", "build", "coverage", ".next"].includes(part))).slice(0, 3000);
   const knownFiles = new Set(filtered);
