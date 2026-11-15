@@ -81,6 +81,10 @@ Start a local, read-only engineering control center with `forge dashboard .` (or
 
 The server binds to `127.0.0.1` and exposes local JSON endpoints for the dashboard. It does not automatically run project tests, apply patches, or make code changes. Human approval controls are limited to recorded workflow tasks. Quality, architecture, and regression signals are heuristic and should be reviewed in context.
 
+### Interactive Workspace Explorer — available (early)
+
+The dashboard includes a read-only file browser for supported source and documentation files. Browse project folders, inspect file sizes, and preview text in the browser without opening an external editor. The explorer omits hidden files and common generated/dependency directories, blocks likely secret-bearing filenames and key/certificate formats, rejects symbolic links and path traversal, and limits previews to 128 KiB. It is a convenience viewer, not a complete file manager; it does not edit, create, delete, or execute files.
+
 ### Project Health Center — available (early)
 
 Generate a unified health snapshot with `forge health [path]` or `forge health . --json`. The report combines:
