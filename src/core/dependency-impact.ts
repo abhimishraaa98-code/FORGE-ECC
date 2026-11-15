@@ -28,6 +28,7 @@ function asRecord(value: unknown): Record<string, string> {
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
 function packageName(specifier: string): string {
+  if (specifier.startsWith("node:")) return specifier.slice(5);
   if (specifier.startsWith("@")) return specifier.split("/").slice(0, 2).join("/");
   return specifier.split("/")[0] ?? specifier;
 }
