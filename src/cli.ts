@@ -26,8 +26,9 @@ import { analyzeDependencyImpact, formatDependencyImpact } from "./core/dependen
 import { analyzeEngineeringRisk, formatEngineeringRisk } from "./core/engineering-risk.js";
 import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/change-intelligence.js";
 import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntelligenceComparison } from "./core/intelligence-timeline.js";
+import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
 
-const VERSION = "0.31.0";
+const VERSION = "0.32.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -39,7 +40,7 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   quality [path]   Generate an evidence-based static engineering quality report
-  snapshot [path]   Capture a local engineering intelligence snapshot
+  deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
   change-risk [path] Analyze changed-file risk, downstream impact, and test candidates
   risk [path]      Rank engineering hotspots using dependency and quality signals
@@ -190,6 +191,22 @@ async function main(args: string[]): Promise<void> {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE run failed: ${message}\n`);
         process.exitCode = 1;
+      }
+      return;
+    }
+    case "deps": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge deps [path] [--audit-report FILE] [--outdated-report FILE] [--json]\\n");
+        return;
+      }
+      const option = (name:string) => { const index=rest.indexOf(name); return index>=0 ? rest[index+1] : undefined; };
+      const target=path.resolve(rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--audit-report"&&rest[index-1]!=="--outdated-report")??".");
+      try {
+        const report=await analyzeDependencies(target,{auditReport:option("--audit-report"),outdatedReport:option("--outdated-report")});
+        process.stdout.write(rest.includes("--json")?JSON.stringify(report,null,2)+"\\n":formatDependencyIntelligence(report)+"\\n");
+      } catch(error) {
+        process.stderr.write("FORGE dependency analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.exitCode=1;
       }
       return;
     }
