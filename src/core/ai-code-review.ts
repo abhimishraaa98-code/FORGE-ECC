@@ -1,5 +1,5 @@
 import type { AgentProvider } from "./orchestrator.js";
-import type { CodeReviewReport, ReviewFinding } from "./code-review.js";
+import type { CodeReviewReport } from "./code-review.js";
 
 export interface AIReviewSuggestion {
   file:string;
