@@ -334,3 +334,10 @@ Scores are prioritization heuristics, not defect probabilities, security ratings
 Run `forge change-risk .` (or `forge change-risk . --base main --json`) to combine working-tree changes, downstream module impact, structural hotspot scores, repository risk signals, and filename-matched test candidates into one prioritized report. The dashboard includes a live working-tree change panel.
 
 This is static, heuristic prioritization—not a defect prediction or causal analysis. FORGE does not create or run suggested tests. Static imports and filename matching can miss aliases, runtime dependencies, shared integration tests, and generated modules. Review candidates before acting.
+
+
+### Engineering Intelligence Timeline — v0.31.0
+
+Capture a local structural-risk snapshot with `forge snapshot .` and compare the latest capture with its predecessor using `forge timeline .`. Snapshots include the analysis timestamp, available Git commit, hotspot severity counts, architecture size, quality findings, and the top hotspot files. The dashboard provides a read-only timeline view of saved captures.
+
+Snapshots are written to `.forge/intelligence/`, use private local file permissions, and are not uploaded or committed by FORGE. The trend is a comparison of saved static-analysis snapshots, not continuous monitoring or a guarantee of quality. A first snapshot establishes a baseline; capture another after meaningful changes to see a comparison.
