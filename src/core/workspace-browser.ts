@@ -39,6 +39,12 @@ async function resolveWorkspacePath(rootPath: string, relativePath: string): Pro
     throw new Error("Workspace path must stay inside the project.");
   }
   const segments = normalized.split("/").filter(part => part && part !== ".");
+  let cursor = root;
+  for (const segment of segments) {
+    cursor = path.join(cursor, segment);
+    const segmentInfo = await lstat(cursor);
+    if (segmentInfo.isSymbolicLink()) throw new Error("Symbolic links are not browsable.");
+  }
   const target = path.resolve(root, ...segments);
   if (!isInside(root, target)) throw new Error("Workspace path must stay inside the project.");
   const info = await lstat(target);
