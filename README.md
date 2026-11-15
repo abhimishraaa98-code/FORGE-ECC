@@ -348,7 +348,7 @@ Capture a local structural-risk snapshot with `forge snapshot .` and compare the
 Snapshots are written to `.forge/intelligence/`, use private local file permissions, and are not uploaded or committed by FORGE. The trend is a comparison of saved static-analysis snapshots, not continuous monitoring or a guarantee of quality. A first snapshot establishes a baseline; capture another after meaningful changes to see a comparison.
 
 
-### Dependency Security & License Intelligence — v0.32.0
+### Dependency Security & License Intelligence — v0.33.0
 
 Run `forge deps .` for an offline npm dependency inventory, including direct/transitive packages, lockfile versions, available license metadata, and coarse license categories. FORGE never installs packages or contacts registries during this command. Vulnerability and outdated status are explicitly **NOT ASSESSED** unless you provide locally generated reports:
 
@@ -357,3 +357,14 @@ Run `forge deps .` for an offline npm dependency inventory, including direct/tra
 - Both reports: `forge deps . --audit-report npm-audit.json --outdated-report npm-outdated.json`
 
 Review reports before sharing; they can contain package and environment metadata. Report paths must remain inside the analyzed project. This first release parses npm manifests and package-lock/npm-shrinkwrap data only. pnpm/Yarn, abandoned-package detection, full SPDX license expression evaluation, and legal compatibility analysis are not implemented. The dashboard displays the local dependency inventory and clearly labels missing security reports as unassessed.
+
+
+### Unified Engineering Health Score — v0.33.0
+
+`forge health .` now calculates a unified engineering score with an explicit evidence-coverage percentage and a breakdown of its available dimensions:
+
+- **Static quality (50%)** — existing evidence-based project quality audit.
+- **Verification reliability (25%)** — saved verification outcomes; timeouts and process-launch errors reduce the score. If no verification history exists, this dimension is excluded.
+- **Dependency security (25%)** — imported local npm audit findings. If no audit report is available, this dimension is excluded and clearly marked **NOT ASSESSED**.
+
+The score is the weighted average of available dimensions only; evidence coverage is the sum of their weights. It is a prioritization heuristic, not a certification or proof that a project is secure. Architecture metrics remain visible as context but are not used as a proxy for code quality. The dashboard Project Health Center shows the score, coverage, dimensions and dependency assessment status. Older health snapshots remain readable; only new snapshots contain the expanded score fields.
