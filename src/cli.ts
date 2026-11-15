@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
+import { initializeProject } from "./core/project-init.js";
 import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.js";
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
 
@@ -13,7 +14,7 @@ Usage:
   forge <command> [options]
 
 Commands:
-  inspect [path]   Analyze project languages, tooling, dependencies, and scripts
+  init [path]      Create a safe, local-first .forge starter workspace\n  inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   map [path]       Map source modules and import relationships
   version          Print the installed version
   help             Show this help message
@@ -41,6 +42,20 @@ async function main(args: string[]): Promise<void> {
     case "-v":
       process.stdout.write(`forge ${VERSION}\n`);
       return;
+    case "init": {
+      const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
+      try {
+        const result = await initializeProject(path.resolve(target));
+        process.stdout.write(`FORGE initialized in ${path.resolve(target)}\\n`);
+        for (const file of result.created) process.stdout.write(`  created  ${file}\\n`);
+        for (const file of result.skipped) process.stdout.write(`  kept     ${file} (already exists)\\n`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE could not initialize this project: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
     case "inspect":
     case "map": {
       if (rest.includes("--help")) {
