@@ -47,6 +47,17 @@ Safety boundaries:
 - Every completed run is saved under `.forge/verifications/` as a local JSON record. `forge verify-history` lists recent runs; `forge verify-history --path ./project` targets another project.
 - Each new result is compared with the previous run of the same script and marked baseline, regression, improvement, or unchanged. Comparisons currently use pass/fail status, not flaky-test analysis or semantic output diffs.
 
+### Project Health Center — available (early)
+
+Generate a unified health snapshot with `forge health [path]` or `forge health . --json`. The report combines:
+- Static quality score, grade, and severity counts
+- Verification history and a success rate based on passed/failed runs
+- Source-file, directory, and language metrics
+- Static architecture graph metrics
+- Historical quality-score snapshots saved under `.forge/health/`
+
+Snapshots are generated when the report is requested; this is not continuous background monitoring. Verification timeouts and process-start errors are excluded from the success-rate denominator. The quality score is heuristic, and architecture data is based on statically detected imports.
+
 ### Quality Intelligence — available (early)
 
 Run `forge quality [path]` to generate a static engineering quality report with:
@@ -128,7 +139,7 @@ npm run dev -- map .
 npm run dev -- map . --json
 ```
 
-Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\n```\n\nDiscover and explicitly run a verification check:\n\n```bash\nnpm run dev -- verify --list\nnpm run dev -- verify test\nnpm run dev -- verify build --path ./my-app\n```\n\nBuild and run the compiled CLI:
+Generate a quality report:\n\n```bash\nnpm run dev -- quality .\nnpm run dev -- quality . --json\nnpm run dev -- health .\nnpm run dev -- health . --json\n```\n\nDiscover and explicitly run a verification check:\n\n```bash\nnpm run dev -- verify --list\nnpm run dev -- verify test\nnpm run dev -- verify build --path ./my-app\n```\n\nBuild and run the compiled CLI:
 
 ```bash
 npm run build
@@ -146,7 +157,7 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
+| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge health [path]` | Generate a combined project health report and save a snapshot |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
