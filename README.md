@@ -53,8 +53,11 @@ Run `forge git [path]` to compare the working tree with `HEAD`, include untracke
 
 ### Code Review Engine — available (early)
 
-Run `forge review [path]` to inspect changed JavaScript/TypeScript files for a small set of deterministic risk patterns, with file/line evidence, severity, and remediation guidance. Use `--base REV` to choose the comparison revision, `--all` to review all supported source files, and `--json` for structured output. The initial rules flag dynamic evaluation, shell-execution APIs, HTML injection sinks, TypeScript error suppression, empty catch blocks, and dangerous HTML rendering. This is **not an AI-generated review**, compiler analysis, or security audit; results are heuristic candidates and can be false positives. The command reads source files and does not edit code, execute tests, or call an AI provider.
+Run `forge review [path]` to inspect changed JavaScript/TypeScript files for deterministic risk patterns, with file/line evidence and remediation guidance. Use `--base REV`, `--all`, and `--json` to control the review.
 
+Add `--ai` to request a second, provider-backed review using `FORGE_API_KEY` (or `OPENAI_API_KEY`), with optional `FORGE_MODEL` and `FORGE_BASE_URL`. AI suggestions are returned separately from static findings, constrained to supplied files and line numbers, and treated as untrusted advisory output. Source excerpts are sent to the configured provider; inspect your privacy requirements before enabling this on proprietary code. Context is capped, and AI review may be incomplete. The command does not apply suggested fixes, execute tests, or claim that findings are confirmed vulnerabilities.
+
+The static rules flag dynamic evaluation, shell-execution APIs, HTML injection sinks, TypeScript error suppression, empty catch blocks, and dangerous HTML rendering. Both static and AI findings can be wrong; review evidence before acting.
 ### Deep Code Intelligence — available (early)
 
 Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
@@ -165,6 +168,7 @@ npm run dev -- git . --base main --json
 npm run dev -- review .
 npm run dev -- review . --base main --json
 npm run dev -- review . --all
+npm run dev -- review . --ai
 ```
 
 Discover and explicitly run a verification check:
@@ -198,7 +202,7 @@ node dist/cli.js runs .
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
 | `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
-| `forge review [path] [--base REV] [--all]` | Review changed or all source files for deterministic risk patterns with line evidence |
+| `forge review [path] [--base REV] [--all] [--ai]` | Run static review and optionally request provider-backed AI suggestions |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
