@@ -54,7 +54,19 @@ The first orchestration foundation is now in `src/core/orchestrator.ts`:
 - Run events, task results, and failure/blocking states
 - Deterministic offline demo provider for development and tests
 
-This is an orchestration library foundation, not yet a connected AI-agent product. The demo provider produces clearly labelled proposals; FORGE does not execute shell commands, modify project files, or contact an AI service. CLI controls, persistent run history, and real provider adapters remain future work.
+The orchestration engine coordinates text proposals only. It does not execute shell commands or apply file changes.
+
+### Persistent Runs and AI Provider — available (early)
+
+- Save and load run records under `.forge/runs/`
+- List history with `forge runs [path]` and inspect a record with `forge show-run ID`
+- `forge plan --goal "..." ` now saves the deterministic draft locally
+- `forge run --goal "..." ` sends the staged specialist prompts through an OpenAI-compatible chat-completions endpoint
+- Configure `FORGE_API_KEY`, `FORGE_MODEL`, and optionally `FORGE_BASE_URL` in your local environment
+- Remote endpoints must use HTTPS; plain HTTP is permitted only for localhost development
+- Provider responses are proposals only. FORGE does not run commands or write source files
+
+Run history is local project data. Review it before committing or sharing it; task prompts and provider responses may contain proprietary code context. API keys are not written into run records.
 
 ## Quick start
 
@@ -95,7 +107,7 @@ npm run build
 node dist/cli.js inspect .
 node dist/cli.js map .
 node dist/cli.js agents .
-node dist/cli.js plan --goal "Improve project reliability"
+node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js runs .
 ```
 
 ## CLI reference
@@ -106,7 +118,7 @@ node dist/cli.js plan --goal "Improve project reliability"
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create a deterministic draft task plan |
+| `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | Add `--json` | Emit machine-readable JSON |
 
 During development, prefix commands with `npm run dev --`. After building, use the `forge` executable or `node dist/cli.js`.
