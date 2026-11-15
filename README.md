@@ -51,6 +51,12 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
+### Regression Intelligence — available (early)
+
+Run `forge regression [path]` to compare the latest saved verification result for each script with its previous run, classify regressions, recoveries, persistent failures and stable checks, and inspect current Git changes, static downstream impact and suggested test targets. Use `--base REV` to select the Git comparison base and `--json` for machine-readable output.
+
+This command is read-only: it does not run tests or change files. It relies on verification history created by explicit `forge verify SCRIPT` runs. Regression signals show outcome changes, not proof that a particular code change caused a failure. Failure signatures are simple output-line heuristics; suggested tests are not executed.
+
 ### Review History and Patch Proposals — available (early)
 
 Every `forge review` run now saves a snapshot under `.forge/reviews/`. Use `forge review-history .` to list snapshots, `forge review-show REVIEW_ID --path .` to inspect one, and `forge review-compare REVIEW_ID_A REVIEW_ID_B --path .` to compare static findings between runs. Snapshots are local project data; inspect them before sharing.
@@ -172,6 +178,8 @@ npm run dev -- review . --ai
 npm run dev -- review-history .
 npm run dev -- review-show REVIEW_ID --path .
 npm run dev -- review-compare OLD_ID NEW_ID --path .\nnpm run dev -- patch-check REVIEW_ID 1 --path .
+npm run dev -- regression .
+npm run dev -- regression . --base main --json
 ```
 
 Discover and explicitly run a verification check:
@@ -205,7 +213,7 @@ node dist/cli.js runs .
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
 | `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
-| `forge review [path] [--base REV] [--all] [--ai]` | Run static review and optionally request provider-backed AI suggestions; saves a snapshot |\n| `forge review-history [path]` | List saved review snapshots |\n| `forge review-show ID --path PROJECT` | Display a saved review |\n| `forge review-compare A B --path PROJECT` | Compare findings between snapshots |\n| `forge patch-check ID N --path PROJECT` | Dry-run validate an AI patch against the current file without applying it |
+| `forge review [path] [--base REV] [--all] [--ai]` | Run static review and optionally request provider-backed AI suggestions; saves a snapshot |\n| `forge review-history [path]` | List saved review snapshots |\n| `forge review-show ID --path PROJECT` | Display a saved review |\n| `forge review-compare A B --path PROJECT` | Compare findings between snapshots |\n| `forge patch-check ID N --path PROJECT` | Dry-run validate an AI patch against the current file without applying it |\n| `forge regression [path] [--base REV] [--json]` | Compare saved verification results and current Git change impact |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
