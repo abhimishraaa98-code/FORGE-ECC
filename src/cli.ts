@@ -17,6 +17,7 @@ import { formatProjectHealthMarkdown, generateProjectHealth } from "./core/proje
 import { analyzeCodebase, formatCodebaseAnalysis } from "./core/code-intelligence.js";
 import { analyzeGitChanges, formatGitIntelligence } from "./core/git-intelligence.js";
 import { reviewProject, formatCodeReview } from "./core/code-review.js";
+import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 
 const VERSION = "0.19.0";
 
@@ -33,7 +34,7 @@ Commands:
   health [path]    Generate a unified project health report and save a snapshot
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
-  review [path]    Review changed source files for evidence-backed risk patterns
+  review [path]    Review changed source files; add --ai for provider-backed suggestions
   verify --list    Discover available npm scripts without running them
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
@@ -247,7 +248,15 @@ async function main(args: string[]): Promise<void> {
       const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
       try {
         const report = await reviewProject(target, { base, all });
-        process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatCodeReview(report) + "\\n");
+        if (rest.includes("--ai")) {
+          const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+          if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) before using --ai.");
+          const provider = new OpenAICompatibleProvider({ apiKey, model: process.env.FORGE_MODEL ?? "gpt-4.1-mini", baseUrl: process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1" });
+          const ai = await generateAIReview(report, provider);
+          process.stdout.write(json ? JSON.stringify({ ...report, ai }, null, 2) + "\\n" : formatCodeReview(report) + "\\n\\n" + formatAIReview(ai) + "\\n");
+        } else {
+          process.stdout.write(json ? JSON.stringify(report, null, 2) + "\\n" : formatCodeReview(report) + "\\n");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE code review failed: ${message}\\n`);
