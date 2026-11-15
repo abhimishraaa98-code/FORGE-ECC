@@ -24,7 +24,7 @@ import { formatRegressionReport, generateRegressionReport } from "./core/regress
 import { searchWorkspace } from "./core/code-search.js";
 import { analyzeDependencyImpact, formatDependencyImpact } from "./core/dependency-impact.js";
 
-const VERSION = "0.27.0";
+const VERSION = "0.28.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
