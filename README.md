@@ -292,3 +292,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations and contribu
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Code Search & Symbol Intelligence (v0.26.0)
+
+Search source files from the dashboard or CLI. Results include file paths, line/column positions, source snippets, and TypeScript AST-based declaration/reference classification. The scanner skips hidden files, common generated/dependency directories, sensitive filename patterns, symlinks, and files larger than 256 KiB.
+
+```bash
+forge search calculateTotal --path .
+```
