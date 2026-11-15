@@ -36,6 +36,16 @@ describe("local dashboard server", () => {
     expect(Array.isArray(graph.nodes)).toBe(true);
     expect(Array.isArray(graph.edges)).toBe(true);
 
+    const runs = await fetch(base + "/api/runs");
+    expect(runs.status).toBe(200);
+    const runList = await runs.json();
+    expect(Array.isArray(runList)).toBe(true);
+    if (runList[0]) {
+      expect(runList[0].tasks[0]).toHaveProperty("status");
+      expect(runList[0]).toHaveProperty("events");
+      expect(runList[0].tasks[0]).not.toHaveProperty("prompt");
+    }
+
     const agents = await fetch(base + "/api/agents");
     expect(agents.status).toBe(200);
     const agentList = await agents.json();
