@@ -24,8 +24,9 @@ import { formatRegressionReport, generateRegressionReport } from "./core/regress
 import { searchWorkspace } from "./core/code-search.js";
 import { analyzeDependencyImpact, formatDependencyImpact } from "./core/dependency-impact.js";
 import { analyzeEngineeringRisk, formatEngineeringRisk } from "./core/engineering-risk.js";
+import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/change-intelligence.js";
 
-const VERSION = "0.29.0";
+const VERSION = "0.30.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -37,7 +38,7 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   quality [path]   Generate an evidence-based static engineering quality report
-  risk [path]      Rank engineering hotspots using dependency and quality signals
+  change-risk [path] Analyze changed-file risk, downstream impact, and test candidates\n  risk [path]      Rank engineering hotspots using dependency and quality signals
   health [path]    Generate a unified project health report and save a snapshot
   deep [path]      Analyze AST symbols, circular imports, and change impact
   git [path]       Analyze changed files, impact, suggested tests, and risk
@@ -186,6 +187,15 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE run failed: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "change-risk": {
+      const pathIndex=rest.indexOf("--path"),baseIndex=rest.indexOf("--base");
+      const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--base")??".");
+      const base=baseIndex>=0?rest[baseIndex+1]??"HEAD":"HEAD";
+      const json=rest.includes("--json");
+      try { const report=await analyzeChangeIntelligence(target,base);process.stdout.write(json?JSON.stringify(report,null,2)+"\n":formatChangeIntelligence(report)+"\n"); }
+      catch(error){process.stderr.write("FORGE change-risk analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "risk": {
