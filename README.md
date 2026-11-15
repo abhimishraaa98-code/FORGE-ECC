@@ -56,6 +56,10 @@ The first orchestration foundation is now in `src/core/orchestrator.ts`:
 
 The orchestration engine coordinates text proposals only. It does not execute shell commands or apply file changes.
 
+### Local Web Dashboard — available (early)
+
+Start a read-only local dashboard with `forge dashboard [path]` (optional `--port 4173`). It displays project metrics, language composition, detected stack, saved runs, warnings, and a static architecture snapshot. The server binds to `127.0.0.1` only and exposes GET-only project-data endpoints; it is not a public hosting server.
+
 ### Persistent Runs and AI Provider — available (early)
 
 - Save and load run records under `.forge/runs/`
@@ -119,6 +123,7 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
+| `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
 | Add `--json` | Emit machine-readable JSON |
 
 During development, prefix commands with `npm run dev --`. After building, use the `forge` executable or `node dist/cli.js`.
