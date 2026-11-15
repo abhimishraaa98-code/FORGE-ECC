@@ -262,32 +262,32 @@ async function main(args: string[]): Promise<void> {
           ai = await generateAIReview(report, provider);
         }
         const saved = await saveReview(target, report, ai);
-        process.stdout.write(json ? JSON.stringify({ ...saved, reviewId: saved.id }, null, 2) + "\\n" : formatCodeReview(report) + (ai ? "\\n\\n" + formatAIReview(ai) : "") + "\\n\\nSaved review: " + saved.id + "\\n");
+        process.stdout.write(json ? JSON.stringify({ ...saved, reviewId: saved.id }, null, 2) + "\n" : formatCodeReview(report) + (ai ? "\n\n" + formatAIReview(ai) : "") + "\n\nSaved review: " + saved.id + "\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`FORGE code review failed: ${message}\\n`);
+        process.stderr.write(`FORGE code review failed: ${message}\n`);
         process.exitCode = 1;
       }
       return;
     }
     case "review-history": {
       const target = path.resolve(rest.find((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--path") ?? ".");
-      try { const records=await listReviews(target); process.stdout.write(records.length?records.map(r=>r.id+"  "+r.createdAt+"  "+r.report.findings.length+" static findings").join("\\n")+"\\n":"No saved reviews found.\\n"); }
-      catch(error){process.stderr.write("FORGE review history failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { const records=await listReviews(target); process.stdout.write(records.length?records.map(r=>r.id+"  "+r.createdAt+"  "+r.report.findings.length+" static findings").join("\n")+"\n":"No saved reviews found.\n"); }
+      catch(error){process.stderr.write("FORGE review history failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "review-show": {
       const id=rest.find(arg=>!arg.startsWith("--")) ?? "";
       const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
-      try { const record=await loadReview(target,id); process.stdout.write(formatReviewRecord(record)+"\\n"); }
-      catch(error){process.stderr.write("FORGE could not load review: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { const record=await loadReview(target,id); process.stdout.write(formatReviewRecord(record)+"\n"); }
+      catch(error){process.stderr.write("FORGE could not load review: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "review-compare": {
       const ids=rest.filter((arg,index)=>!arg.startsWith("--")&&rest[index-1]!=="--path");
       const pathIndex=rest.indexOf("--path");const target=path.resolve(pathIndex>=0?rest[pathIndex+1]??".":".");
-      try { if(ids.length<2)throw new Error("Usage: forge review-compare REVIEW_ID_A REVIEW_ID_B --path PROJECT"); const [a,b]=await Promise.all([loadReview(target,ids[0]!),loadReview(target,ids[1]!)]);const diff=compareReviews(a,b);process.stdout.write(["Review comparison", "Added ("+diff.added.length+")",...diff.added.map(x=>"+ "+x),"Resolved ("+diff.resolved.length+")",...diff.resolved.map(x=>"- "+x),"Persistent ("+diff.persistent.length+")",...diff.persistent.map(x=>"= "+x)].join("\\n")+"\\n"); }
-      catch(error){process.stderr.write("FORGE review comparison failed: "+(error instanceof Error?error.message:String(error))+"\\n");process.exitCode=1;}
+      try { if(ids.length<2)throw new Error("Usage: forge review-compare REVIEW_ID_A REVIEW_ID_B --path PROJECT"); const [a,b]=await Promise.all([loadReview(target,ids[0]!),loadReview(target,ids[1]!)]);const diff=compareReviews(a,b);process.stdout.write(["Review comparison", "Added ("+diff.added.length+")",...diff.added.map(x=>"+ "+x),"Resolved ("+diff.resolved.length+")",...diff.resolved.map(x=>"- "+x),"Persistent ("+diff.persistent.length+")",...diff.persistent.map(x=>"= "+x)].join("\n")+"\n"); }
+      catch(error){process.stderr.write("FORGE review comparison failed: "+(error instanceof Error?error.message:String(error))+"\n");process.exitCode=1;}
       return;
     }
     case "patch-check": {
@@ -299,10 +299,10 @@ async function main(args: string[]): Promise<void> {
         if(!id||!numberArg)throw new Error("Usage: forge patch-check REVIEW_ID SUGGESTION_NUMBER --path PROJECT");
         const record=await loadReview(target,id);
         const result=await validateReviewPatch(target,record,Number(numberArg));
-        process.stdout.write(formatPatchValidation(result)+"\\n");
+        process.stdout.write(formatPatchValidation(result)+"\n");
         if(result.status!=="applicable")process.exitCode=1;
       } catch(error) {
-        process.stderr.write("FORGE patch validation failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.stderr.write("FORGE patch validation failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
       }
       return;
