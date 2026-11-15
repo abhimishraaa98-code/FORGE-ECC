@@ -14,7 +14,8 @@ Usage:
   forge <command> [options]
 
 Commands:
-  init [path]      Create a safe, local-first .forge starter workspace\n  inspect [path]   Analyze project languages, tooling, dependencies, and scripts
+  init [path]      Create a safe, local-first .forge starter workspace
+  inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   map [path]       Map source modules and import relationships
   version          Print the installed version
   help             Show this help message
