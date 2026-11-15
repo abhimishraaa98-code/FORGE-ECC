@@ -6,6 +6,9 @@ import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
 import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
+import { saveRun, listRuns, loadRun } from "./core/run-store.js";
+import { advanceRun } from "./core/orchestrator.js";
+import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 
 const VERSION = "0.4.0";
 
@@ -20,7 +23,10 @@ Commands:
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles
-  plan --goal TEXT Create a reviewable, non-executing task plan
+  plan --goal TEXT Create and save a reviewable draft plan
+  run --goal TEXT  Run the plan using a configured AI provider
+  runs [path]      List locally saved run history
+  show-run ID      Display one saved run (use --path for project directory)
   version          Print the installed version
   help             Show this help message
 
@@ -34,6 +40,8 @@ Examples:
   forge map .
   forge agents .
   forge plan --goal "Add authentication safely"
+  forge run --goal "Review the API design"
+  forge runs .
 `.trim();
 
 async function main(args: string[]): Promise<void> {
@@ -88,6 +96,59 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE could not create a plan: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "runs": {
+      const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
+      try {
+        const runs = await listRuns(path.resolve(target));
+        process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\\n") + "\\n" : "No saved FORGE runs.\\n");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`Could not list run history: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "show-run": {
+      const id = rest.find(arg => !arg.startsWith("--")) ?? "";
+      const pathIndex = rest.indexOf("--path");
+      const target = pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".";
+      try {
+        if (!id) throw new Error("Usage: forge show-run RUN_ID [--path PROJECT]");
+        const run = await loadRun(path.resolve(target), id);
+        process.stdout.write(`${JSON.stringify(run, null, 2)}\\n`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`Could not load run: ${message}\\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "run": {
+      const goalIndex = rest.indexOf("--goal");
+      const pathIndex = rest.indexOf("--path");
+      const goalEnd = pathIndex >= 0 ? pathIndex : rest.length;
+      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd).join(" ").trim() : "";
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+        const model = process.env.FORGE_MODEL ?? "gpt-4.1-mini";
+        const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+        if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) in your local environment before using forge run.");
+        const provider = new OpenAICompatibleProvider({ apiKey, model, baseUrl });
+        const plan = createReviewPlan(goal);
+        process.stdout.write(`Starting ${plan.id} with provider ${provider.name} (model ${model})...\\n`);
+        const completed = await advanceRun(plan, provider);
+        const saved = await saveRun(target, completed);
+        process.stdout.write(`Run status: ${completed.status}\\nSaved history: ${path.relative(target, saved)}\\n`);
+        for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\\n`);
+        if (completed.status === "failed") process.exitCode = 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`FORGE run failed: ${message}\\n`);
         process.exitCode = 1;
       }
       return;
