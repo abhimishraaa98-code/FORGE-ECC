@@ -33,7 +33,7 @@ function parseSuggestions(value:unknown,files:Set<string>):AIReviewSuggestion[]{
  return output;
 }
 export async function generateAIReview(report:CodeReviewReport,provider:AgentProvider):Promise<AIReviewResult>{
- const {readFile}=await import("node:fs/promises");
+ const {readFile}=await import("node:fs/promises");\n const path=await import("node:path");
  let remaining=MAX_TOTAL_CHARS;const excerpts:Array<{file:string;content:string}>=[];
  for(const file of report.filesReviewed){
   if(remaining<=0)break;
