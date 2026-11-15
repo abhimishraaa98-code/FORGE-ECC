@@ -1,6 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { inspectProject } from "./project-inspector.js";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const IMPORT_PATTERNS = [
@@ -63,7 +62,6 @@ function packageName(specifier: string): string {
 
 export async function mapArchitecture(inputPath: string): Promise<ArchitectureMap> {
   const root = path.resolve(inputPath);
-  await inspectProject(root);
   const entries = await readdir(root, { recursive: true, withFileTypes: true });
   const sourceFiles = entries
     .filter(entry => entry.isFile())
