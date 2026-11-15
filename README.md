@@ -327,3 +327,10 @@ Start with `npm run dev -- dashboard .` and open the local dashboard. The graph 
 Run `forge risk .` (or `forge risk . --json`) to rank structural engineering hotspots using internal dependency fan-in/fan-out, PageRank-like dependency centrality, relative file size, and filename-matched test signals. The dashboard includes a refreshable hotspot panel and a concise explanation of the scoring methodology.
 
 Scores are prioritization heuristics, not defect probabilities, security ratings, proof of missing test coverage, or runtime criticality. Static imports, filename-based test matching, and rule-based quality findings can miss aliases, generated modules, integration tests, and runtime behavior. Review evidence before changing code.
+
+
+### Change Risk & Test Intelligence — v0.30.0
+
+Run `forge change-risk .` (or `forge change-risk . --base main --json`) to combine working-tree changes, downstream module impact, structural hotspot scores, repository risk signals, and filename-matched test candidates into one prioritized report. The dashboard includes a live working-tree change panel.
+
+This is static, heuristic prioritization—not a defect prediction or causal analysis. FORGE does not create or run suggested tests. Static imports and filename matching can miss aliases, runtime dependencies, shared integration tests, and generated modules. Review candidates before acting.
