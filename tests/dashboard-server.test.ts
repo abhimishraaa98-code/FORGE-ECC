@@ -30,6 +30,12 @@ describe("local dashboard server", () => {
     expect(overview.status).toBe(200);
     expect((await overview.json()).runCount).toBe(0);
 
+    const agents = await fetch(base + "/api/agents");
+    expect(agents.status).toBe(200);
+    const agentList = await agents.json();
+    expect(agentList.some((agent: { id: string }) => agent.id === "planner")).toBe(true);
+    expect(agentList[0]).not.toHaveProperty("instructions");
+
     const forbidden = await fetch(base + "/api/overview", { method: "POST" });
     expect(forbidden.status).toBe(405);
   });
