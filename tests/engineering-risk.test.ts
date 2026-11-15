@@ -20,7 +20,7 @@ describe("engineering risk intelligence", () => {
     const report = await analyzeEngineeringRisk(root);
     expect(report.summary.scannedFiles).toBe(5);
     expect(report.hotspots[0]?.file).toBe("src/shared.ts");
-    expect(report.hotspots[0]?.fanIn).toBe(3);
+    expect(report.hotspots[0]?.fanIn).toBe(4); // Three source consumers plus the test import.
     expect(report.hotspots.find(item => item.file === "src/shared.ts")?.hasMatchingTest).toBe(true);
     expect(report.methodology).toContain("fan-in 30%");
     expect(report.warnings.some(item => item.includes("do not measure defect probability"))).toBe(true);
