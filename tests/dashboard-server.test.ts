@@ -32,6 +32,15 @@ describe("local dashboard server", () => {
     expect(overview.status).toBe(200);
     expect((await overview.json()).runCount).toBe(0);
 
+    const quality = await fetch(base + "/api/quality");
+    expect(quality.status).toBe(200);
+    const qualityReport = await quality.json();
+    expect(typeof qualityReport.score).toBe("number");
+    expect(Array.isArray(qualityReport.findings)).toBe(true);
+
+    const verifications = await fetch(base + "/api/verifications");
+    expect(verifications.status).toBe(200);
+    expect(Array.isArray(await verifications.json())).toBe(true);
     const architecture = await fetch(base + "/api/architecture");
     expect(architecture.status).toBe(200);
     const graph = await architecture.json();
