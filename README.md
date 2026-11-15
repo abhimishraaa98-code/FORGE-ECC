@@ -313,3 +313,10 @@ The report is static and advisory. It does not query registries, install package
 npm run dev -- impact .
 npm run dev -- impact . --base main --json
 ```
+
+
+### Visual Dependency Graph & Risk Explorer — v0.28.0
+
+The local dashboard now includes an interactive file-to-package dependency graph. Filter by file/package name, isolate risk signals, and select a node to inspect its status and connected relationships. The graph distinguishes declared packages, undeclared imports, and possible unused declarations, and reports when display limits apply.
+
+Start with `npm run dev -- dashboard .` and open the local dashboard. The graph is generated from static import scanning and package.json; it is an exploration aid, not a complete runtime dependency graph or a recommendation to remove packages. Aliases, computed dynamic imports, configuration/plugin use, and generated/runtime loading can be missed.
