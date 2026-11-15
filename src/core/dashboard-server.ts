@@ -110,7 +110,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           chunks.push(Buffer.from(chunk));
         }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { taskId?: string; decision?: string; reviewer?: string; reason?: string };
-        const match = requestUrl.pathname.match(/^\\/api\\/runs\\/([^/]+)\\/tasks\\/([^/]+)\\/approval$/);
+        const match = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/approval$/);
         if (!match || !["approved", "rejected"].includes(body.decision ?? "") || typeof body.taskId !== "string" || typeof body.reviewer !== "string" || (body.reason !== undefined && typeof body.reason !== "string")) {
           response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "Invalid approval request." }));
           return;
