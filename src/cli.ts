@@ -252,7 +252,7 @@ async function main(args: string[]): Promise<void> {
       const base = baseIndex >= 0 ? rest[baseIndex + 1] ?? "HEAD" : "HEAD";
       try {
         const report = await reviewProject(target, { base, all });
-        let ai;
+        let ai: Awaited<ReturnType<typeof generateAIReview>> | undefined;
         if (rest.includes("--ai")) {
           const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
           if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) before using --ai.");
