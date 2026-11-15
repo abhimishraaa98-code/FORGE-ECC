@@ -90,6 +90,11 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         return;
       }
       if (request.method === "POST") {
+        const approvalRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/approval$/);
+        if (!approvalRoute) {
+          response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
+          return;
+        }
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -110,13 +115,12 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           chunks.push(Buffer.from(chunk));
         }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { taskId?: string; decision?: string; reviewer?: string; reason?: string };
-        const match = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/approval$/);
-        if (!match || !["approved", "rejected"].includes(body.decision ?? "") || typeof body.taskId !== "string" || typeof body.reviewer !== "string" || (body.reason !== undefined && typeof body.reason !== "string")) {
+        if (!["approved", "rejected"].includes(body.decision ?? "") || typeof body.taskId !== "string" || typeof body.reviewer !== "string" || (body.reason !== undefined && typeof body.reason !== "string")) {
           response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "Invalid approval request." }));
           return;
         }
-        const runId = decodeURIComponent(match[1]!);
-        const taskId = decodeURIComponent(match[2]!);
+        const runId = decodeURIComponent(approvalRoute[1]!);
+        const taskId = decodeURIComponent(approvalRoute[2]!);
         if (body.taskId !== taskId) {
           response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "Task identifier mismatch." }));
           return;
