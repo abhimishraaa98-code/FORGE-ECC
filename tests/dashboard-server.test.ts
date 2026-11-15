@@ -71,6 +71,11 @@ describe("local dashboard server", () => {
     const verifications = await fetch(base + "/api/verifications");
     expect(verifications.status).toBe(200);
     expect(Array.isArray(await verifications.json())).toBe(true);
+    const changeRiskResponse = await fetch(base + "/api/change-intelligence");
+    expect(changeRiskResponse.status).toBe(200);
+    const changeRiskReport = await changeRiskResponse.json();
+    expect(changeRiskReport.summary).toHaveProperty("changedFiles");
+    expect(Array.isArray(changeRiskReport.changes)).toBe(true);
     const riskReportResponse = await fetch(base + "/api/engineering-risk");
     expect(riskReportResponse.status).toBe(200);
     const riskReport = await riskReportResponse.json();
