@@ -33,11 +33,12 @@ function parseSuggestions(value:unknown,files:Set<string>):AIReviewSuggestion[]{
  return output;
 }
 export async function generateAIReview(report:CodeReviewReport,provider:AgentProvider):Promise<AIReviewResult>{
- const {readFile}=await import("node:fs/promises");\n const path=await import("node:path");
+ const {readFile}=await import("node:fs/promises");
+ const path=await import("node:path");
  let remaining=MAX_TOTAL_CHARS;const excerpts:Array<{file:string;content:string}>=[];
  for(const file of report.filesReviewed){
   if(remaining<=0)break;
-  try{const text=await readFile(new URL("file://"+report.root.replace(/\\/g,"/")+"/"+file),"utf8");
+  try{const text=await readFile(path.join(report.root,file),"utf8");
    const content=text.slice(0,Math.min(MAX_FILE_CHARS,remaining));remaining-=content.length;
    excerpts.push({file,content});
   }catch{/* File may have changed since static review. */}
