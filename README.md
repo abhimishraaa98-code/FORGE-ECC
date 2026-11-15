@@ -44,7 +44,8 @@ Safety boundaries:
 - No dependency installation or automatic script selection.
 - A selected package script can itself run arbitrary project commands. Review the script in `package.json` before executing it, and use a trusted project directory.
 - Output capture is capped at 64 KiB and execution timeout defaults to two minutes.
-- Results are printed to the terminal; persistent verification history and CI integrations are future work.
+- Every completed run is saved under `.forge/verifications/` as a local JSON record. `forge verify-history` lists recent runs; `forge verify-history --path ./project` targets another project.
+- Each new result is compared with the previous run of the same script and marked baseline, regression, improvement, or unchanged. Comparisons currently use pass/fail status, not flaky-test analysis or semantic output diffs.
 
 ### Quality Intelligence — available (early)
 
@@ -145,7 +146,8 @@ node dist/cli.js plan --goal "Improve project reliability"\nnode dist/cli.js run
 | `forge version` | Show installed version |
 | `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
-| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script and report its real exit status |
+| `forge quality [path]` | Generate a static quality report with evidence and recommendations |\n| `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |\n| `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
+| `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |\n| `forge agents [path]` | List built-in and workspace agent roles |\n| `forge plan --goal "..." ` | Create and save a deterministic draft task plan |\n| `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |\n| `forge runs [path]` | List saved local run history |\n| `forge show-run ID [--path PROJECT]` | Display a saved run |
 | `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
 | Add `--json` | Emit machine-readable JSON |
