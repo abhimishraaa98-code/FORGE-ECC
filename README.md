@@ -68,6 +68,19 @@ AI review sends selected source excerpts to your configured provider. Context is
 
 Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
 
+### Engineering Intelligence Dashboard — available (early)
+
+Start a local, read-only engineering control center with `forge dashboard .` (or `forge dashboard ./project --port 4173`). The responsive dashboard brings together:
+
+- Project structure, detected stack, language composition, and specialist agent registry
+- Saved orchestration runs, task activity, run inspection, and explicit human approval controls
+- Interactive static architecture graph
+- Project health snapshots, quality findings, and verification history
+- Regression classifications across saved verification runs, plus current Git change context
+- Saved code-review snapshots with finding summaries
+
+The server binds to `127.0.0.1` and exposes local JSON endpoints for the dashboard. It does not automatically run project tests, apply patches, or make code changes. Human approval controls are limited to recorded workflow tasks. Quality, architecture, and regression signals are heuristic and should be reviewed in context.
+
 ### Project Health Center — available (early)
 
 Generate a unified health snapshot with `forge health [path]` or `forge health . --json`. The report combines:
@@ -223,7 +236,7 @@ node dist/cli.js runs .
 | `forge run --goal "..." ` | Run specialist prompts through a configured AI provider |
 | `forge runs [path]` | List saved local run history |
 | `forge show-run ID [--path PROJECT]` | Display a saved run |
-| `forge dashboard [path] [--port PORT]` | Start the local read-only web dashboard |
+| `forge dashboard [path] [--port PORT]` | Start the local engineering intelligence dashboard on loopback |
 | Add `--json` | Emit machine-readable JSON |
 
 During development, prefix commands with `npm run dev --`. After building, use the `forge` executable or `node dist/cli.js`.
