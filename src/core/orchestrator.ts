@@ -43,6 +43,7 @@ export interface TaskRecord {
   status: TaskStatus;
   result?: AgentResponse;
   error?: string;
+  approval?: { decision: "approved" | "rejected"; reviewer: string; reason?: string; at: string };
 }
 
 export interface RunRecord {
