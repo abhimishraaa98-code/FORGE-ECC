@@ -320,3 +320,10 @@ npm run dev -- impact . --base main --json
 The local dashboard now includes an interactive file-to-package dependency graph. Filter by file/package name, isolate risk signals, and select a node to inspect its status and connected relationships. The graph distinguishes declared packages, undeclared imports, and possible unused declarations, and reports when display limits apply.
 
 Start with `npm run dev -- dashboard .` and open the local dashboard. The graph is generated from static import scanning and package.json; it is an exploration aid, not a complete runtime dependency graph or a recommendation to remove packages. Aliases, computed dynamic imports, configuration/plugin use, and generated/runtime loading can be missed.
+
+
+### Engineering Risk Intelligence — v0.29.0
+
+Run `forge risk .` (or `forge risk . --json`) to rank structural engineering hotspots using internal dependency fan-in/fan-out, PageRank-like dependency centrality, relative file size, and filename-matched test signals. The dashboard includes a refreshable hotspot panel and a concise explanation of the scoring methodology.
+
+Scores are prioritization heuristics, not defect probabilities, security ratings, proof of missing test coverage, or runtime criticality. Static imports, filename-based test matching, and rule-based quality findings can miss aliases, generated modules, integration tests, and runtime behavior. Review evidence before changing code.
