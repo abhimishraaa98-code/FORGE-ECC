@@ -221,11 +221,11 @@ async function main(args: string[]): Promise<void> {
       const target = path.resolve(targetIndex >= 0 ? rest[targetIndex + 1] ?? "." : ".");
       try {
         const history = await listVerifications(target);
-        if (!history.length) { process.stdout.write("No saved verification runs.\\n"); return; }
-        process.stdout.write(history.map(item => `${item.startedAt}  ${item.status.padEnd(12)} ${item.script.padEnd(16)} ${item.durationMs} ms  ${item.id}`).join("\\n") + "\\n");
+        if (!history.length) { process.stdout.write("No saved verification runs.\n"); return; }
+        process.stdout.write(history.map(item => `${item.startedAt}  ${item.status.padEnd(12)} ${item.script.padEnd(16)} ${item.durationMs} ms  ${item.id}`).join("\n") + "\n");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`Could not load verification history: ${message}\\n`);
+        process.stderr.write(`Could not load verification history: ${message}\n`);
         process.exitCode = 1;
       }
       return;
