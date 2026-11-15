@@ -1,6 +1,6 @@
 {
   "name": "forge-engineering-workbench",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": false,
   "description": "An open-source AI engineering workbench for project understanding, planning, and verified workflows.",
   "type": "module",
