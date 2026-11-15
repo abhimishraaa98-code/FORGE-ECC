@@ -2,6 +2,7 @@ import path from "node:path";
 import {listVerifications} from "./verification-history.js";
 import type {VerificationResult} from "./verification.js";
 import {analyzeGitChanges} from "./git-intelligence.js";
+import type {GitIntelligenceReport} from "./git-intelligence.js";
 export type RegressionState="baseline"|"regression"|"recovered"|"persistent_failure"|"stable";
 export interface CheckRegression {script:string;state:RegressionState;latest:VerificationResult;previous:VerificationResult|null;durationChangeMs:number|null;newFailureSignature:boolean|null;failureSignature:string|null;}
 export interface RegressionReport {root:string;generatedAt:string;base:string;checks:CheckRegression[];changedFiles:Array<{status:string;file:string}>;affectedModules:Array<{file:string;affected:string[]}>;suggestedTests:Array<{file:string;reason:string}>;warnings:string[];summary:{regressions:number;recovered:number;persistentFailures:number;stable:number;baselines:number;checksReviewed:number};}
@@ -28,7 +29,7 @@ export function compareCheckRuns(history:VerificationResult[]):CheckRegression[]
 export async function generateRegressionReport(inputPath:string,base="HEAD"):Promise<RegressionReport>{
  const root=path.resolve(inputPath);const warnings:string[]=[];
  const history=await listVerifications(root,500);const checks=compareCheckRuns(history);
- let git;
+ let git:GitIntelligenceReport|undefined;
  try{git=await analyzeGitChanges(root,base);warnings.push(...git.warnings);}
  catch{warnings.push("Git change context unavailable. Run this command inside a Git repository with the requested base revision available.");}
  const changedFiles=git?.changes??[];const affectedModules=git?.impact??[];const suggestedTests=git?.suggestedTests??[];
