@@ -71,6 +71,11 @@ describe("local dashboard server", () => {
     const verifications = await fetch(base + "/api/verifications");
     expect(verifications.status).toBe(200);
     expect(Array.isArray(await verifications.json())).toBe(true);
+    const dependencyIntelResponse = await fetch(base + "/api/dependency-intelligence");
+    expect(dependencyIntelResponse.status).toBe(200);
+    const dependencyIntel = await dependencyIntelResponse.json();
+    expect(dependencyIntel.summary).toHaveProperty("direct");
+    expect(dependencyIntel.sources.vulnerabilityReport).toBeNull();
     const timelineResponse = await fetch(base + "/api/intelligence-timeline");
     expect(timelineResponse.status).toBe(200);
     const timeline = await timelineResponse.json();
