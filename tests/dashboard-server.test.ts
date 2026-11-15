@@ -3,6 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { startDashboard, type DashboardHandle } from "../src/core/dashboard-server.js";
+import { advanceRun, createRun, DemoAgentProvider } from "../src/core/orchestrator.js";
+import { saveRun } from "../src/core/run-store.js";
 
 let root = "";
 let dashboard: DashboardHandle | undefined;
@@ -57,6 +59,24 @@ describe("local dashboard server", () => {
 
     const forbidden = await fetch(base + "/api/overview", { method: "POST" });
     expect(forbidden.status).toBe(405);
+
+    const pendingRun = await advanceRun(createRun("Review a release", [
+      { id: "review", agent: "reviewer", title: "Review release", prompt: "Review the proposed release", requiresApproval: true },
+    ]), new DemoAgentProvider());
+    await saveRun(root, pendingRun);
+    const approval = await fetch(base + "/api/runs/" + pendingRun.id + "/tasks/review/approval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ taskId: "review", decision: "approved", reviewer: "test-reviewer" }),
+    });
+    expect(approval.status).toBe(200);
+    const approvalResult = await approval.json();
+    expect(approvalResult.task.approval.decision).toBe("approved");
+    expect(approvalResult.task.approval.reviewer).toBe("test-reviewer");
+
+    const detail = await fetch(base + "/api/runs/" + pendingRun.id);
+    const detailResult = await detail.json();
+    expect(detailResult.tasks[0].approval.decision).toBe("approved");
   });
 
   it("does not serve unknown routes", async () => {
