@@ -25,7 +25,7 @@ function inspectLines(file:string,source:string):ReviewFinding[]{
   {id:"FORGE-R005",severity:"low",title:"Potentially empty catch block",pattern:/catch\s*(?:\([^)]*\))?\s*\{\s*\}/,recommendation:"Handle, report, or deliberately document the error instead of silently discarding it."},
   {id:"FORGE-R006",severity:"medium",title:"Dangerously injected HTML property",pattern:/dangerouslySetInnerHTML/,recommendation:"Ensure content is trusted or sanitized immediately before rendering."}
  ];
- for(let i=0;i<lines.length;i++){const line=lines[i];if(/^\s*(?:\/\/|\*|\*)/.test(line))continue;for(const rule of rules)if(rule.pattern.test(line))findings.push({ruleId:rule.id,severity:rule.severity,file,line:i+1,title:rule.title,evidence:line.trim().slice(0,240),recommendation:rule.recommendation,confidence:"heuristic"});}
+ for(let i=0;i<lines.length;i++){const line=lines[i] ?? "";if(/^\s*(?:\/\/|\*|\*)/.test(line))continue;for(const rule of rules)if(rule.pattern.test(line))findings.push({ruleId:rule.id,severity:rule.severity,file,line:i+1,title:rule.title,evidence:line.trim().slice(0,240),recommendation:rule.recommendation,confidence:"heuristic"});}
  return findings;
 }
 export async function reviewProject(inputPath:string,options:{base?:string;all?:boolean}={}):Promise<CodeReviewReport>{
