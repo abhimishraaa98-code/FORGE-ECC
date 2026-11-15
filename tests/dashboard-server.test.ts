@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { startDashboard, type DashboardHandle } from "../src/core/dashboard-server.js";
@@ -27,6 +27,20 @@ describe("local dashboard server", () => {
     const page = await fetch(base);
     expect(page.status).toBe(200);
     expect(await page.text()).toContain("FORGE");
+
+    await mkdir(path.join(root, "src"));
+    await writeFile(path.join(root, "src", "demo.ts"), "export const demo = true;\\n");
+    await writeFile(path.join(root, ".env"), "SECRET=hidden");
+    const workspace = await fetch(base + "/api/workspace");
+    expect(workspace.status).toBe(200);
+    const workspaceListing = await workspace.json();
+    expect(workspaceListing.entries.some((item: { name: string }) => item.name === "src")).toBe(true);
+    expect(workspaceListing.entries.some((item: { name: string }) => item.name === ".env")).toBe(false);
+    const preview = await fetch(base + "/api/workspace/file?path=src%2Fdemo.ts");
+    expect(preview.status).toBe(200);
+    expect((await preview.json()).content).toContain("demo = true");
+    const traversal = await fetch(base + "/api/workspace?path=..");
+    expect(traversal.status).toBe(500);
 
     const overview = await fetch(base + "/api/overview");
     expect(overview.status).toBe(200);
