@@ -44,6 +44,14 @@ cd FORGE-ECC
 npm install
 ```
 
+Create a local FORGE workspace (existing files are never overwritten):
+
+\`\`\`bash
+npm run dev -- init .
+\`\`\`
+
+This creates a `.forge/` directory with starter agent roles, reusable workflow skills, a project configuration, and a memory guide. These are local prompt/workflow assets; they do not launch autonomous agents or call an AI provider.
+
 Inspect a project:
 
 ```bash
@@ -72,6 +80,7 @@ node dist/cli.js map .
 | --- | --- |
 | `forge help` | Show CLI help |
 | `forge version` | Show installed version |
+| `forge init [path]` | Create a local `.forge/` workspace without overwriting files |
 | `forge inspect [path]` | Inspect languages, tooling, dependencies, and scripts |
 | `forge map [path]` | Map JavaScript/TypeScript modules and imports |
 | Add `--json` | Emit machine-readable JSON |
