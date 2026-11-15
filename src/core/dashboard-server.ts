@@ -282,7 +282,14 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(report));
         return;
       }
-      if (requestUrl.pathname === "/api/search") {\n        const query=requestUrl.searchParams.get("q")??"";\n        const limit=Number(requestUrl.searchParams.get("limit")??80);\n        const report=await searchWorkspace(projectPath,query,limit);\n        response.writeHead(200,{"content-type":"application/json; charset=utf-8"}).end(JSON.stringify(report));\n        return;\n      }\n      if (requestUrl.pathname === "/api/workspace") {
+      if (requestUrl.pathname === "/api/search") {
+        const query = requestUrl.searchParams.get("q") ?? "";
+        const limit = Number(requestUrl.searchParams.get("limit") ?? 80);
+        const report = await searchWorkspace(projectPath, query, limit);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(report));
+        return;
+      }
+      if (requestUrl.pathname === "/api/workspace") {
         const relativePath = requestUrl.searchParams.get("path") ?? "";
         const listing = await listWorkspaceDirectory(projectPath, relativePath);
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(listing));
