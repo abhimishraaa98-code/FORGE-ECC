@@ -51,13 +51,13 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
-### Code Review Engine — available (early)
+### Review History and Patch Proposals — available (early)
 
-Run `forge review [path]` to inspect changed JavaScript/TypeScript files for deterministic risk patterns, with file/line evidence and remediation guidance. Use `--base REV`, `--all`, and `--json` to control the review.
+Every `forge review` run now saves a snapshot under `.forge/reviews/`. Use `forge review-history .` to list snapshots, `forge review-show REVIEW_ID --path .` to inspect one, and `forge review-compare REVIEW_ID_A REVIEW_ID_B --path .` to compare static findings between runs. Snapshots are local project data; inspect them before sharing.
 
-Add `--ai` to request a second, provider-backed review using `FORGE_API_KEY` (or `OPENAI_API_KEY`), with optional `FORGE_MODEL` and `FORGE_BASE_URL`. AI suggestions are returned separately from static findings, constrained to supplied files and line numbers, and treated as untrusted advisory output. Source excerpts are sent to the configured provider; inspect your privacy requirements before enabling this on proprietary code. Context is capped, and AI review may be incomplete. The command does not apply suggested fixes, execute tests, or claim that findings are confirmed vulnerabilities.
+With `forge review . --ai`, the provider may also return a **single-file unified diff proposal** attached to a finding. FORGE validates the target file headers and displays the patch as a preview only. It does not apply patches, stage changes, or overwrite source files. AI suggestions and patches are untrusted proposals: inspect them and independently test any manually applied change.
 
-The static rules flag dynamic evaluation, shell-execution APIs, HTML injection sinks, TypeScript error suppression, empty catch blocks, and dangerous HTML rendering. Both static and AI findings can be wrong; review evidence before acting.
+AI review sends selected source excerpts to your configured provider. Context is capped, and review output can be incomplete or incorrect.
 ### Deep Code Intelligence — available (early)
 
 Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScript AST and report named declarations, exported symbols, circular import groups, and transitive file-level change-impact candidates. JSON output is available with `--json`. Symbol discovery is syntax-based rather than type-checked; import resolution remains heuristic, so aliases and runtime dependencies may be missed. Impact is an estimate, not a guarantee.
@@ -169,6 +169,9 @@ npm run dev -- review .
 npm run dev -- review . --base main --json
 npm run dev -- review . --all
 npm run dev -- review . --ai
+npm run dev -- review-history .
+npm run dev -- review-show REVIEW_ID --path .
+npm run dev -- review-compare OLD_ID NEW_ID --path .
 ```
 
 Discover and explicitly run a verification check:
@@ -202,7 +205,7 @@ node dist/cli.js runs .
 | `forge health [path]` | Generate a combined project health report and save a snapshot |
 | `forge deep [path]` | Analyze AST symbols, circular imports, and transitive file-level change impact |
 | `forge git [path] [--base REV]` | Analyze working-tree changes, impact, test candidates, and heuristic risk |
-| `forge review [path] [--base REV] [--all] [--ai]` | Run static review and optionally request provider-backed AI suggestions |
+| `forge review [path] [--base REV] [--all] [--ai]` | Run static review and optionally request provider-backed AI suggestions; saves a snapshot |\n| `forge review-history [path]` | List saved review snapshots |\n| `forge review-show ID --path PROJECT` | Display a saved review |\n| `forge review-compare A B --path PROJECT` | Compare static findings between snapshots |
 | `forge verify --list [--path PROJECT]` | Discover npm scripts without executing them |
 | `forge verify SCRIPT [--path PROJECT]` | Explicitly execute one selected npm script, save the result, and compare it with history |
 | `forge verify-history [--path PROJECT]` | List recent locally saved verification results |
