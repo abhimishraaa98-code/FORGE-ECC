@@ -37,6 +37,8 @@ describe("container sandbox arguments", () => {
     expect(args.some(value => value.includes("fs.cpSync"))).toBe(true);
     const runner = args[args.indexOf("-e") + 1] ?? "";
     expect(runner).toContain("const filter=src=>");
+    expect(runner).toContain("fs.lstatSync(src)");
+    expect(runner).toContain("info.isSymbolicLink()");
     expect(runner).toContain("blocked.test(name)");
     expect(runner).toContain("excluded.has(name.toLowerCase())");
     expect(runner).toContain("p12|pfx|keystore");
