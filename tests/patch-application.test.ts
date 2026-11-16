@@ -184,7 +184,7 @@ describe("isolated approved patch staging", () => {
       backupSha256: promoted.sourceSha256, preparedAt: new Date().toISOString(),
     }));
     await expect(rollbackStagedPatch(root, staged.id, "recovery-reviewer")).rejects.toThrow(/journal does not match/);
-    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;");
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\\n");
     await expect(readFile(journalPath, "utf8")).resolves.toContain("other-stage");
   });
 
@@ -201,7 +201,7 @@ describe("isolated approved patch staging", () => {
     await rename(backupDir, originalParent);
     await symlink(path.join(outside, "src"), backupDir);
     await expect(rollbackStagedPatch(root, staged.id, "reviewer")).rejects.toThrow(/resolves outside/);
-    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;");
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\\n");
   });
 
   it("refuses rollback if the promoted file has changed since promotion", async () => {
