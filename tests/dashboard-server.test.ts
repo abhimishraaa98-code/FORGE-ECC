@@ -5,6 +5,7 @@ import path from "node:path";
 import { startDashboard, type DashboardHandle } from "../src/core/dashboard-server.js";
 import { advanceRun, createRun, DemoAgentProvider } from "../src/core/orchestrator.js";
 import { saveRun } from "../src/core/run-store.js";
+import { saveExecutionTrace } from "../src/core/execution-trace.js";
 
 let root = "";
 let dashboard: DashboardHandle | undefined;
@@ -27,6 +28,8 @@ describe("local dashboard server", () => {
     const page = await fetch(base);
     expect(page.status).toBe(200);
     expect(await page.text()).toContain("FORGE");
+    expect(await page.text()).toContain("Agent handoff map");
+    expect(await page.text()).toContain("Execution telemetry");
 
     await mkdir(path.join(root, "src"));
     await writeFile(path.join(root, "src", "demo.ts"), "export const demo = true;\\n");
@@ -142,6 +145,26 @@ describe("local dashboard server", () => {
     const detail = await fetch(base + "/api/runs/" + pendingRun.id);
     const detailResult = await detail.json();
     expect(detailResult.tasks[0].approval.decision).toBe("approved");
+    const handoffRun = createRun("Inspect agent handoffs", [
+      { id: "architect", agent: "architect", title: "Map architecture", prompt: "Map" },
+      { id: "reviewer", agent: "reviewer", title: "Review map", prompt: "Review", dependsOn: ["architect"] },
+    ]);
+    await saveRun(root, handoffRun);
+    const handoffDetail = await fetch(base + "/api/runs/" + handoffRun.id);
+    const handoffJson = await handoffDetail.json();
+    expect(handoffJson.tasks[1].dependsOn).toEqual(["architect"]);
+    await saveExecutionTrace(root, handoffRun.id, [{
+      taskId: "architect", agent: "architect", tier: "reasoning", model: "test-model",
+      provider: "test-provider", startedAt: new Date().toISOString(), durationMs: 42,
+      outcome: "success", inputTokensEstimate: 20, outputTokensEstimate: 10,
+    }]);
+    const traceResponse = await fetch(base + "/api/runs/" + handoffRun.id + "/trace");
+    expect(traceResponse.status).toBe(200);
+    const traceJson = await traceResponse.json();
+    expect(traceJson.entries[0].model).toBe("test-model");
+    expect(traceJson.totals.durationMs).toBe(42);
+    const missingTrace = await fetch(base + "/api/runs/" + pendingRun.id + "/trace");
+    expect(missingTrace.status).toBe(404);
   });
 
   it("does not serve unknown routes", async () => {
