@@ -80,6 +80,12 @@ export class ModelRouter implements AgentProvider {
     }
   }
 
+  private recordTrace(trace: AgentTrace): void {
+    this.traces.push(trace);
+    // Observability hooks must not turn a completed provider call into a failed task.
+    try { this.options.onTrace?.(trace); } catch { /* Keep execution independent of telemetry consumers. */ }
+  }
+
   async complete(request: AgentRequest): Promise<AgentResponse> {
     const route = chooseModelRoute(request, this.options);
     const startedAt = new Date().toISOString();
@@ -128,7 +134,7 @@ export class ModelRouter implements AgentProvider {
       const outputTokensEstimate = Math.ceil(response.content.length / 4);
       if (maxOutput !== undefined && outputTokensEstimate > maxOutput) {
         const message = `FORGE budget exceeded: task output estimate ${outputTokensEstimate} exceeds per-task limit ${maxOutput}.`;
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
       if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate > agentLimit) {
@@ -153,7 +159,7 @@ export class ModelRouter implements AgentProvider {
         inputTokensEstimate,
         outputTokensEstimate,
       };
-      this.traces.push(trace); this.options.onTrace?.(trace);
+      this.recordTrace(trace);
       return response;
     }
     try {
