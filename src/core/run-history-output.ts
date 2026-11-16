@@ -32,12 +32,24 @@ export function formatRunHistoryJson(runs: readonly RunRecord[]): string {
       createdAt: run.createdAt,
       updatedAt: run.updatedAt,
       taskCount: run.tasks.length,
-      pendingTaskCount: run.tasks.filter((task) => task.status === "pending").length,
-      awaitingApprovalTaskCount: run.tasks.filter((task) => task.status === "awaiting_approval").length,
-      runningTaskCount: run.tasks.filter((task) => task.status === "running").length,
-      completedTaskCount: run.tasks.filter((task) => task.status === "completed").length,
-      failedTaskCount: run.tasks.filter((task) => task.status === "failed").length,
-      blockedTaskCount: run.tasks.filter((task) => task.status === "blocked").length,
+      ...run.tasks.reduce((counts, task) => {
+        switch (task.status) {
+          case "pending": counts.pendingTaskCount += 1; break;
+          case "awaiting_approval": counts.awaitingApprovalTaskCount += 1; break;
+          case "running": counts.runningTaskCount += 1; break;
+          case "completed": counts.completedTaskCount += 1; break;
+          case "failed": counts.failedTaskCount += 1; break;
+          case "blocked": counts.blockedTaskCount += 1; break;
+        }
+        return counts;
+      }, {
+        pendingTaskCount: 0,
+        awaitingApprovalTaskCount: 0,
+        runningTaskCount: 0,
+        completedTaskCount: 0,
+        failedTaskCount: 0,
+        blockedTaskCount: 0,
+      }),
       eventCount: run.events.length,
     })),
   };
