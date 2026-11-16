@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
+import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 
 const image = "node:22-alpine@sha256:" + "a".repeat(64);
 
@@ -73,5 +74,29 @@ describe("sandbox runtime status report", () => {
     const report = parseSandboxRuntimeReport("docker", "Docker version 27.0.0", "invalid");
     expect(report.rootless).toBeNull();
     expect(report.warnings.join(" ")).toMatch(/could not be determined/);
+  });
+});
+
+describe("sandbox lifecycle cleanup selection", () => {
+  it("parses managed container records", () => {
+    expect(parseManagedContainers("abcdef123456\\tExited (0) 2 hours ago\\tforge-verify-old")).toEqual([
+      { id: "abcdef123456", status: "Exited (0) 2 hours ago", name: "forge-verify-old" },
+    ]);
+  });
+  it("selects only stopped managed containers", () => {
+    const items = parseManagedContainers([
+      "abcdef123456\\tExited (0) 2 hours ago\\tforge-verify-old",
+      "abcdef123457\\tUp 5 minutes\\tforge-verify-active",
+      "abcdef123458\\tCreated\\tforge-verify-created",
+    ].join("\\n"));
+    expect(selectStoppedManagedContainers(items).map(item => item.id)).toEqual(["abcdef123456", "abcdef123458"]);
+  });
+  it("rejects malformed container output", () => {
+    expect(() => parseManagedContainers("not-an-id\\tExited\\tunknown")).toThrow(/invalid managed-container/);
+  });
+  it("defaults cleanup reporting to dry-run", () => {
+    const report = formatSandboxCleanupReport([], [], false);
+    expect(report).toContain("DRY RUN");
+    expect(report).toContain("Active containers are never selected");
   });
 });
