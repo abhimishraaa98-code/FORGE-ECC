@@ -10,13 +10,13 @@ it("rejects a patch that targets a different file",async()=>{root=await mkdtemp(
 it("rejects a symlink target even when its destination is inside the project",async()=>{
  root=await mkdtemp(path.join(os.tmpdir(),"forge-patch-"));await mkdir(path.join(root,"src"));const outside=path.join(root,"outside.ts");await writeFile(outside,"const a = 1;");
  const {symlink}=await import("node:fs/promises");await symlink(outside,path.join(root,"src/a.ts"));
- const patch="--- a/src/a.ts\\n+++ b/src/a.ts\\n@@ -1 +1 @@\\n-const a = 1;\\n+const a = 2";
+ const patch="--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2";
  expect((await validateReviewPatch(root,record(patch),1)).status).toBe("invalid");
 });
 it("rejects a patch whose target traverses a symlinked parent directory",async()=>{
  root=await mkdtemp(path.join(os.tmpdir(),"forge-patch-"));const outside=path.join(root,"outside");await mkdir(outside);await writeFile(path.join(outside,"a.ts"),"const a = 1;");
  const {symlink}=await import("node:fs/promises");await symlink(outside,path.join(root,"src"),"dir");
- const patch="--- a/src/a.ts\\n+++ b/src/a.ts\\n@@ -1 +1 @@\\n-const a = 1;\\n+const a = 2";
+ const patch="--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2";
  expect((await validateReviewPatch(root,record(patch),1)).status).toBe("invalid");
 });
 });
