@@ -37,7 +37,7 @@ export interface BenchmarkMatrixReport {
   goal: string;
   createdAt: string;
   results: BenchmarkMatrixResult[];
-  agentSummary: AgentBenchmarkSummary[];
+  agentSummary?: AgentBenchmarkSummary[];
   summary: Array<{
     candidateId: string;
     provider: string;
