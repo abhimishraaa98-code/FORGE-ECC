@@ -260,7 +260,12 @@ async function main(args: string[]): Promise<void> {
         const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
-        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text });
+        let persistedTraceEntries = 0;
+        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, onUpdate: async snapshot => {
+          await saveRun(target, snapshot);
+          const newEntries = router.traces.slice(persistedTraceEntries);
+          if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
+        } });
         const saved = await saveRun(target, completed);
         const tracePath = await saveExecutionTrace(target, completed.id, router.traces);
         process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
