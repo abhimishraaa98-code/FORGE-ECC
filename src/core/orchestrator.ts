@@ -30,7 +30,7 @@ export interface AgentResponse {
 
 export interface AgentRequest {
   task: AgentTask;
-  completedDependencies: ReadonlyArray<{ id: string; result: string }>;
+  completedDependencies: ReadonlyArray<{ id: string; fromAgent?: string; taskTitle?: string; result: string }>;
   projectContext?: string;
 }
 
@@ -209,6 +209,8 @@ export async function advanceRun(
           task: record.task,
           completedDependencies: dependencies.map(dependency => ({
             id: dependency.task.id,
+            fromAgent: dependency.task.agent,
+            taskTitle: dependency.task.title,
             result: dependency.result?.content ?? "",
           })),
           ...(options.projectContext ? { projectContext: options.projectContext } : {}),
