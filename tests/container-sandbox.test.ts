@@ -35,6 +35,11 @@ describe("container sandbox arguments", () => {
     expect(args).toContain("--entrypoint");
     expect(args).toContain("node");
     expect(args.some(value => value.includes("fs.cpSync"))).toBe(true);
+    const runner = args[args.indexOf("-e") + 1] ?? "";
+    expect(runner).toContain("const filter=src=>");
+    expect(runner).toContain("blocked.test(name)");
+    expect(runner).toContain("excluded.has(name.toLowerCase())");
+    expect(runner).toContain(".pem|.key|.p12|.pfx|.keystore");
     expect(args).toContain("test");
   });
 
