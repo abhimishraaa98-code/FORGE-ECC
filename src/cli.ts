@@ -6,7 +6,7 @@ import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
 import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
-import { saveRun, listRuns, loadRun } from "./core/run-store.js";
+import { saveRun, listRuns, loadRun, decideTaskApproval } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { ClaudeCodeProvider } from "./ai/claude-code-provider.js";
@@ -34,6 +34,7 @@ import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skil
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
+import { createReplayRun } from "./core/run-replay.js";
 
 const VERSION = "0.34.0";
 
@@ -68,6 +69,9 @@ Commands:
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
   runs [path]      List locally saved run history\n  trace RUNID      Show per-agent execution telemetry
+  replay RUNID     Create a new run from retryable failed tasks
+  resume RUNID     Continue pending or approved tasks in a saved run
+  approve RUNID TASK_ID  Approve a task awaiting human review
   show-run ID      Display one saved run (use --path for project directory)
   dashboard [path] Start the local read-only web dashboard
   version          Print the installed version
@@ -204,6 +208,60 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE could not create a plan: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "replay": {
+      const runId = rest[0] ?? "";
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        if (!runId) throw new Error("Usage: forge replay RUN_ID [--path PROJECT]");
+        const source = await loadRun(target, runId);
+        const replay = createReplayRun(source);
+        const saved = await saveRun(target, replay);
+        process.stdout.write("Created replay " + replay.id + " from " + runId + ".\n");
+        process.stdout.write("Saved: " + path.relative(target, saved) + "\n");
+        process.stdout.write("Run `forge resume " + replay.id + " --path " + target + "` when ready to call the configured provider.\n");
+      } catch (error) { process.stderr.write("Could not create replay: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "approve": {
+      const runId = rest[0] ?? "";
+      const taskId = rest[1] ?? "";
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const reviewerIndex = rest.indexOf("--reviewer");
+      const reasonIndex = rest.indexOf("--reason");
+      try {
+        if (!runId || !taskId) throw new Error("Usage: forge approve RUN_ID TASK_ID [--reviewer NAME] [--reason TEXT] [--path PROJECT]");
+        const updated = await decideTaskApproval(target, runId, taskId, "approved", reviewerIndex >= 0 ? rest[reviewerIndex + 1] ?? "local-user" : "local-user", reasonIndex >= 0 ? rest.slice(reasonIndex + 1, pathIndex >= 0 ? pathIndex : rest.length).join(" ") : undefined);
+        process.stdout.write("Approved " + taskId + " in " + runId + ". Resume explicitly with `forge resume " + runId + "`.\n");
+        process.stdout.write("Run status: " + updated.status + "\n");
+      } catch (error) { process.stderr.write("Could not approve task: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "resume": {
+      const runId = rest[0] ?? "";
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        if (!runId) throw new Error("Usage: forge resume RUN_ID [--path PROJECT]");
+        const savedRun = await loadRun(target, runId);
+        const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
+        const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
+        const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
+        const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+        const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+        if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code or FORGE_API_KEY before resuming.");
+        const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+        const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), createProvider });
+        const memory = await buildProjectMemoryContext(target, savedRun.goal);
+        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text });
+        const saved = await saveRun(target, completed);
+        const tracePath = await saveExecutionTrace(target, completed.id, router.traces);
+        process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
+        process.stdout.write("Saved: " + path.relative(target, saved) + "\nTrace: " + path.relative(target, tracePath) + "\n");
+      } catch (error) { process.stderr.write("Could not resume run: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
     case "trace": {
