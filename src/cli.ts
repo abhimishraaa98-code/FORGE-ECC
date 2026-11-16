@@ -165,7 +165,7 @@ async function main(args: string[]): Promise<void> {
       const runId = rest.find(arg => !arg.startsWith("--"));
       const pathIndex = rest.indexOf("--path"), suiteIndex = rest.indexOf("--suite");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
-      const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : runId;
+      const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
       try {
         if (!runId) {
           const documents = await listBenchmarks(target);
