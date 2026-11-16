@@ -131,11 +131,23 @@ export function createRun(goal: string, tasks: readonly AgentTask[]): RunRecord 
  * Advances all currently runnable tasks in plan order.
  * Approval is an explicit, per-task input; no task can execute tools.
  */
+export interface AdvanceRunOptions {
+  /** Maximum number of independent agents to call at the same time. */
+  maxConcurrency?: number;
+}
+
+/**
+ * Runs dependency-ready tasks in bounded parallel batches.
+ * Results are committed to the in-memory run only after each batch settles,
+ * preventing concurrent agents from observing partially updated sibling results.
+ */
 export async function advanceRun(
   run: RunRecord,
   provider: AgentProvider,
   approvedTaskIds: ReadonlySet<string> = new Set(),
+  options: AdvanceRunOptions = {},
 ): Promise<RunRecord> {
+  const maxConcurrency = Math.max(1, Math.min(16, Math.floor(options.maxConcurrency ?? 4)));
   const next: RunRecord = {
     ...run,
     tasks: run.tasks.map(record => ({ ...record })),
@@ -143,48 +155,83 @@ export async function advanceRun(
     updatedAt: timestamp(),
   };
   const records = new Map(next.tasks.map(record => [record.task.id, record]));
+  const previous = new Map(run.tasks.map(record => [record.task.id, record]));
+  const appendEvent = (taskId: string, type: RunRecord["events"][number]["type"], message: string) => {
+    next.events.push({ at: timestamp(), taskId, type, message });
+  };
 
-  for (const record of next.tasks) {
-    if (record.status === "completed" || record.status === "failed" || record.status === "blocked") continue;
+  // Keep processing newly unblocked dependency layers until no task can start.
+  while (true) {
+    let changed = false;
 
-    const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
-    if (dependencies.some(dependency => dependency.status === "failed" || dependency.status === "blocked")) {
-      record.status = "blocked";
-      next.events.push({ at: timestamp(), taskId: record.task.id, type: "blocked", message: "A required dependency did not complete." });
-      continue;
-    }
-    if (dependencies.some(dependency => dependency.status !== "completed")) {
-      record.status = "pending";
-      continue;
-    }
-    if (record.task.requiresApproval && record.approval?.decision !== "approved" && !approvedTaskIds.has(record.task.id)) {
-      record.status = "awaiting_approval";
-      if (!run.tasks.find(previous => previous.task.id === record.task.id)?.status || run.tasks.find(previous => previous.task.id === record.task.id)?.status !== "awaiting_approval") {
-        next.events.push({ at: timestamp(), taskId: record.task.id, type: "approval_required", message: "Explicit approval is required before this task can be sent to the provider." });
+    for (const record of next.tasks) {
+      if (record.status === "completed" || record.status === "failed" || record.status === "blocked") continue;
+      const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
+      if (dependencies.some(dependency => dependency.status === "failed" || dependency.status === "blocked")) {
+        record.status = "blocked";
+        appendEvent(record.task.id, "blocked", "A required dependency did not complete.");
+        changed = true;
       }
+    }
+
+    const ready = next.tasks.filter(record => {
+      if (record.status === "completed" || record.status === "failed" || record.status === "blocked") return false;
+      const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
+      return dependencies.every(dependency => dependency.status === "completed");
+    });
+
+    const approved: TaskRecord[] = [];
+    for (const record of ready) {
+      if (record.task.requiresApproval && record.approval?.decision !== "approved" && !approvedTaskIds.has(record.task.id)) {
+        record.status = "awaiting_approval";
+        if (previous.get(record.task.id)?.status !== "awaiting_approval") {
+          appendEvent(record.task.id, "approval_required", "Explicit approval is required before this task can be sent to the provider.");
+        }
+      } else {
+        approved.push(record);
+      }
+    }
+
+    if (approved.length === 0) {
+      if (!changed) break;
       continue;
     }
 
-    record.status = "running";
-    next.events.push({ at: timestamp(), taskId: record.task.id, type: "started", message: `Sent to provider "${provider.name}".` });
-    try {
-      const completedDependencies = dependencies.map(dependency => ({
-        id: dependency.task.id,
-        result: dependency.result?.content ?? "",
-      }));
-      record.result = await provider.complete({ task: record.task, completedDependencies });
-      record.status = "completed";
-      next.events.push({ at: timestamp(), taskId: record.task.id, type: "completed", message: "Provider returned a proposal." });
-    } catch (error) {
-      record.status = "failed";
-      record.error = error instanceof Error ? error.message : String(error);
-      next.events.push({ at: timestamp(), taskId: record.task.id, type: "failed", message: record.error });
+    const batch = approved.slice(0, maxConcurrency);
+    const batchResults = await Promise.all(batch.map(async record => {
+      record.status = "running";
+      appendEvent(record.task.id, "started", `Sent to provider "${provider.name}".`);
+      const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
+      try {
+        const result = await provider.complete({
+          task: record.task,
+          completedDependencies: dependencies.map(dependency => ({
+            id: dependency.task.id,
+            result: dependency.result?.content ?? "",
+          })),
+        });
+        return { record, result } as const;
+      } catch (error) {
+        return { record, error: error instanceof Error ? error.message : String(error) } as const;
+      }
+    }));
+
+    for (const outcome of batchResults) {
+      if ("result" in outcome) {
+        outcome.record.result = outcome.result;
+        outcome.record.status = "completed";
+        appendEvent(outcome.record.task.id, "completed", "Provider returned a proposal.");
+      } else {
+        outcome.record.status = "failed";
+        outcome.record.error = outcome.error;
+        appendEvent(outcome.record.task.id, "failed", outcome.error);
+      }
     }
   }
 
   const statuses = next.tasks.map(record => record.status);
   if (statuses.every(status => status === "completed")) next.status = "completed";
-  else if (statuses.some(status => status === "failed")) next.status = "failed";
+  else if (statuses.some(status => status === "failed" || status === "blocked")) next.status = "failed";
   else if (statuses.some(status => status === "awaiting_approval")) next.status = "awaiting_approval";
   else if (statuses.some(status => status === "running")) next.status = "running";
   else next.status = "pending";
