@@ -1,3 +1,4 @@
+import { readProviderJson } from "./provider-response.js";
 import type { AgentProvider, AgentRequest, AgentResponse } from "./orchestrator.js";
 import { OpenAICompatibleProvider } from "./openai-compatible-provider.js";
 import type { ForgePermissionPolicy } from "./permission-policy.js";
@@ -102,7 +103,7 @@ export class HostedAgentProvider implements AgentProvider {
     }
     const response = await fetch(url, { method: "POST", headers, signal: AbortSignal.timeout(timeoutMs), redirect: "error", body: JSON.stringify(body) });
     if (!response.ok) throw new Error(provider + " provider request failed with HTTP " + response.status + ".");
-    const text = parseText(await response.json(), provider);
+    const text = parseText(await readProviderJson(response), provider);
     return { provider, model: this.options.model, content: text };
   }
 }
