@@ -31,7 +31,7 @@ export function buildContainerRunArgs(
     "--security-opt=no-new-privileges", "--pids-limit=128",
     "--memory=1g", "--cpus=2",
     "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
-    "--user", "0:0",
+    "--user", typeof process.getuid === "function" && typeof process.getgid === "function" ? process.getuid() + ":" + process.getgid() : "1000:1000",
     "--mount", "type=bind,source=" + workspace + ",target=/workspace,rw",
     "--workdir", "/workspace",
     "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1",
@@ -39,7 +39,7 @@ export function buildContainerRunArgs(
   ];
 }
 
-async function projectRoot(inputPath: string): Promise<string> {
+async function projectRoot(inputPath: string, script: string): Promise<string> {
   const root = await realpath(path.resolve(inputPath));
   const info = await lstat(root);
   if (!info.isDirectory()) throw new Error("Sandbox target must be a real directory.");
@@ -50,20 +50,19 @@ async function projectRoot(inputPath: string): Promise<string> {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("package.json must contain a JSON object.");
   const scripts = (parsed as { scripts?: unknown }).scripts;
   if (!scripts || typeof scripts !== "object" || Array.isArray(scripts) ||
-      typeof (scripts as Record<string, unknown>)[scriptName] !== "string") {
+      typeof (scripts as Record<string, unknown>)[script] !== "string") {
     throw new Error("Selected script is not defined in package.json.");
   }
   return root;
 }
 
-let scriptName = "";
 
 function runProcess(
   command: string,
   args: string[],
   cwd: string,
   timeoutMs: number,
-  onTimeout?: () => void,
+  onTimeout?: () => Promise<void>,
 ): Promise<{ code: number | null; signal: NodeJS.Signals | null; output: string; truncated: boolean; error?: string; timedOut: boolean }> {
   return new Promise(resolve => {
     const chunks: string[] = [];
@@ -104,10 +103,10 @@ function runProcess(
     };
     const timer = setTimeout(() => {
       timedOut = true;
-      onTimeout?.();
+      void (async () => { try { await onTimeout?.(); } catch { /* best-effort container stop */ }
       if (!windows && child.pid) {
         try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
-      } else child.kill("SIGTERM");
+      } else child.kill("SIGTERM"); })();
     }, timeoutMs);
     child.once("error", error => finish({ code: null, signal: null, error: error.message }));
     child.once("close", (code, signal) => finish({ code, signal }));
@@ -126,8 +125,7 @@ export async function runContainerVerification(
   image: string,
   options: ContainerVerificationOptions = {},
 ): Promise<VerificationResult> {
-  scriptName = script;
-  const root = await projectRoot(inputPath);
+  const root = await projectRoot(inputPath, script);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > MAX_TIMEOUT) {
     throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
