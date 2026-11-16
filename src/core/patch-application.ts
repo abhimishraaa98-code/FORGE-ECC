@@ -69,7 +69,7 @@ async function walkSnapshot(
   return { files, bytes, sha256: hash.digest("hex") };
 }
 
-export async function fingerprintStagedWorkspace(workspace: string): Promise<{ files: number; bytes: number; sha256: string }> {
+export async function copyStagedWorkspaceSnapshot(source: string, destination: string): Promise<{ files: number; bytes: number; sha256: string }> {\n  const resolved = await realpath(source);\n  return walkSnapshot(resolved, destination);\n}\n\nexport async function fingerprintStagedWorkspace(workspace: string): Promise<{ files: number; bytes: number; sha256: string }> {
   const resolved = await realpath(workspace);
   const info = await lstat(resolved);
   if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Staged workspace must be a regular directory.");
