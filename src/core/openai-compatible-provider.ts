@@ -90,6 +90,7 @@ export class OpenAICompatibleProvider implements AgentProvider {
       };
       const response = await fetch(this.endpoint, {
         method: "POST",
+        redirect: "error",
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${this.options.apiKey}`,
