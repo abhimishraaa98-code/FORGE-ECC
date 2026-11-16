@@ -99,7 +99,7 @@ describe("task-aware model routing", () => {
 
   it("enforces a cumulative estimated token budget per agent", async () => {
     let calls = 0;
-    const router = new ModelRouter({ ...models, maxEstimatedTokensPerAgent: { planner: 8 }, createProvider: model => ({ name: model, async complete() { calls += 1; return { provider: model, content: "tiny" }; } }) });
+    const router = new ModelRouter({ ...models, maxEstimatedTokensPerAgent: { planner: 4 }, createProvider: model => ({ name: model, async complete() { calls += 1; return { provider: model, content: "tiny" }; } }) });
     const request = { task: { id: "first", agent: "planner", title: "First", prompt: "Short" }, completedDependencies: [] };
     await router.complete(request);
     await expect(router.complete({ ...request, task: { ...request.task, id: "second" } })).rejects.toThrow(/agent planner estimate would exceed/);
