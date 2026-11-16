@@ -140,7 +140,7 @@ describe("isolated approved patch staging", () => {
       preparedAt: new Date().toISOString(),
     }));
     await rollbackStagedPatch(root, staged.id, "recovery-reviewer");
-    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\\n");
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
     await expect(readFile(path.join(stageRoot, "promotion-journal.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
   it("refuses rollback if the promoted file has changed since promotion", async () => {
