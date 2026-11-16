@@ -1029,11 +1029,11 @@ async function main(args: string[]): Promise<void> {
           "- **Snapshot files:** `" + result.snapshotFileCount + "`\n" +
           "- **Snapshot bytes:** `" + result.snapshotBytes + "`\n" +
           (result.dependencyInstall ? "- **Dependencies:** **" + result.dependencyInstall.status.toUpperCase() + "** (`" + result.dependencyInstall.command + "`)\n" : "") +
-          (sandboxImage ? "- **Execution:** **CONTAINER** (`" + sandboxImage + "`)\\n" : "- **Execution:** **LOCAL HOST**\\n") +
+          (sandboxImage ? "- **Execution:** **CONTAINER** (\`" + sandboxImage + "\`)\n" : "- **Execution:** **LOCAL HOST**\n") +
           "- **Verification:** **" + result.verification.status.toUpperCase() + "**\n" +
           "- **Duration:** `" + result.verification.durationMs + " ms`\n\n" +
           "## Output\n\n```\n" + (result.verification.output || "(No output captured.)") + "\n```\n\n" +
-          "Temporary workspace was removed after verification. The container runtime and host kernel remain trusted.\n",
+          "Temporary workspace was removed after verification. " + (sandboxImage ? "The container runtime and host kernel remain trusted." : "Project scripts ran on the local host; this is not an OS-level sandbox.") + "\n",
         );
         if (result.verification.status !== "passed") process.exitCode = 1;
       } catch (error) {
