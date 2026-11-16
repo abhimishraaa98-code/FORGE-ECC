@@ -208,7 +208,7 @@ async function main(args: string[]): Promise<void> {
           for (const item of report.judgedCases) process.stdout.write("  " + item.caseId + " · " + item.result.score + "/100 · " + item.result.rationale + "\n");
         }
         process.stdout.write("Saved: " + reportPath + "\n");
-        if (!report.passed) process.exitCode = 2;
+        if (!report.passed || ("judge" in report && !report.judge.passed)) process.exitCode = 2;
       } catch (error) { process.stderr.write("FORGE evaluation failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
