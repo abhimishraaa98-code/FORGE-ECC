@@ -136,7 +136,7 @@ export interface AdvanceRunOptions {
   /** Maximum number of independent agents to call at the same time. */
   maxConcurrency?: number;
   projectContext?: string;
-  projectContextForTask?: (task: AgentTask) => string;
+  projectContextForTask?: (task: AgentTask) => string | Promise<string>;
   onUpdate?: (run: RunRecord) => void | Promise<void>;
   shouldCancel?: () => boolean | Promise<boolean>;
 }
@@ -215,6 +215,8 @@ export async function advanceRun(
     const batchResults = await Promise.all(batch.map(async record => {
       const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
       try {
+        const taskSpecificContext = await options.projectContextForTask?.(record.task);
+        const projectContext = [options.projectContext, taskSpecificContext].filter(Boolean).join("\n\n");
         const result = await provider.complete({
           task: record.task,
           completedDependencies: dependencies.map(dependency => ({
@@ -223,7 +225,7 @@ export async function advanceRun(
             taskTitle: dependency.task.title,
             result: dependency.result?.content ?? "",
           })),
-          ...([options.projectContext, options.projectContextForTask?.(record.task)].filter(Boolean).length ? { projectContext: [options.projectContext, options.projectContextForTask?.(record.task)].filter(Boolean).join("\n\n") } : {}),
+          ...(projectContext ? { projectContext } : {}),
         });
         return { record, result } as const;
       } catch (error) {
