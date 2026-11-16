@@ -106,7 +106,7 @@ forge patch-approve REVIEW_ID 1 --reviewer "Reviewer name" --reason "Reviewed ch
 forge patch-approval-check PATCH_APPROVAL_ID --path .
 ```
 
-Approval records are stored under `.forge/patch-approvals/` with restrictive file permissions. They include SHA-256 digests for the proposed patch and source file, reviewer identity, timestamp and expiry (24 hours by default). Expiry can be configured through the library API, between one minute and seven days. Verification fails if the patch or source file changes, the approval expires, or the patch no longer validates. Approval does not apply a patch or grant permission to modify files; isolated application and rollback are separate future capabilities.
+Approval records are stored under `.forge/patch-approvals/` with restrictive file permissions. They include SHA-256 digests for the proposed patch and source file, reviewer identity, timestamp and expiry (24 hours by default). Expiry can be configured through the library API, between one minute and seven days. Verification fails if the patch or source file changes, the approval expires, or the patch no longer validates. Approval does not itself apply a patch or grant permission to modify files. The library API supports separate staged promotion and rollback operations after review; these operations are not exposed as CLI commands. Promotion is explicit, hash-bound, serialized with a per-stage lock, and keeps a backup plus a recovery journal. Rollback refuses to overwrite a target that no longer matches the promoted content. Treat these as local filesystem operations, not as a substitute for version control or a fully durable transaction: process-level atomic renames do not guarantee survival of sudden power loss.
 
 
 ### Isolated patch staging
@@ -127,7 +127,7 @@ After staging, inspect the exact change and verify that neither the original fil
 forge patch-review PATCH_STAGE_ID --path .
 ```
 
-The command prints a bounded unified-style diff and rechecks both SHA-256 fingerprints. It is read-only; it does not promote the staged file or execute tests.
+The command prints a bounded unified-style diff and rechecks both SHA-256 fingerprints. It is read-only and does not promote the staged file or execute tests. After reviewing the diff, trusted integrations can use the library's explicit promotion API; promotion is intentionally not available as a CLI shortcut.
 
 
 ### Staged patch verification
