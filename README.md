@@ -166,3 +166,8 @@ This is an opt-in container isolation layer, not a claim of VM-grade isolation. 
 ### Verification runner safety
 
 `forge verify SCRIPT --path PROJECT` executes only the explicitly selected npm script, with npm lifecycle hooks disabled and bounded output/time. The runner passes a minimal environment rather than inheriting arbitrary process variables, so provider/API credentials and custom environment variables are not forwarded. On POSIX systems, timeout handling targets the spawned process group. This is still execution of project-controlled script code on the local host—not a sandbox. Only run scripts from projects you trust; OS-level isolation and staged-workspace verification remain separate work.
+
+
+### Sandbox runtime status
+
+Run `forge sandbox-status` to inspect whether Docker is reachable, report its version, and display daemon security options including whether rootless mode is advertised. This is a diagnostic capability report, not a security certification. Use `forge patch-verify ... --require-rootless` to enforce rootless mode for container verification.
