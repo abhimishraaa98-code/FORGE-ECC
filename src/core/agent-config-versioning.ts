@@ -103,7 +103,10 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
     files.push({ path: "hooks.json", sha256: digest(content), content });
     if (files.length > MAX_FILES) throw new Error("Agent configuration snapshot exceeds 100 files.");
   } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      const content = "[]\\n";
+      files.push({ path: "hooks.json", sha256: digest(content), content });
+    } else throw error;
   }
   files.sort((a,b) => a.path.localeCompare(b.path));
   if (!files.length) throw new Error("No workspace agent or skill Markdown files found under .forge/agents or .forge/skills.");
