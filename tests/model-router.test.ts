@@ -210,6 +210,26 @@ describe("task-aware model routing", () => {
     expect(primaryCalls).toBe(1); expect(fallbackCalls).toBe(0); expect(router.traces[0]?.outcome).toBe("failed");
   });
 
+  it("includes retry backoff inside the overall task duration budget", async () => {
+    let calls = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxTaskDurationMs: 20,
+      retryAttempts: 2,
+      retryDelayMs: 30,
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          calls += 1;
+          throw new Error("AI provider request failed with HTTP 429.");
+        },
+      }),
+    });
+    await expect(router.complete({ task: { id: "deadline", agent: "planner", title: "Deadline", prompt: "Try" }, completedDependencies: [] })).rejects.toThrow(/duration exceeded 20 ms/);
+    expect(calls).toBe(1);
+    expect(router.traces[0]?.outcome).toBe("failed");
+  });
+
   it("applies a stricter per-agent duration ceiling", async () => {
     const router = new ModelRouter({ ...models, maxTaskDurationMs: 100, maxTaskDurationMsByAgent: { planner: 5 }, createProvider: model => ({ name: model, async complete() { await new Promise(resolve => setTimeout(resolve, 25)); return { provider: model, content: "late" }; } }) });
     await expect(router.complete({ task: { id: "slow", agent: "planner", title: "Slow", prompt: "Wait" }, completedDependencies: [] })).rejects.toThrow(/duration exceeded 5 ms/);
