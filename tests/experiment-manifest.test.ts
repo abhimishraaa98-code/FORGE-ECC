@@ -16,7 +16,9 @@ describe("experiment manifests", () => {
     await writeFile(matrix, JSON.stringify({ id: "matrix-a", candidates: [] }));
     const manifest = await captureExperimentManifest({ projectPath: root, matrixFile: matrix, matrixId: "matrix-a", suiteId: "suite-a", suite: { cases: ["one"] }, provider: "matrix", model: "candidate-specific" });
     expect(manifest.fingerprint).toMatch(/^[a-f0-9]{64}$/);
-    expect(manifest.inputs.matrixSha256).toMatch(/^[a-f0-9]{64}$/);\n    expect(manifest.environment).toBeDefined();\n    expect(JSON.stringify(manifest)).not.toMatch(/OPENAI_API_KEY|FORGE_API_KEY|secret-value/);
+    expect(manifest.inputs.matrixSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(manifest.environment).toBeDefined();
+    expect(JSON.stringify(manifest)).not.toMatch(/OPENAI_API_KEY|FORGE_API_KEY|secret-value/);
     const saved = await saveExperimentManifest(root, manifest);
     expect((await loadExperimentManifest(root, manifest.id)).fingerprint).toBe(manifest.fingerprint);
     expect(JSON.parse(await readFile(saved, "utf8")).id).toBe(manifest.id);
@@ -38,6 +40,7 @@ describe("experiment manifests", () => {
     const base = {
       version: 1 as const, id: "exp-aaaaaaaaaaaa", createdAt: "2026-01-01T00:00:00.000Z", fingerprint: "a".repeat(64),
       source: { commit: "abc", dirty: false }, runtime: { node: "v22", platform: "linux", architecture: "x64" },
+      environment: { variables: [], lockfiles: [] },
       inputs: { matrixId: "m", matrixSha256: "a".repeat(64), suiteId: "s", suiteSha256: "b".repeat(64), packageLockSha256: "c".repeat(64) },
       provider: { provider: "openai", model: "model-a", baseUrlHost: "api.openai.com" },
       configuration: { agentConfigFingerprints: [{ candidateId: "a", configVersionId: "cfg-aaaaaaaaaaaa", fingerprint: "d".repeat(64) }] }
