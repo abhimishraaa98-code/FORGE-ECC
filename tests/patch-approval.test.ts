@@ -87,7 +87,6 @@ describe("patch approval records", () => {
   });
   it("rejects symlinked approval storage", async () => {
     const review = await fixture();
-    await mkdir(path.join(root, ".forge"));
     const outside = path.join(root, "outside-approvals");
     await mkdir(outside);
     await symlink(outside, path.join(root, ".forge", "patch-approvals"), "dir");
