@@ -38,6 +38,8 @@ import { createReplayRun } from "./core/run-replay.js";
 import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, loadEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
 import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkTrial } from "./core/benchmark-engine.js";
 import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, listBenchmarkMatrices, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
+import { fingerprintAgentConfig } from "./core/benchmark-matrix.js";
+import { loadAgentConfigVersion } from "./core/agent-config-versioning.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions, loadAgentConfigVersion } from "./core/agent-config-versioning.js";
@@ -273,6 +275,12 @@ async function main(args: string[]): Promise<void> {
       if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\n"); process.exitCode = 1; return; }
       try {
         const config = await loadBenchmarkMatrix(path.resolve(configFile));
+        const configVersions = new Map<string, { id: string; fingerprint: string }>();
+        for (const candidate of config.candidates) {
+          if (!candidate.configVersionId) continue;
+          const snapshot = await loadAgentConfigVersion(target, candidate.configVersionId);
+          configVersions.set(candidate.id, { id: snapshot.id, fingerprint: fingerprintAgentConfig(snapshot.files) });
+        }
         const suites = await loadEvaluationSuites(target);
         const suite = suites.find(item => item.id === suiteId);
         if (!suite) throw new Error("Evaluation suite not found: " + suiteId);
@@ -325,6 +333,7 @@ async function main(args: string[]): Promise<void> {
         });
         report.suiteId = suite.id;
         report.goal = goal;
+        if (configVersions.size) report.candidateProvenance = [...configVersions.entries()].map(([candidateId, item]) => ({ candidateId, configVersionId: item.id, fingerprint: item.fingerprint }));
         const saved = await saveBenchmarkMatrix(target, report);
         process.stdout.write(formatBenchmarkMatrix(report) + "\nSaved: " + path.relative(target, saved) + "\n");
         if (report.results.some(item => item.status === "failed") || report.results.some(item => !item.passed)) process.exitCode = 2;
