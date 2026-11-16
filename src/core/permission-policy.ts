@@ -33,7 +33,11 @@ export function validatePermissionPolicy(value: unknown): ForgePermissionPolicy 
   return { version: 1, mode: item.mode, allowedTools: [...new Set(item.allowedTools as string[])] };
 }
 
-function isMissing(error: unknown): boolean {\n  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");\n}\n\n/** Loads declarative policy. Missing files resolve to the safe proposal-only default. */
+function isMissing(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+}
+
+/** Loads declarative policy. Missing files resolve to the safe proposal-only default. */
 export async function loadPermissionPolicy(projectPath: string): Promise<ForgePermissionPolicy> {
   const root = await realpath(path.resolve(projectPath));
   const directory = path.join(root, ".forge");
