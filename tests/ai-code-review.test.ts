@@ -40,6 +40,10 @@ describe("AI code review",()=>{
   expect(result.suggestions).toHaveLength(1);
   expect(result.suggestions[0]?.title).toBe("Duplicate");
  });
+ it("rejects oversized provider responses before parsing",async()=>{
+  const provider:AgentProvider={name:"oversized",complete:vi.fn(async()=>({provider:"oversized",content:" ".repeat(128_001)}))};
+  await expect(generateAIReview(base,provider)).rejects.toThrow("exceeded the 128 KB review limit");
+ });
  it("rejects malformed provider output",async()=>{
   const provider:AgentProvider={name:"bad",complete:vi.fn(async()=>({provider:"bad",content:"not json"}))};
   await expect(generateAIReview(base,provider)).rejects.toThrow("not valid JSON");
