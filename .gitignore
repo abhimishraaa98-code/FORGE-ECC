@@ -16,3 +16,7 @@ coverage/
 
 # Local FORGE execution telemetry
 .forge/traces/
+
+# Local FORGE benchmark and evaluation reports
+.forge/benchmarks/
+.forge/evaluations/
