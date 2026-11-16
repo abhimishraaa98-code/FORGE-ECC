@@ -73,7 +73,13 @@ export async function loadPatchApproval(root: string, id: string): Promise<Patch
   if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== id ||
       !("reviewId" in parsed) || typeof parsed.reviewId !== "string" ||
       !("patchSha256" in parsed) || typeof parsed.patchSha256 !== "string" ||
-      !("sourceSha256" in parsed) || typeof parsed.sourceSha256 !== "string") {
+      !("sourceSha256" in parsed) || typeof parsed.sourceSha256 !== "string" ||
+      !("file" in parsed) || typeof parsed.file !== "string" || !parsed.file.trim() ||
+      !("suggestionNumber" in parsed) || !Number.isSafeInteger(parsed.suggestionNumber) || parsed.suggestionNumber < 1 ||
+      !("reviewer" in parsed) || typeof parsed.reviewer !== "string" || !parsed.reviewer.trim() ||
+      !("approvedAt" in parsed) || typeof parsed.approvedAt !== "string" || !Number.isFinite(Date.parse(parsed.approvedAt)) ||
+      !("expiresAt" in parsed) || typeof parsed.expiresAt !== "string" || !Number.isFinite(Date.parse(parsed.expiresAt)) ||
+      !/^[a-f0-9]{64}$/.test(parsed.patchSha256) || !/^[a-f0-9]{64}$/.test(parsed.sourceSha256)) {
     throw new Error("Stored patch approval has an invalid format.");
   }
   return parsed as PatchApprovalRecord;
@@ -84,7 +90,7 @@ export async function verifyPatchApproval(root: string, id: string): Promise<{ v
   if (Date.now() >= Date.parse(approval.expiresAt)) return { valid: false, reason: "Approval has expired; request a new review." };
   const review = await loadReview(root, approval.reviewId);
   const suggestion = review.ai?.suggestions[approval.suggestionNumber - 1];
-  if (!suggestion?.patch || digest(suggestion.patch) !== approval.patchSha256) return { valid: false, reason: "The saved patch differs from the approved patch." };
+  if (!suggestion?.patch || suggestion.file !== approval.file || digest(suggestion.patch) !== approval.patchSha256) return { valid: false, reason: "The saved patch or target file differs from the approved patch." };
   const validation = await validateReviewPatch(root, review, approval.suggestionNumber);
   if (validation.status !== "applicable") return { valid: false, reason: "Patch is no longer applicable: " + validation.reason };
   const source = await readFile(path.resolve(root, approval.file), "utf8");
