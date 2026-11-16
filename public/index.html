@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#090912">
+<meta name="theme-color" content="#100d1d"><link rel="icon" type="image/svg+xml" href="/forge-mark.svg"><meta property="og:title" content="FORGE — The AI Engineering Workbench"><meta property="og:description" content="Understand codebases. Map architecture. Review changes. Verify outcomes."><meta property="og:image" content="/forge-workbench.svg">
 <meta name="description" content="FORGE — an AI engineering workbench for codebase intelligence, architecture mapping, change-risk analysis, review, verification and local engineering workflows.">
 <title>FORGE — Understand. Engineer. Verify.</title>
 <style>
@@ -80,7 +80,82 @@ body:before,body:after{display:none}
 @media(max-width:620px){.stage-grid{grid-template-columns:1fr 1fr}.product-gallery{grid-template-columns:1fr 1fr}.product-tile{padding:15px;min-height:190px}.arch-node{font-size:8px;padding:8px 6px}.product-stage{padding:15px}}
 
 
- .logo{background:transparent!important;border:0!important;box-shadow:none!important;padding:0;overflow:visible}.logo img{width:100%;height:100%;display:block;object-fit:contain;filter:drop-shadow(0 0 13px #a78bfa66)}.hero-product{position:relative;margin-bottom:18px;border-radius:18px;overflow:hidden;border:1px solid #a78bfa66;background:#090914;box-shadow:0 22px 65px #0009}.hero-product img{display:block;width:100%;height:auto}.hero-product span{position:absolute;right:12px;bottom:10px;padding:6px 9px;border:1px solid #ffffff30;border-radius:99px;background:#090914c9;color:#d9cef8;font:9px ui-monospace,monospace;letter-spacing:.1em}.hero{align-items:start}.hero .terminal{margin-top:0}@media(max-width:620px){.hero-product{border-radius:13px}.hero-product span{font-size:7px;right:7px;bottom:7px}}\n</style>
+ .logo{background:transparent!important;border:0!important;box-shadow:none!important;padding:0;overflow:visible}.logo img{width:100%;height:100%;display:block;object-fit:contain;filter:drop-shadow(0 0 13px #a78bfa66)}.hero-product{position:relative;margin-bottom:18px;border-radius:18px;overflow:hidden;border:1px solid #a78bfa66;background:#090914;box-shadow:0 22px 65px #0009}.hero-product img{display:block;width:100%;height:auto}.hero-product span{position:absolute;right:12px;bottom:10px;padding:6px 9px;border:1px solid #ffffff30;border-radius:99px;background:#090914c9;color:#d9cef8;font:9px ui-monospace,monospace;letter-spacing:.1em}.hero{align-items:start}.hero .terminal{margin-top:0}@media(max-width:620px){.hero-product{border-radius:13px}.hero-product span{font-size:7px;right:7px;bottom:7px}}\n
+/* 2026 visual overhaul: editorial layout, distinct color families, clearer product hierarchy */
+:root{--bg:#0b0a14;--ink:#f7f4ff;--muted:#b8b3cb;--line:#ffffff20;--violet:#a78bfa;--cyan:#67e8f9;--coral:#fb7185;--lime:#bef264;--amber:#fbbf24}
+body{background-color:#0b0a14;background-image:radial-gradient(ellipse at 12% 8%,#5630a044,transparent 34%),radial-gradient(ellipse at 88% 28%,#075b7140,transparent 32%),radial-gradient(ellipse at 48% 78%,#79264a22,transparent 38%),linear-gradient(180deg,#0b0a14f2,#0b0a14 75%),url('/forge-background.png');background-size:auto,auto,auto,auto,cover;background-position:center,center,center,center,center top}
+body:before{display:block;background:radial-gradient(circle,#7c3aed 0%,transparent 70%);opacity:.18}
+body:after{display:block;background:radial-gradient(circle,#0891b2 0%,transparent 70%);opacity:.18}
+.topline{background:linear-gradient(90deg,#17102b,#10212b,#281321);color:#ded8f7}
+header{background:#0c0b16d9;border-bottom-color:#ffffff20}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#a78bfa,#67e8f9 55%,#fb7185)!important;padding:4px!important;border:1px solid #ffffff44!important;box-shadow:0 0 28px #8b5cf644!important}
+.logo img{filter:none!important}
+.brand{font-size:15px;letter-spacing:.25em}
+.navlinks{gap:20px}
+.btn{border-radius:11px}
+.btn.primary{color:#0c0b16;background:linear-gradient(105deg,#c4b5fd,#67e8f9 55%,#bef264)}
+.hero{grid-template-columns:.88fr 1.12fr;gap:54px;min-height:unset;padding:82px 0 58px;align-items:center}
+.hero h1{font-size:clamp(48px,5.8vw,76px);max-width:650px}
+.gradient{background:linear-gradient(100deg,#c4b5fd 0%,#67e8f9 42%,#fb7185 76%,#fbbf24 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kicker{border-color:#a78bfa66;background:linear-gradient(100deg,#8b5cf51c,#06b6d41c);color:#e5dcff}
+.kicker i{background:var(--lime);box-shadow:0 0 15px var(--lime)}
+.lead{color:#c9c5d8;font-size:16px}
+.hero-visual{min-width:0;display:grid;gap:14px}
+.hero-product{margin:0;border-radius:20px;border:1px solid #a78bfa66;background:#100d1d;box-shadow:0 28px 90px #0009,0 0 50px #8b5cf51a}
+.hero-product img{width:100%;display:block}
+.hero-product span{background:#100d1de8;border-color:#ffffff35;color:#d8ccff}
+.terminal{border-radius:17px}
+.termbar{background:linear-gradient(90deg,#8b5cf51c,#06b6d414,#fb718510)}
+.term-label,.eyebrow,.feature .num,.phase b{color:#a5f3fc}
+.prompt{color:#bef264}.ok{color:#bef264}.warn{color:#fbbf24}
+.trust{padding-bottom:62px}
+.trustitem{border-radius:13px;background:linear-gradient(140deg,#a78bfa16,#ffffff05);border-color:#a78bfa33}
+.trustitem:nth-child(2){background:linear-gradient(140deg,#22d3ee18,#ffffff05);border-color:#22d3ee33}
+.trustitem:nth-child(3){background:linear-gradient(140deg,#fb718518,#ffffff05);border-color:#fb718533}
+.trustitem:nth-child(4){background:linear-gradient(140deg,#bef26415,#ffffff05);border-color:#bef26433}
+.section{padding:84px 0;border-color:#ffffff15}
+.sectionhead{max-width:760px;margin-bottom:32px}
+.sectionhead p{max-width:680px}
+.featuregrid{gap:16px}
+.feature{min-height:220px;padding:24px;border-radius:16px;background:linear-gradient(145deg,#19152aeb,#10101be8);border-color:#ffffff1c}
+.feature:nth-child(3n+2){background:linear-gradient(145deg,#10232beF,#10101be8)}
+.feature:nth-child(3n){background:linear-gradient(145deg,#281522eb,#10101be8)}
+.feature .glyph{background:linear-gradient(135deg,#8b5cf533,#22d3ee22);border-color:#a78bfa55;color:#d8ccff}
+.feature:nth-child(3n+2) .glyph{background:#22d3ee18;border-color:#22d3ee55;color:#a5f3fc}
+.feature:nth-child(3n) .glyph{background:#fb718518;border-color:#fb718555;color:#fda4af}
+.feature .tag{color:#bef264!important}
+.product-gallery{gap:16px}
+.product-tile{border-radius:17px;background:linear-gradient(145deg,#171329,#10101b);border-color:#ffffff20}
+.product-tile:nth-child(2){background:linear-gradient(145deg,#10232b,#10101b)}
+.product-tile:nth-child(3){background:linear-gradient(145deg,#281522,#10101b)}
+.product-tile:nth-child(4){background:linear-gradient(145deg,#202513,#10101b)}
+.tile-icon{background:linear-gradient(135deg,#8b5cf533,#22d3ee22);border-color:#a78bfa66;color:#e9ddff}
+.product-tile:nth-child(2) .tile-icon{color:#a5f3fc;border-color:#22d3ee66}
+.product-tile:nth-child(3) .tile-icon{color:#fda4af;border-color:#fb718566}
+.product-tile:nth-child(4) .tile-icon{color:#d9f99d;border-color:#bef26466}
+.demo{gap:18px}
+.tab{border-radius:12px;background:#151321}
+.tab.active{background:linear-gradient(100deg,#8b5cf533,#06b6d41c);border-color:#a78bfa88}
+.demo-screen{background:linear-gradient(145deg,#171329,#0d111c);border-color:#ffffff24}
+.mockicon{background:#8b5cf522;color:#c4b5fd}
+.mockrow:nth-child(2) .mockicon{background:#22d3ee1c;color:#67e8f9}
+.mockrow:nth-child(3) .mockicon{background:#fb71851c;color:#fda4af}
+.workflow{gap:14px}
+.phase{border-radius:15px;background:linear-gradient(145deg,#171329,#10101b);border:1px solid #ffffff1c}
+.phase:nth-child(2){background:linear-gradient(145deg,#10232b,#10101b)}
+.phase:nth-child(3){background:linear-gradient(145deg,#281522,#10101b)}
+.phase:nth-child(4){background:linear-gradient(145deg,#202513,#10101b)}
+.phase:before{background:linear-gradient(90deg,#a78bfa,#22d3ee,#fb7185,transparent)}
+.info{background:linear-gradient(145deg,#171329,#10101b);border-color:#ffffff20}
+.info:nth-child(2){background:linear-gradient(145deg,#10232b,#10101b)}
+.chip{background:#ffffff0a;border-color:#ffffff22}
+.cta{background:radial-gradient(ellipse at 80% 0,#8b5cf544,transparent 50%),linear-gradient(110deg,#10232b,#171329 55%,#281522);border-color:#a78bfa55}
+footer{background:#090811;border-color:#ffffff18}
+.hero-actions .btn:not(.primary){border-color:#67e8f966}
+@media(max-width:900px){.hero{grid-template-columns:1fr;gap:34px;padding-top:64px}.hero-visual{max-width:780px}.navlinks{gap:12px}}
+@media(max-width:620px){.hero{padding:52px 0 40px;gap:26px}.hero h1{font-size:48px}.hero-visual{gap:10px}.hero-product{border-radius:14px}.section{padding:65px 0}.trust{padding-bottom:45px}.navlinks a:not(.btn){display:none}}
+
+</style>
 </head>
 <body>
 <div class="topline"><span>●</span> FORGE v0.34 · LOCAL-FIRST ENGINEERING INTELLIGENCE · OPEN SOURCE</div>
@@ -88,11 +163,11 @@ body:before,body:after{display:none}
 <main>
 <section class="wrap hero">
 <div><div class="kicker"><i></i> The AI Engineering Workbench</div><h1>Make every code change <span class="gradient">understandable.</span></h1><p class="lead">FORGE helps you understand unfamiliar codebases, map architecture, inspect change risk, review proposed patches and verify outcomes — with evidence at every step and you in control.</p><div class="hero-actions"><a class="btn primary" href="https://github.com/ansh44233/FORGE-ECC">Explore the open-source project ↗</a><a class="btn" href="#tour">Take the product tour ↓</a></div><div class="micro">TYPESCRIPT TOOLING · LOCAL DASHBOARD · EXPLICIT APPROVAL · INSPECTABLE OUTPUTS</div></div>
-<div class="hero-product"><img src="/forge-workbench.svg" alt="Illustrative FORGE engineering workbench showing repository explorer, architecture map, change intelligence and verification output"><span>WORKBENCH PREVIEW · ILLUSTRATIVE PRODUCT VISUAL</span></div><div class="terminal glass"><div class="termbar"><div class="lights"><i></i><i></i><i></i></div><span>forge — engineering session</span><span>LOCAL DEMO</span></div><div class="termcontent"><div class="term-label">01 / PROJECT INTELLIGENCE</div><div class="command"><span class="prompt">$</span> forge deep ./your-project
+<div class="hero-visual"><div class="hero-product"><img src="/forge-workbench.svg" alt="Illustrative FORGE engineering workbench showing repository explorer, architecture map, change intelligence and verification output"><span>WORKBENCH PREVIEW · ILLUSTRATIVE PRODUCT VISUAL</span></div><div class="terminal glass"><div class="termbar"><div class="lights"><i></i><i></i><i></i></div><span>forge — engineering session</span><span>LOCAL DEMO</span></div><div class="termcontent"><div class="term-label">01 / PROJECT INTELLIGENCE</div><div class="command"><span class="prompt">$</span> forge deep ./your-project
 <span class="ok">✓</span> Source tree inspected
 <span class="ok">✓</span> TypeScript AST parsed
 <span class="ok">✓</span> Import relationships mapped
-<span class="ok">✓</span> Impact candidates collected</div><div class="output"><div class="outrow"><span>Architecture map</span><b class="ok">READY</b></div><div class="outrow"><span>Change-risk signals</span><b class="warn">REVIEW 04</b></div><div class="outrow"><span>Verification history</span><b class="ok">3 SAVED RUNS</b></div><div class="outrow"><span>Dependency assessment</span><b>REPORT-BASED</b></div></div><div class="termfoot"><span>Illustrative terminal walkthrough</span><span>NO LIVE SCAN</span></div></div></div>
+<span class="ok">✓</span> Impact candidates collected</div><div class="output"><div class="outrow"><span>Architecture map</span><b class="ok">READY</b></div><div class="outrow"><span>Change-risk signals</span><b class="warn">REVIEW 04</b></div><div class="outrow"><span>Verification history</span><b class="ok">3 SAVED RUNS</b></div><div class="outrow"><span>Dependency assessment</span><b>REPORT-BASED</b></div></div><div class="termfoot"><span>Illustrative terminal walkthrough</span><span>NO LIVE SCAN</span></div></div></div></div>
 </section>
 <section class="wrap trust reveal"><div class="trustitem glass"><b>Understand</b><span>Project and codebase intelligence</span></div><div class="trustitem glass"><b>Visualize</b><span>Architecture and dependency signals</span></div><div class="trustitem glass"><b>Evaluate</b><span>Risk, reviews and remediation plans</span></div><div class="trustitem glass"><b>Verify</b><span>Checks, history and regression signals</span></div></section>
 <section class="section" id="platform"><div class="wrap"><div class="sectionhead reveal"><div class="eyebrow">The FORGE platform</div><h2>One workbench. <span class="gradient">A complete engineering picture.</span></h2><p>Explore the capabilities currently documented in the FORGE repository. Each tool is designed to surface useful evidence, explain its limits and leave consequential decisions with the developer.</p></div><div class="featuregrid">
