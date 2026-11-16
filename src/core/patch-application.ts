@@ -399,9 +399,11 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
     const temp = path.join(path.dirname(target), ".forge-rollback-" + randomUUID() + ".tmp");
     await writeFile(temp, original, { flag: "wx", mode: 0o600 });
     await rename(temp, target);
-    const updated: PatchStageRecord = { ...manifest, promotedAt: undefined, promotedBy: undefined };
+    const updated: PatchStageRecord = { ...manifest };
     delete updated.promotedAt;
     delete updated.promotedBy;
+    delete updated.backupPath;
+    delete updated.backupSha256;
     const manifestTemp = path.join(stageRoot, ".stage-" + randomUUID() + ".tmp");
     await writeFile(manifestTemp, JSON.stringify(updated, null, 2) + "\n", { flag: "wx", mode: 0o600 });
     await rename(manifestTemp, manifestPath);
