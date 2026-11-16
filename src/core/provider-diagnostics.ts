@@ -64,7 +64,8 @@ export async function diagnoseProvider(
       headers["x-api-key"] = key!;
       headers["anthropic-version"] = "2023-06-01";
     } else if (provider === "google") {
-      url = base + "/v1beta/models?key=" + encodeURIComponent(key!);
+      url = base + "/v1beta/models";
+      headers["x-goog-api-key"] = key!;
     } else {
       url = base + "/api/tags";
     }
