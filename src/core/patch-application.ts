@@ -340,6 +340,11 @@ export async function promoteStagedPatch(
     await writeFile(backup, current, { flag: "wx", mode: 0o600 });
     temporary = path.join(path.dirname(target), ".forge-promote-" + randomUUID() + ".tmp");
     await writeFile(temporary, staged, { flag: "wx", mode: 0o600 });
+    const journalPath = path.join(stageRoot, "promotion-journal.json");
+    const journal = { stageId, file: manifest.file, reviewer: name, state: "prepared" as const, sourceSha256: manifest.sourceSha256, stagedSha256: expectedStagedSha256, backupPath: backupRelative, backupSha256: manifest.sourceSha256, preparedAt: new Date().toISOString() };
+    const journalTemp = path.join(stageRoot, ".promotion-journal-" + randomUUID() + ".tmp");
+    await writeFile(journalTemp, JSON.stringify(journal, null, 2) + "\\n", { flag: "wx", mode: 0o600 });
+    await rename(journalTemp, journalPath);
     const lastCheck = await readFile(target);
     if (sha(lastCheck.toString("utf8")) !== manifest.sourceSha256) throw new Error("Original file changed during promotion; no changes were applied.");
     await rename(temporary, target);
@@ -353,6 +358,7 @@ export async function promoteStagedPatch(
     try {
       await writeFile(manifestTemp, JSON.stringify(updated, null, 2) + "\n", { flag: "wx", mode: 0o600 });
       await rename(manifestTemp, manifestPath);
+      await rm(journalPath, { force: true });
     } catch (error) {
       await rm(manifestTemp, { force: true }).catch(() => undefined);
       const rollbackTemp = path.join(path.dirname(target), ".forge-rollback-" + randomUUID() + ".tmp");
@@ -390,9 +396,18 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
   try {
     const manifestPath = path.join(stageRoot, "stage.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
-    if (!manifest.promotedAt || !manifest.backupPath || !manifest.backupSha256) throw new Error("This stage has no completed promotion to roll back.");
-    const target = path.resolve(project, manifest.file);
-    const backup = path.resolve(project, manifest.backupPath);
+    const journalPath = path.join(stageRoot, "promotion-journal.json");
+    let journal: { stageId: string; file: string; reviewer: string; state: string; sourceSha256: string; stagedSha256: string; backupPath: string; backupSha256: string } | undefined;
+    try { journal = JSON.parse(await readFile(journalPath, "utf8")) as typeof journal; } catch (error) {
+      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+    }
+    const file = manifest.promotedAt ? manifest.file : journal?.file;
+    const backupPath = manifest.backupPath ?? journal?.backupPath;
+    const backupSha256 = manifest.backupSha256 ?? journal?.backupSha256;
+    const expectedPromotedHash = journal?.stagedSha256 ?? manifest.stagedSha256;
+    if (!file || !backupPath || !backupSha256 || (!manifest.promotedAt && !journal)) throw new Error("This stage has no completed promotion or recoverable promotion journal.");
+    const target = path.resolve(project, file);
+    const backup = path.resolve(project, backupPath);
     for (const candidate of [target, backup]) {
       const relative = path.relative(project, candidate);
       if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Rollback path escapes the project.");
@@ -400,8 +415,13 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
       if (info.isSymbolicLink() || !info.isFile()) throw new Error("Rollback only supports regular files.");
     }
     const [current, original] = await Promise.all([readFile(target), readFile(backup)]);
-    if (sha(current.toString("utf8")) !== manifest.stagedSha256) throw new Error("Promoted file has changed since promotion; refusing to overwrite newer work.");
-    if (sha(original.toString("utf8")) !== manifest.backupSha256) throw new Error("Promotion backup failed integrity verification.");
+    const currentHash = sha(current.toString("utf8"));
+    if (currentHash === backupSha256) {
+      if (journal && !manifest.promotedAt) { await rm(journalPath, { force: true }); throw new Error("Promotion had not changed the target; abandoned journal cleared."); }
+      throw new Error("Target already contains the original file; refusing an unnecessary rollback.");
+    }
+    if (currentHash !== expectedPromotedHash) throw new Error("Promoted file has changed since promotion; refusing to overwrite newer work.");
+    if (sha(original.toString("utf8")) !== backupSha256) throw new Error("Promotion backup failed integrity verification.");
     const temp = path.join(path.dirname(target), ".forge-rollback-" + randomUUID() + ".tmp");
     await writeFile(temp, original, { flag: "wx", mode: 0o600 });
     await rename(temp, target);
@@ -413,6 +433,7 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
     const manifestTemp = path.join(stageRoot, ".stage-" + randomUUID() + ".tmp");
     await writeFile(manifestTemp, JSON.stringify(updated, null, 2) + "\n", { flag: "wx", mode: 0o600 });
     await rename(manifestTemp, manifestPath);
+    await rm(journalPath, { force: true });
   } finally {
     await rm(lock, { recursive: true, force: true }).catch(() => undefined);
   }
