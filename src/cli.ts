@@ -1009,12 +1009,18 @@ async function main(args: string[]): Promise<void> {
       const pathIndex = rest.indexOf("--path");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       const installDependencies = rest.includes("--install-dependencies");
-      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1 && arg !== "--install-dependencies");
+      const sandboxImageIndex = rest.indexOf("--sandbox-image");
+      const sandboxImage = sandboxImageIndex >= 0 ? rest[sandboxImageIndex + 1] : undefined;
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1 && arg !== "--install-dependencies" && arg !== "--sandbox-image" && index !== sandboxImageIndex + 1);
       const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
       const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
       try {
-        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--path PROJECT]");
-        const result = await verifyStagedPatch(target, stageId, script, { installDependencies });
+        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--path PROJECT]");
+        if (sandboxImageIndex >= 0 && !sandboxImage) throw new Error("--sandbox-image requires an image pinned by sha256 digest.");
+        const result = await verifyStagedPatch(target, stageId, script, {
+          installDependencies,
+          ...(sandboxImage ? { sandboxImage } : {}),
+        });
         process.stdout.write(
           "# FORGE Staged Patch Verification\n\n" +
           "- **Stage:** `" + result.stageId + "`\n" +
