@@ -84,6 +84,16 @@ describe("patch approval records", () => {
     expect(result.valid).toBe(false);
     expect(result.reason).toMatch(/already been used/);
   });
+  it("allows only one concurrent consumer of an approval", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    const results = await Promise.allSettled([
+      consumePatchApproval(root, approval.id),
+      consumePatchApproval(root, approval.id),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+  });
   it("rejects expired approvals", async () => {
     const review = await fixture();
     const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
