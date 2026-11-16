@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, unlink, writeFile } from "node:f
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { loadHooks } from "../src/core/hook-engine.js";
 import {
   approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions,
   listAgentConfigVersions, loadAgentConfigVersion, materializeAgentConfigVersion
@@ -15,6 +16,7 @@ async function project(): Promise<string> {
   await mkdir(path.join(root, ".forge", "skills"), { recursive: true });
   await writeFile(path.join(root, ".forge", "agents", "planner.md"), "# Planner\nPlan carefully.\n");
   await writeFile(path.join(root, ".forge", "skills", "secure-changes.md"), "# Secure changes\nUse least privilege.\n");
+  await writeFile(path.join(root, ".forge", "hooks.json"), JSON.stringify([{ id: "candidate-policy", event: "before-agent", action: "append-context", message: "Snapshot-specific policy guidance." }]));
   return root;
 }
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -65,7 +67,8 @@ describe("agent configuration versioning", () => {
     expect(await readFile(path.join(isolated, ".forge", "agents", "planner.md"), "utf8")).toContain("Plan carefully");
     expect(await readFile(path.join(isolated, ".forge", "skills", "secure-changes.md"), "utf8")).toContain("least privilege");
     await expect(readFile(path.join(root, ".forge", "agents", "planner.md"), "utf8")).resolves.toContain("Plan carefully");
-    await expect(readFile(path.join(isolated, ".forge", "hooks.json"), "utf8")).rejects.toThrow();
+    await expect(readFile(path.join(isolated, ".forge", "hooks.json"), "utf8")).resolves.toContain("Snapshot-specific policy guidance.");
+    await expect(loadHooks(isolated)).resolves.toMatchObject([{ id: "candidate-policy", message: "Snapshot-specific policy guidance." }]);
   });
   it("requires a workspace configuration to snapshot", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-config-empty-"));
