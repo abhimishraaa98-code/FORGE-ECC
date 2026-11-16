@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRun } from "../src/core/orchestrator.js";
-import { evaluateRun, formatEvaluationReport, loadEvaluationSuites } from "../src/core/evaluation-engine.js";
+import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites } from "../src/core/evaluation-engine.js";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -53,4 +53,39 @@ describe("deterministic agent evaluation", () => {
       expect(suites.map(suite => suite.id)).toEqual(["baseline-suite"]);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
+  it("runs a model judge and accepts only verbatim evidence quotes", async () => {
+    const run = createRun("Judge baseline", [{ id: "review", agent: "code-reviewer", title: "Review", prompt: "Review the change" }]);
+    run.tasks[0]!.status = "completed";
+    run.tasks[0]!.result = { provider: "mock", content: "The change has a security risk. Add input validation as mitigation." };
+    const report = await evaluateRunWithJudge(run, {
+      id: "judge-suite", name: "Judge suite", description: "Test",
+      cases: [{ id: "review-case", description: "Assess security review", agent: "code-reviewer", criteria: [{ id: "security", weight: 1, requiredTerms: ["risk"] }] }]
+    }, {
+      name: "stub-judge",
+      async complete() {
+        return { provider: "stub", model: "judge-test", content: JSON.stringify({
+          score: 92, rationale: "Identifies a risk and a practical mitigation.",
+          strengths: ["Names a concrete risk"], improvements: ["Add test evidence"],
+          evidence: [{ quote: "The change has a security risk.", criterion: "security" }]
+        }) };
+      }
+    });
+    expect(report.judge.averageScore).toBe(92);
+    expect(report.judge.passed).toBe(true);
+    expect(report.judgedCases[0]?.result.evidence[0]?.quote).toBe("The change has a security risk.");
+  });
+
+  it("rejects judge evidence that is not copied from candidate output", async () => {
+    const run = createRun("Judge evidence", [{ id: "review", agent: "code-reviewer", title: "Review", prompt: "Review" }]);
+    run.tasks[0]!.status = "completed";
+    run.tasks[0]!.result = { provider: "mock", content: "No issues found." };
+    await expect(evaluateRunWithJudge(run, {
+      id: "evidence-suite", name: "Evidence suite", description: "Test",
+      cases: [{ id: "review-case", description: "Review", agent: "code-reviewer", criteria: [{ id: "quality", weight: 1, requiredTerms: ["issues"] }] }]
+    }, {
+      name: "bad-judge",
+      async complete() { return { provider: "stub", content: JSON.stringify({ score: 99, rationale: "Looks good", strengths: [], improvements: [], evidence: [{ quote: "There are no vulnerabilities.", criterion: "quality" }] }) }; }
+    })).rejects.toThrow("cited evidence");
+  });
+
 });
