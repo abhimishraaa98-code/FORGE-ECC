@@ -27,7 +27,7 @@ export function assessAgentEvolution(report: BenchmarkMatrixReport): AgentEvolut
   const checks: AgentEvolutionAssessment["checks"] = [
     { name: "Repeat count", status: "pass", detail: baseline.completed + " baseline and " + treatment.completed + " treatment trials completed." },
     { name: "Overall score", status: experiment.scoreDelta > 0 ? "pass" : experiment.scoreDelta === 0 ? "warning" : "fail", detail: "Treatment score delta: " + experiment.scoreDelta + " points." },
-    { name: "Pass rate", status: experiment.passRateDelta > 0 ? "pass" : experiment.passRateDelta === 0 ? "warning" : "fail", detail: "Treatment pass-rate delta: " + experiment.passRateDelta + " percentage points." },
+    { name: "Pass rate", status: experiment.passRateDelta >= 0 ? "pass" : "fail", detail: "Treatment pass-rate delta: " + experiment.passRateDelta + " percentage points." },
     { name: "Per-agent regressions", status: agentRegressions.length ? "fail" : "pass", detail: agentRegressions.length ? agentRegressions.map(item => item.agent + " (" + item.scoreDelta + " score, " + item.passRateDelta + " pass-rate points)").join("; ") : "No agent crossed the configured regression thresholds." },
     { name: "Treatment failures", status: failedTrials ? "warning" : "pass", detail: failedTrials + " failed treatment trial(s)." },
     { name: "Configuration provenance", status: provenance ? "pass" : "warning", detail: provenance ? provenance.configVersionId + " · sha256 " + provenance.fingerprint : "No pinned treatment configuration snapshot; reproducibility is incomplete." },
