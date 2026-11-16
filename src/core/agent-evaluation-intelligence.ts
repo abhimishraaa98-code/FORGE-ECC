@@ -54,7 +54,7 @@ export function buildAgentEvaluationIntelligence(history: BenchmarkMatrixReport[
     const previous = same.length > 1 ? same[same.length - 2]! : undefined;
     const scoreTrend = previous ? Math.round((item.averageScore - previous.averageScore) * 10) / 10 : null;
     const scores = eligible.filter(report => report.suiteId === current.suiteId && report.goal === current.goal)
-      .flatMap(report => report.results.filter(result => result.candidateId === item.candidateId && result.status === "completed")
+      .flatMap(report => report.results.filter(result => result.candidateId === item.candidateId && result.provider === item.provider && result.model === item.model && result.status === "completed")
         .flatMap(result => (result.agentScores ?? []).filter(score => score.agent === item.agent).map(score => ({ ...score, runId: result.runId }))));
     const caseIds = [...new Set(scores.map(score => score.caseId))].sort();
     const caseMetrics = caseIds.map(caseId => {
