@@ -112,6 +112,23 @@ describe("task-aware model routing", () => {
     expect(observed).toEqual(["failed"]);
   });
 
+  it("rejects malformed provider responses and records a failed trace", async () => {
+    const observed: string[] = [];
+    const router = new ModelRouter({
+      ...models,
+      fallbackModel: "backup-model",
+      onTrace(trace) { observed.push(trace.outcome); },
+      createProvider: model => ({
+        name: model,
+        async complete() { return { provider: model, content: "" }; },
+      }),
+    });
+    await expect(router.complete({ task: { id: "malformed", agent: "planner", title: "Malformed", prompt: "Try" }, completedDependencies: [] })).rejects.toThrow("invalid or empty agent proposal");
+    expect(router.traces).toHaveLength(1);
+    expect(router.traces[0]).toMatchObject({ taskId: "malformed", outcome: "failed", outputTokensEstimate: 0 });
+    expect(observed).toEqual(["failed"]);
+  });
+
   it("rejects an oversized task input before calling the provider", async () => {
     let calls = 0;
     const router = new ModelRouter({
