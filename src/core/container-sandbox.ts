@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { VerificationResult } from "./verification.js";
 import { getSandboxSecurityProfile, type SandboxSecurityProfileName } from "./sandbox-security-profiles.js";
-import type { SandboxPolicy } from "./sandbox-policy.js";
+import { validateSandboxPolicy, type SandboxPolicy } from "./sandbox-policy.js";
 
 const MAX_OUTPUT = 64 * 1024;
 const DEFAULT_TIMEOUT = 120_000;
@@ -151,7 +151,11 @@ export async function runContainerVerification(
     throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
   }
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
-  const policy = options.sandboxPolicy;
+  const policyResult = options.sandboxPolicy ? validateSandboxPolicy(options.sandboxPolicy) : null;
+  if (policyResult && !policyResult.valid) {
+    throw new Error("Invalid sandbox policy: " + policyResult.errors.join(" "));
+  }
+  const policy = policyResult?.valid ? policyResult.policy : undefined;
   if (options.securityProfile && policy && options.securityProfile !== policy.profile) {
     throw new Error("Security profile must match the profile declared in the sandbox policy.");
   }
