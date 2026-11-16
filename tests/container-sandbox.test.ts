@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
+import { getSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
@@ -140,5 +141,15 @@ describe("sandbox security profiles", () => {
   });
   it("rejects unknown profile names", () => {
     expect(() => getSandboxSecurityProfile("permissive")).toThrow(/Unknown sandbox security profile/);
+  });
+});
+
+describe("container verification profile policy", () => {
+  it("requires rootless runtime for hardened profiles", () => {
+    expect(getSandboxSecurityProfile("hardened").requireRootless).toBe(true);
+    expect(getSandboxSecurityProfile("rootless-required").requireRootless).toBe(true);
+  });
+  it("keeps balanced profile explicit about rootless being optional", () => {
+    expect(getSandboxSecurityProfile("balanced").requireRootless).toBe(false);
   });
 });
