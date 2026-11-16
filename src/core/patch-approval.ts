@@ -81,7 +81,11 @@ export async function approveReviewPatch(
 
 export async function loadPatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
   validateId(id);
-  const parsed: unknown = JSON.parse(await readFile(path.join(directory(root), id + ".json"), "utf8"));
+  const dir = await ensureApprovalDirectory(root);
+  const approvalPath = path.join(dir, id + ".json");
+  const info = await lstat(approvalPath);
+  if (info.isSymbolicLink() || !info.isFile()) throw new Error("Stored patch approval must be a regular file.");
+  const parsed: unknown = JSON.parse(await readFile(approvalPath, "utf8"));
   if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== id ||
       !("reviewId" in parsed) || typeof parsed.reviewId !== "string" ||
       !("patchSha256" in parsed) || typeof parsed.patchSha256 !== "string" ||
