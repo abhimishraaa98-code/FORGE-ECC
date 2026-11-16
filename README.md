@@ -83,4 +83,14 @@ The server exposes bounded, read-only tools for project inspection, architecture
 - `forge_search_code`, `forge_inspect_project`, `forge_map_architecture`, `forge_quality_audit`, and `forge_git_intelligence` provide static, read-only project intelligence.
 - `forge_create_review_plan` creates a workflow draft; it does not execute it.
 
-All project paths are resolved under `FORGE_WORKSPACE`.  Normal `forge run`, `forge resume` and benchmark-matrix trials also build bounded, task-specific repository context from the read-only code-search engine. Each agent receives a small set of matching source locations and snippets, rather than the entire repository. Search results are untrusted data, capped in count and character length, and do not enable tool invocation, shell commands or file writes. These MCP tools do not write project files, run project scripts, or provide shell access. The current MCP surface is intentionally read-only; write-capable tools will require a separately reviewed executor, explicit per-tool permissions, approval controls and audit records.
+All project paths are resolved under `FORGE_WORKSPACE`.  Normal `forge run`, `forge resume` and benchmark-matrix trials also build bounded, task-specific repository context from the read-only code-search engine. Each agent receives a small set of matching source locations and snippets, rather than the entire repository. Search results are untrusted data, capped in count and character length, and do not enable tool invocation, shell commands or file writes.  To enable the three workspace browsing/search tools over MCP, opt in explicitly in `.forge/permissions.json`:
+
+```json
+{
+  "version": 1,
+  "mode": "restricted",
+  "allowedTools": ["list-files", "read-file", "search-code"]
+}
+```
+
+With the default `proposal-only` policy, these three tools are denied. Calls made through the MCP workspace tools emit structured audit metadata to the MCP server's stderr; audit records do not include file contents. This allowlist applies to the MCP workspace broker only; it does not enable tool execution inside normal `forge run` agent orchestration. These MCP tools do not write project files, run project scripts, or provide shell access. The current MCP surface is intentionally read-only; write-capable tools will require a separately reviewed executor, explicit per-tool permissions, approval controls and audit records.
