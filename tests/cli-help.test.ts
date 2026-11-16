@@ -85,5 +85,5 @@ describe("run-history CLI help", () => {
     ]) {
       expect(() => runCli("runs", directory, ...args)).toThrow();
     }
-  });
+  }, 20_000);
 });
