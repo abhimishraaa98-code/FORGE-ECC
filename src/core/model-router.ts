@@ -120,8 +120,6 @@ export class ModelRouter implements AgentProvider {
     const maxOutput = this.options.maxOutputTokensPerTask;
     if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) rejectBeforeProvider(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
     if (agentLimit !== undefined && agentUsed + inputTokensEstimate > agentLimit) rejectBeforeProvider(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before provider call.`);
-    this.estimatedTokensUsed += inputTokensEstimate;
-    this.estimatedTokensByAgent.set(request.task.agent, agentUsed + inputTokensEstimate);
     let provider: AgentProvider;
     try {
       provider = this.options.createProvider(route.model);
@@ -135,6 +133,10 @@ export class ModelRouter implements AgentProvider {
       });
       throw error;
     }
+    // A provider factory failure happens before any request can be sent, so it
+    // must not consume estimated provider-token budget.
+    this.estimatedTokensUsed += inputTokensEstimate;
+    this.estimatedTokensByAgent.set(request.task.agent, agentUsed + inputTokensEstimate);
     const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
     const durationError = (): Error => new Error(`FORGE budget exceeded: task duration exceeded ${durationLimit} ms for agent ${request.task.agent}. The provider request may still be running.`);
     const remainingDuration = (): number | undefined => durationLimit === undefined ? undefined : durationLimit - (Date.now() - start);
