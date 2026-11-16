@@ -89,6 +89,9 @@ Examples:
   forge plan --goal "Add authentication safely"
   forge run --goal "Review the API design"
   forge runs .
+  forge replay forge-RUN-ID
+  forge approve forge-RUN-ID TASK_ID
+  forge resume forge-RUN-ID
   forge dashboard .
 `.trim();
 
@@ -247,6 +250,7 @@ async function main(args: string[]): Promise<void> {
       try {
         if (!runId) throw new Error("Usage: forge resume RUN_ID [--path PROJECT]");
         const savedRun = await loadRun(target, runId);
+        if (savedRun.status !== "pending" && savedRun.status !== "awaiting_approval") throw new Error("Only pending or approval-cleared runs can be resumed. Use `forge replay` for a failed run.");
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
