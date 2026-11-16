@@ -39,6 +39,18 @@ describe("benchmark regression intelligence", () => {
     expect(analyzeBenchmarkRegression([differentGoal, report("2026-11-16T10:00:00.000Z", 90, 100, 1000, 500)]).status).toBe("insufficient-history");
   });
 
+  it("detects per-agent regressions and retains observed skill context", () => {
+    const baseline = report("2026-11-15T10:00:00.000Z", 90, 100, 1000, 500);
+    const current = report("2026-11-16T10:00:00.000Z", 90, 100, 1000, 500);
+    baseline.agentSummary = [{ candidateId: "model-a", provider: "openai", model: "gpt-test", agent: "security-reviewer", trials: 1, completed: 1, averageScore: 95, passRate: 100, skillsObserved: ["secure-changes"] }];
+    current.agentSummary = [{ candidateId: "model-a", provider: "openai", model: "gpt-test", agent: "security-reviewer", trials: 1, completed: 1, averageScore: 80, passRate: 50, skillsObserved: ["secure-changes"] }];
+    const result = analyzeBenchmarkRegression([baseline, current]);
+    expect(result.status).toBe("blocked");
+    expect(result.agents[0]?.regressions).toHaveLength(2);
+    expect(result.agents[0]?.skillsObserved).toContain("secure-changes");
+    expect(formatBenchmarkRegression(result)).toContain("Per-agent regressions:");
+  });
+
   it("does not claim release readiness when a candidate lacks a baseline", () => {
     const baseline = report("2026-11-15T10:00:00.000Z", 90, 100, 1000, 500);
     const current = report("2026-11-16T10:00:00.000Z", 90, 100, 1000, 500);
