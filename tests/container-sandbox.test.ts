@@ -39,7 +39,8 @@ describe("container sandbox arguments", () => {
     expect(runner).toContain("const filter=src=>");
     expect(runner).toContain("blocked.test(name)");
     expect(runner).toContain("excluded.has(name.toLowerCase())");
-    expect(runner).toContain(".pem|.key|.p12|.pfx|.keystore");
+    expect(runner).toContain("p12|pfx|keystore");
+    expect(runner).toContain("id_rsa|id_ed25519|authorized_keys");
     expect(args).toContain("test");
   });
 
