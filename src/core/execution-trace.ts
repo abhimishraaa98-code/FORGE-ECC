@@ -50,6 +50,7 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
   const temporary = path.join(directory, "." + randomUUID() + ".tmp");
   try {
     await writeFile(temporary, JSON.stringify(mergedDocument, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);
     throw error;
