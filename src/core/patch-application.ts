@@ -289,6 +289,12 @@ export async function promoteStagedPatch(
   if (!name) throw new Error("A non-empty promotion reviewer identity is required.");
   if (!/^[a-f0-9]{64}$/.test(expectedStagedSha256)) throw new Error("Promotion requires the exact staged SHA-256 confirmation.");
   const project = path.resolve(root);
+  const projectRealForStage = await realpath(project);
+  const stageRootForStage = path.join(project, ".forge", "patch-workspaces", stageId);
+  const stageRealForStage = await realpath(stageRootForStage);
+  if (!stageRealForStage.startsWith(projectRealForStage + path.sep)) throw new Error("Promotion stage resolves outside the project.");
+  const earlyManifest = JSON.parse(await readFile(path.join(stageRootForStage, "stage.json"), "utf8")) as PatchStageRecord;
+  if (earlyManifest.promotedAt) throw new Error("This staged patch has already been promoted.");
   const reviewed = await reviewStagedPatch(project, stageId);
   if (reviewed.stagedSha256 !== expectedStagedSha256) throw new Error("Promotion confirmation does not match the staged file hash.");
   const projectReal = await realpath(project);
