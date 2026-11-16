@@ -40,6 +40,45 @@ describe("automated benchmark matrix", () => {
     expect(formatBenchmarkMatrix(report)).toContain("temporary provider error");
   });
 
+  it("validates controlled skill experiments require identical model and explicit skill variants", () => {
+    const experiment = {
+      ...config,
+      candidates: [
+        { id: "baseline", provider: "openai" as const, model: "same-model", skillIds: [] },
+        { id: "treatment", provider: "openai" as const, model: "same-model", skillIds: ["secure-changes"] },
+      ],
+      skillExperiment: { baselineCandidateId: "baseline", treatmentCandidateId: "treatment", skillIds: ["secure-changes"] },
+    };
+    expect(validateBenchmarkMatrix(experiment)).toEqual(experiment);
+    expect(() => validateBenchmarkMatrix({ ...experiment, candidates: experiment.candidates.map((item, index) => index ? { ...item, model: "different-model" } : item) })).toThrow(/same provider and model/);
+    expect(() => validateBenchmarkMatrix({ ...experiment, candidates: experiment.candidates.map((item, index) => index ? { ...item, skillIds: [] } : item) })).toThrow(/exactly match/);
+    expect(() => validateBenchmarkMatrix({ ...experiment, candidates: experiment.candidates.map((item, index) => index ? item : { ...item, skillIds: ["documentation"] }) })).toThrow(/exactly match/);
+  });
+
+  it("reports paired skill treatment deltas overall and per agent", async () => {
+    const experiment = {
+      ...config,
+      repeats: 2,
+      candidates: [
+        { id: "baseline", provider: "openai" as const, model: "same-model", skillIds: [] },
+        { id: "treatment", provider: "openai" as const, model: "same-model", skillIds: ["secure-changes"] },
+      ],
+      skillExperiment: { baselineCandidateId: "baseline", treatmentCandidateId: "treatment", skillIds: ["secure-changes"] },
+    };
+    const report = await executeBenchmarkMatrix(experiment, async candidate => {
+      const treatment = candidate.id === "treatment";
+      return { runId: candidate.id, score: treatment ? 90 : 80, passed: treatment, durationMs: treatment ? 1200 : 1000, estimatedTokens: treatment ? 550 : 500, agentScores: [{ agent: "security-reviewer", caseId: "auth-review", score: treatment ? 90 : 80, passed: treatment, skillIds: candidate.skillIds ?? [] }] };
+    });
+    expect(report.skillExperiment).toMatchObject({
+      baselineCandidateId: "baseline", treatmentCandidateId: "treatment", skillIds: ["secure-changes"],
+      baselineScore: 80, treatmentScore: 90, scoreDelta: 10,
+      baselinePassRate: 0, treatmentPassRate: 100, passRateDelta: 100,
+      durationChangePercent: 20, tokenChangePercent: 10,
+    });
+    expect(report.skillExperiment?.agentDeltas[0]).toMatchObject({ agent: "security-reviewer", scoreDelta: 10, passRateDelta: 100 });
+    expect(formatBenchmarkMatrix(report)).toContain("Controlled skill experiment:");
+  });
+
   it("persists matrix reports inside the project's local FORGE state", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-matrix-"));
     try {
