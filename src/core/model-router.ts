@@ -160,7 +160,7 @@ export class ModelRouter implements AgentProvider {
       throw primaryError;
     } catch (primaryError) {
       const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
-      if (primaryMessage.startsWith("FORGE budget exceeded:") || !this.options.fallbackModel || this.options.fallbackModel === route.model) {
+      if (primaryMessage.startsWith("FORGE budget exceeded:") || !isRetryableProviderError(primaryError) || !this.options.fallbackModel || this.options.fallbackModel === route.model) {
         const message = primaryMessage;
         this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw primaryError;
