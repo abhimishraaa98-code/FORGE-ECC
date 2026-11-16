@@ -166,16 +166,22 @@ export async function installVerificationDependencies(
     if (value.length > remaining) outputTruncated = true;
   };
   const windows = process.platform === "win32";
+  const userConfig = path.join(root, ".forge-npm-user-config");
+  const globalConfig = path.join(root, ".forge-npm-global-config");
+  await Promise.all([
+    import("node:fs/promises").then(({ writeFile }) => writeFile(userConfig, "", { flag: "wx", mode: 0o600 })),
+    import("node:fs/promises").then(({ writeFile }) => writeFile(globalConfig, "", { flag: "wx", mode: 0o600 })),
+  ]);
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH ?? "", CI: "1", NODE_ENV: "test", FORGE_VERIFICATION: "1",
+    HOME: root, USERPROFILE: root,
     ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
     ...(process.env.WINDIR ? { WINDIR: process.env.WINDIR } : {}),
     ...(process.env.TEMP ? { TEMP: process.env.TEMP } : {}),
     ...(process.env.TMP ? { TMP: process.env.TMP } : {}),
-    ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
   };
-  const command = "npm ci --ignore-scripts --no-audit --no-fund";
-  const child = spawn(windows ? "npm.cmd" : "npm", ["ci", "--ignore-scripts", "--no-audit", "--no-fund"], {
+  const command = "npm ci --ignore-scripts --no-audit --no-fund --userconfig <temporary-empty-config> --globalconfig <temporary-empty-config>";
+  const child = spawn(windows ? "npm.cmd" : "npm", ["ci", "--ignore-scripts", "--no-audit", "--no-fund", "--userconfig", userConfig, "--globalconfig", globalConfig], {
     cwd: root, shell: windows, windowsHide: true, env, stdio: ["ignore", "pipe", "pipe"], detached: !windows,
   });
   child.stdout.on("data", append);
