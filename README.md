@@ -171,3 +171,8 @@ This is an opt-in container isolation layer, not a claim of VM-grade isolation. 
 ### Sandbox runtime status
 
 Run `forge sandbox-status` to inspect whether Docker is reachable, report its version, and display daemon security options including whether rootless mode is advertised. This is a diagnostic capability report, not a security certification. Use `forge patch-verify ... --require-rootless` to enforce rootless mode for container verification.
+
+
+### Sandbox lifecycle cleanup
+
+FORGE labels its verification containers with `com.forge.managed=true`. Run `forge sandbox-cleanup` to preview stopped containers carrying that label. Add `--apply` to remove only stopped/created/dead containers; active containers are never selected. Cleanup is dry-run by default.
