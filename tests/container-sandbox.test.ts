@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
+import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 const image = "node:22-alpine@sha256:" + "a".repeat(64);
 
@@ -98,5 +102,27 @@ describe("sandbox lifecycle cleanup selection", () => {
     const report = formatSandboxCleanupReport([], [], false);
     expect(report).toContain("DRY RUN");
     expect(report).toContain("Active containers are never selected");
+  });
+});
+
+describe("sandbox cleanup audit history", () => {
+  it("persists bounded cleanup history and formats it", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-cleanup-audit-"));
+    try {
+      const entry = {
+        id: "cleanup-test",
+        timestamp: "2026-11-16T12:00:00.000Z",
+        mode: "apply" as const,
+        candidates: [{ id: "abcdef123456", name: "forge-old", status: "Exited (0)" }],
+        removed: ["abcdef123456"],
+      };
+      await appendSandboxCleanupAudit(root, entry);
+      const history = await readSandboxCleanupAudit(root);
+      expect(history).toEqual([entry]);
+      expect(formatSandboxCleanupHistory(history)).toContain("Removed: 1");
+      expect(formatSandboxCleanupHistory([])).toContain("No cleanup runs recorded");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
