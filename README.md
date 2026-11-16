@@ -27,6 +27,40 @@ The first commands initialize and inspect a local workspace; they do not require
 
 **Current capability boundaries:** the MCP workspace tools are read-only. Native model tool-calling is currently limited to bounded read-only workspace tools for the OpenAI-compatible provider. Claude Code, Anthropic, Google and Ollama use proposal-only behavior in the normal run path. Patch staging and review are separate from promotion; promotion/rollback are library APIs, not CLI shortcuts. Local script verification runs project-controlled code on the host and is not an OS sandbox. Docker verification is opt-in and still depends on the host kernel, Docker daemon and image.
 
+## FORGE skills
+
+Workspace skills live under `.forge/skills/`. FORGE keeps backward compatibility with flat Markdown files:
+
+```text
+.forge/skills/
+  api-contracts.md
+```
+
+It also discovers nested skill packages whose entry point is `SKILL.md`:
+
+```text
+.forge/skills/
+  backend/
+    api-design/
+      SKILL.md
+```
+
+A package can declare lightweight YAML-style frontmatter:
+
+```yaml
+---
+name: API Design
+description: Design stable and backwards-compatible APIs
+triggers: openapi, endpoint, schema
+tags: rest, contract
+version: 1.0.0
+---
+```
+
+The Markdown body becomes agent guidance. `triggers` are matched against the task goal; `tags` add weaker discovery signals. Fields are optional, and a heading/first paragraph provide fallback name and description. Nested package IDs use their relative directory (for example, `backend/api-design`).
+
+Discovery is deterministic and bounded: hidden directories and symlinks are skipped, skill files are limited to 128 KiB, recursion to six levels, and discovery to 200 files. Skills provide guidance only; they do not grant tools or override FORGE permission policies. Legacy flat `.md` skills continue to load.
+
 ## Model comparison experiments
 
 Create a matrix that compares two or more providers/models against the same evaluation suite and task:
