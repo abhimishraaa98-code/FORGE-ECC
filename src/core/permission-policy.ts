@@ -49,7 +49,15 @@ export async function loadPermissionPolicy(projectPath: string): Promise<ForgePe
       throw new Error("The .forge policy directory must be a real directory inside the project.");
     }
     // Bound policy parsing and reject a final-component symlink swap at open time.
-    const handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    let handle;
+    try {
+      handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ELOOP") {
+        throw new Error("The .forge/permissions.json policy file must be a regular file, not a symbolic link.");
+      }
+      throw error;
+    }
     try {
       const info = await handle.stat();
       if (!info.isFile()) {
