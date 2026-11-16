@@ -193,3 +193,18 @@ export async function evaluateRunWithJudge(run: RunRecord, suite: EvaluationSuit
   const averageScore = judgedCases.length ? Math.round(judgedCases.reduce((sum, item) => sum + item.result.score, 0) / judgedCases.length) : 0;
   return { ...base, judge: { provider, ...(model ? { model } : {}), evaluatedCases: judgedCases.length, averageScore, passed: judgedCases.length === suite.cases.length && averageScore >= 80 }, judgedCases };
 }
+
+export async function loadEvaluationReport(projectPath: string, runId: string, suiteId?: string): Promise<EvaluationReport> {
+  if (!/^forge-[a-z0-9-]{1,80}$/.test(runId) || runId.includes("..")) throw new Error("Invalid FORGE run identifier.");
+  if (suiteId && !SAFE_ID.test(suiteId)) throw new Error("Invalid evaluation suite identifier.");
+  if (suiteId) {
+    const file = path.join(path.resolve(projectPath), ".forge", "evaluations", runId + "-" + suiteId + ".json");
+    const value: unknown = JSON.parse(await readFile(file, "utf8"));
+    if (!value || typeof value !== "object" || (value as EvaluationReport).version !== 1 || (value as EvaluationReport).runId !== runId || (value as EvaluationReport).suiteId !== suiteId) throw new Error("Stored evaluation report is invalid.");
+    return value as EvaluationReport;
+  }
+  const reports = await listEvaluationReports(projectPath);
+  const matches = reports.filter(report => report.runId === runId);
+  if (matches.length !== 1) throw new Error(matches.length ? "Multiple evaluation reports exist for this run; specify --suite SUITE_ID." : "No evaluation report found for run " + runId + ". Run forge evaluate first.");
+  return matches[0]!;
+}
