@@ -7,6 +7,7 @@ const execFileAsync = promisify(execFile);
 export interface ClaudeCodeOptions {
   command?: string;
   cwd?: string;
+  model?: string;
   timeoutMs?: number;
   maxBufferBytes?: number;
 }
@@ -44,12 +45,14 @@ export class ClaudeCodeProvider implements AIProvider {
   readonly id = "claude-code" as const;
   private readonly command: string;
   private readonly cwd: string;
+  private readonly model?: string;
   private readonly timeoutMs: number;
   private readonly maxBufferBytes: number;
 
   constructor(options: ClaudeCodeOptions = {}) {
     this.command = options.command ?? process.env.FORGE_CLAUDE_COMMAND ?? "claude";
     this.cwd = options.cwd ?? process.env.FORGE_WORKSPACE ?? process.cwd();
+    this.model = options.model ?? process.env.FORGE_AI_MODEL;
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.maxBufferBytes = options.maxBufferBytes ?? 1_048_576;
   }
@@ -61,7 +64,7 @@ export class ClaudeCodeProvider implements AIProvider {
     ).join("\n\n");
     let stdout: string;
     try {
-      const result = await execFileAsync(this.command, buildClaudeCodeArgs(prompt, request.model), {
+      const result = await execFileAsync(this.command, buildClaudeCodeArgs(prompt, request.model ?? this.model), {
         cwd: this.cwd, timeout: this.timeoutMs, maxBuffer: this.maxBufferBytes,
         windowsHide: true, encoding: "utf8", env: process.env,
       });
@@ -74,6 +77,6 @@ export class ClaudeCodeProvider implements AIProvider {
       throw new Error("Claude Code run failed: " + detail);
     }
     const parsed = parseClaudeCodeOutput(stdout);
-    return { provider: this.id, model: request.model ?? "Claude Code (configured default)", text: parsed.text };
+    return { provider: this.id, model: request.model ?? this.model ?? "Claude Code (configured default)", text: parsed.text };
   }
 }
