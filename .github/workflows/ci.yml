@@ -48,3 +48,32 @@ jobs:
           mkdir -p "$RUNNER_TEMP/forge-smoke-project"
           "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" init "$RUNNER_TEMP/forge-smoke-project"
           "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" inspect "$RUNNER_TEMP/forge-smoke-project"
+
+  docker-runtime:
+    name: Real Docker sandbox integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Pull sandbox image and resolve immutable digest
+        id: image
+        shell: bash
+        run: |
+          docker pull node:22-alpine
+          IMAGE_REF="$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')"
+          if [[ -z "$IMAGE_REF" || "$IMAGE_REF" != *@sha256:* ]]; then
+            echo "Could not resolve an immutable image digest" >&2
+            exit 1
+          fi
+          echo "ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+          docker info
+      - name: Execute real container boundary tests
+        env:
+          FORGE_DOCKER_IMAGE: ${{ steps.image.outputs.ref }}
+        run: npx vitest run tests/container-sandbox.integration.test.ts
