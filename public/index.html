@@ -47,11 +47,43 @@ body:before,body:after{display:none}
 .tag{color:#e8b3a2!important}.pill{background:#c7d5b21b;color:#d6e3c3}.tab{background:#ffffff05;color:#bdb4b1;border-color:var(--line)}.tab strong{color:#f4f0ed}.tab.active{border-color:#e8b3a2;background:rgba(232,179,162,.10);color:#fff}
 .screenhead{border-color:var(--line)}.mockrow{background:#ffffff05;border-color:#ffffff18}.phase:before{background:linear-gradient(90deg,#e8b3a2,transparent)}.chip{background:#ffffff07;border-color:var(--line);color:#e6ddda}
 .cta{background:linear-gradient(120deg,rgba(232,179,162,.12),rgba(255,255,255,.025))}footer{border-color:var(--line);color:#a99e9b}
-@media(max-width:620px){body{background-attachment:scroll;background-position:58% top;background-image:linear-gradient(180deg,rgba(10,9,13,.78),#0b0a0e 80%),url('/forge-background.png')}}</style>
+@media(max-width:620px){body{background-attachment:scroll;background-position:58% top;background-image:linear-gradient(180deg,rgba(10,9,13,.78),#0b0a0e 80%),url('/forge-background.png')}}
+/* FORGE brand + product-object showcase */
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#f4c5b5,#d98c78);color:#201411;display:grid;place-items:center;box-shadow:0 8px 28px #e8b3a233;border:1px solid #ffe0d455}
+.logo svg{width:30px;height:30px;filter:drop-shadow(0 2px 2px #0004)}
+.brand{letter-spacing:.22em}
+.hero{gap:42px}
+.product-stage{padding:24px;border-radius:24px;position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(39,31,34,.94),rgba(15,14,18,.94));border:1px solid #e8b3a244;box-shadow:0 28px 90px #0008}
+.product-stage:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 0%,#e8b3a21c,transparent 38%),radial-gradient(circle at 10% 100%,#9b8ad21b,transparent 42%);pointer-events:none}
+.stage-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:16px;border-bottom:1px solid #ffffff18;font-size:10px;color:#d7c9c4;letter-spacing:.13em;text-transform:uppercase}
+.stage-status{color:#c7d5b2;letter-spacing:.08em}
+.stage-grid{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:12px;margin-top:14px}
+.object-card{background:linear-gradient(145deg,#ffffff0c,#ffffff03);border:1px solid #ffffff18;border-radius:15px;padding:15px;min-height:145px;overflow:hidden}
+.object-card.wide{grid-column:1/-1;min-height:120px}
+.object-label{font-size:9px;letter-spacing:.13em;color:#e8b3a2;text-transform:uppercase}
+.object-title{font-size:14px;font-weight:750;margin:8px 0 4px;color:#f5eeeb}
+.object-note{font-size:10px;color:#b9afac;line-height:1.6}
+.arch-map{height:72px;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:9px}
+.arch-node{font:9px ui-monospace,monospace;padding:9px 8px;border-radius:8px;border:1px solid #e8b3a266;background:#e8b3a20d;color:#f1d4c9;white-space:nowrap}
+.arch-link{height:1px;width:14px;background:#e8b3a2;position:relative}.arch-link:after{content:"";position:absolute;right:0;top:-3px;border:3px solid transparent;border-right:0;border-left-color:#e8b3a2}
+.code-lines{display:grid;gap:7px;margin-top:13px}.code-line{height:5px;border-radius:9px;background:#ffffff18}.code-line:nth-child(1){width:82%;background:#d6b3a2aa}.code-line:nth-child(2){width:64%}.code-line:nth-child(3){width:91%;background:#9eb8a988}.code-line:nth-child(4){width:48%}
+.security-ring{width:58px;height:58px;border:4px solid #c7d5b2;border-right-color:#c7d5b233;border-radius:50%;display:grid;place-items:center;font-size:19px;color:#d9e6c7;margin:10px auto 0}
+.mini-bars{height:65px;display:flex;align-items:end;gap:6px;margin-top:10px}.mini-bars i{display:block;flex:1;border-radius:5px 5px 1px 1px;background:linear-gradient(#e8b3a2,#a36d61);height:var(--h)}
+.stage-foot{position:relative;display:flex;justify-content:space-between;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid #ffffff18;color:#a99e9b;font-size:9px}
+.product-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.product-tile{padding:19px;border-radius:17px;min-height:205px;position:relative;overflow:hidden}
+.product-tile .tile-art{height:88px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.tile-icon{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;font-size:28px;color:#f1cabc;background:linear-gradient(145deg,#e8b3a226,#ffffff08);border:1px solid #e8b3a255;box-shadow:inset 0 1px #fff2,0 10px 30px #0005}
+.product-tile h3{font-size:14px;margin:0 0 5px}.product-tile p{font-size:10px;line-height:1.65;color:#bdb4b1;margin:0}
+.product-tile:after{content:"";position:absolute;width:130px;height:130px;border-radius:50%;right:-75px;top:-75px;background:#e8b3a20c;filter:blur(5px)}
+@media(max-width:900px){.product-gallery{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.stage-grid{grid-template-columns:1fr 1fr}.product-gallery{grid-template-columns:1fr 1fr}.product-tile{padding:15px;min-height:190px}.arch-node{font-size:8px;padding:8px 6px}.product-stage{padding:15px}}
+
+</style>
 </head>
 <body>
 <div class="topline"><span>●</span> FORGE v0.34 · LOCAL-FIRST ENGINEERING INTELLIGENCE · OPEN SOURCE</div>
-<header><div class="wrap nav"><a class="brand" href="#"><span class="logo">F.</span> FORGE</a><nav class="navlinks"><a href="#platform">Platform</a><a href="#tools">Tools</a><a href="#integrations">Integrations</a><a href="#tour">Product tour</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a class="btn" href="https://github.com/ansh44233/FORGE-ECC">GitHub ↗</a></nav></div></header>
+<header><div class="wrap nav"><a class="brand" href="#"><span class="logo" aria-label="FORGE logo"><svg viewBox="0 0 48 48" role="img" aria-hidden="true"><path d="M9 7h31v8H18v6h18v8H18v12H9z" fill="currentColor"/><path d="M29 21h11v8H29z" fill="#e8b3a2"/></svg></span> FORGE</a><nav class="navlinks"><a href="#platform">Platform</a><a href="#tools">Tools</a><a href="#integrations">Integrations</a><a href="#tour">Product tour</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a class="btn" href="https://github.com/ansh44233/FORGE-ECC">GitHub ↗</a></nav></div></header>
 <main>
 <section class="wrap hero">
 <div><div class="kicker"><i></i> The AI Engineering Workbench</div><h1>Make every code change <span class="gradient">understandable.</span></h1><p class="lead">FORGE helps you understand unfamiliar codebases, map architecture, inspect change risk, review proposed patches and verify outcomes — with evidence at every step and you in control.</p><div class="hero-actions"><a class="btn primary" href="https://github.com/ansh44233/FORGE-ECC">Explore the open-source project ↗</a><a class="btn" href="#tour">Take the product tour ↓</a></div><div class="micro">TYPESCRIPT TOOLING · LOCAL DASHBOARD · EXPLICIT APPROVAL · INSPECTABLE OUTPUTS</div></div>
@@ -79,6 +111,22 @@ body:before,body:after{display:none}
 <article class="feature glass reveal"><span class="num">14 / WORKSPACE</span><div class="glyph">▤</div><h3>Interactive workspace explorer</h3><p>Browse supported project files and folders, inspect sizes and preview source or documentation in the local dashboard.</p><span class="tag">Read-only explorer</span></article>
 <article class="feature glass reveal"><span class="num">15 / ORCHESTRATION</span><div class="glyph">⤢</div><h3>Task & run visibility</h3><p>Inspect saved orchestration runs, task activity and run details, with explicit approval controls for recorded workflow tasks.</p><span class="tag">Dashboard workflow view</span></article>
 <article class="feature glass reveal"><span class="num">16 / AI ASSISTANCE</span><div class="glyph">✧</div><h3>AI-assisted review</h3><p>Use a configured provider for review suggestions and single-file patch proposals. Selected source context may be sent to that provider.</p><span class="tag">Optional provider setup</span></article>
+</div></div></section>
+
+<section class="section" id="workbench-preview"><div class="wrap"><div class="sectionhead reveal"><div class="eyebrow">Inside the workbench</div><h2>See the engineering, <span class="gradient">not just the slogan.</span></h2><p>A visual preview of the core objects FORGE works with: connected modules, code signals, security checks and verification history. These panels are product illustrations, not live scan results.</p></div>
+<div class="product-stage reveal"><div class="stage-head"><span>FORGE / PROJECT CONTROL CENTER</span><span class="stage-status">● LOCAL WORKSPACE PREVIEW</span></div><div class="stage-grid">
+<div class="object-card"><div class="object-label">01 · Architecture graph</div><div class="object-title">Trace the system</div><div class="arch-map"><span class="arch-node">CLI</span><i class="arch-link"></i><span class="arch-node">CORE</span><i class="arch-link"></i><span class="arch-node">DASH</span></div><div class="object-note">Modules · imports · entry points · impact paths</div></div>
+<div class="object-card"><div class="object-label">02 · Code intelligence</div><div class="object-title">Understand source</div><div class="code-lines"><i class="code-line"></i><i class="code-line"></i><i class="code-line"></i><i class="code-line"></i></div><div class="object-note">AST symbols · exports · dependency edges</div></div>
+<div class="object-card"><div class="object-label">03 · Safety signals</div><div class="object-title">Review before action</div><div class="security-ring">✓</div><div class="object-note" style="text-align:center">Advisory checks · human approval</div></div>
+<div class="object-card"><div class="object-label">04 · Verification</div><div class="object-title">Track outcomes</div><div class="mini-bars"><i style="--h:42%"></i><i style="--h:76%"></i><i style="--h:58%"></i><i style="--h:92%"></i><i style="--h:69%"></i><i style="--h:100%"></i></div><div class="object-note">Saved runs · regression comparisons</div></div>
+<div class="object-card wide"><div class="object-label">05 · The engineering loop</div><div class="object-title">Discover → Map → Review → Verify</div><div class="object-note">Connect repository context to deliberate engineering decisions. The live dashboard runs locally on your machine; this public preview contains no real project data.</div></div>
+</div><div class="stage-foot"><span>ILLUSTRATIVE PRODUCT UI · NOT A LIVE SCAN</span><span>FORGE / OPEN SOURCE</span></div></div>
+</div></section>
+<section class="section"><div class="wrap"><div class="sectionhead reveal"><div class="eyebrow">A toolkit with real shape</div><h2>Purpose-built tools. <span class="gradient">One connected workflow.</span></h2><p>FORGE is more than a logo and a terminal. These are the product areas developers can explore in the repository today.</p></div><div class="product-gallery">
+<article class="product-tile glass reveal"><div class="tile-art"><div class="tile-icon">⌘</div></div><h3>Repository Explorer</h3><p>Understand manifests, scripts, source layout and project signals.</p></article>
+<article class="product-tile glass reveal"><div class="tile-art"><div class="tile-icon">⌗</div></div><h3>Architecture Mapper</h3><p>Inspect module relationships, imports, symbols and impact candidates.</p></article>
+<article class="product-tile glass reveal"><div class="tile-art"><div class="tile-icon">⟐</div></div><h3>Change Intelligence</h3><p>Review Git changes, risk signals, diffs and remediation plans.</p></article>
+<article class="product-tile glass reveal"><div class="tile-art"><div class="tile-icon">✓</div></div><h3>Verification Lab</h3><p>Run named checks, save results and compare regressions over time.</p></article>
 </div></div></section>
 <section class="section" id="ecosystem"><div class="wrap"><div class="sectionhead reveal"><div class="eyebrow">The FORGE ecosystem</div><h2>Three connected layers. <span class="gradient">One engineering workflow.</span></h2><p>A product system built around understanding repositories, guiding engineering work and verifying outcomes.</p></div><div class="featuregrid">
 <article class="feature glass reveal"><span class="num">LAYER 01 · INTELLIGENCE</span><div class="glyph">⌘</div><h3>Codebase intelligence</h3><p>Repository inspection, AST and symbol analysis, dependency relationships, architecture mapping, Git-aware impact candidates and snapshots.</p><span class="tag">CURRENT TOOLING</span></article>
