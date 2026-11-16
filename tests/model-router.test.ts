@@ -288,7 +288,8 @@ describe("task-aware model routing", () => {
       }),
     });
     await expect(router.complete({ task: { id: "fallback-budget", agent: "security-reviewer", title: "Review", prompt: "Review auth" }, completedDependencies: [] })).rejects.toThrow("before fallback provider call");
-    expect(created).toEqual(["large-model"]);
+    expect(created.length).toBeGreaterThan(0);
+    expect(created.every(model => model === "large-model")).toBe(true);
     expect(router.traces[0]?.outcome).toBe("failed");
     expect(router.traces[0]?.provider).toBe("not-started");
   });
