@@ -128,3 +128,8 @@ forge patch-review PATCH_STAGE_ID --path .
 ```
 
 The command prints a bounded unified-style diff and rechecks both SHA-256 fingerprints. It is read-only; it does not promote the staged file or execute tests.
+
+
+### Verification runner safety
+
+`forge verify SCRIPT --path PROJECT` executes only the explicitly selected npm script, with npm lifecycle hooks disabled and bounded output/time. The runner passes a minimal environment rather than inheriting arbitrary process variables, so provider/API credentials and custom environment variables are not forwarded. On POSIX systems, timeout handling targets the spawned process group. This is still execution of project-controlled script code on the local host—not a sandbox. Only run scripts from projects you trust; OS-level isolation and staged-workspace verification remain separate work.
