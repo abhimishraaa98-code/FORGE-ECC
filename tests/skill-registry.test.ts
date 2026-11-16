@@ -44,6 +44,15 @@ describe("skill registry", () => {
     ));
     await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum of 200 files");
   });
+  it("bounds directory traversal even when entries are ignored", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
+    const dir = path.join(root, ".forge", "skills");
+    await mkdir(dir, { recursive: true });
+    await Promise.all(Array.from({ length: 5_001 }, (_, index) =>
+      writeFile(path.join(dir, `.ignored-${String(index).padStart(4, "0")}`), "")
+    ));
+    await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum of 5000 directory entries");
+  });
   it("ignores symlinked skill files", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
     const dir = path.join(root, ".forge", "skills");
