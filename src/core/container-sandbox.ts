@@ -33,6 +33,7 @@ export function buildContainerRunArgs(
   image: string,
   script: string,
   containerName: string,
+  profile: ReturnType<typeof getSandboxSecurityProfile> = getSandboxSecurityProfile("balanced"),
 ): string[] {
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
   if (!/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,79}$/.test(script) || /^pre|^post/.test(script)) {
@@ -43,8 +44,8 @@ export function buildContainerRunArgs(
   return [
     "run", "--rm", "--pull=never", "--name", containerName, "--label", "com.forge.managed=true",
     "--network=none", "--read-only", "--cap-drop=ALL",
-    "--security-opt=no-new-privileges", "--pids-limit=128",
-    "--memory=1g", "--memory-swap=1g", "--cpus=2", "--ulimit", "nofile=1024:1024",
+    "--security-opt=no-new-privileges", "--pids-limit=" + String(profile.maxProcesses),
+    "--memory=" + profile.maxMemory, "--memory-swap=" + profile.maxMemory, "--cpus=" + String(profile.maxCpus), "--ulimit", "nofile=1024:1024",
     "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
     "--tmpfs", "/workspace:rw,nosuid,nodev,size=1g,mode=1777",
     "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1", "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
@@ -163,12 +164,12 @@ export async function runContainerVerification(
   }
   const startedAt = new Date();
   const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
-  const args = buildContainerRunArgs(root, image, script, containerName);
+  const args = buildContainerRunArgs(root, image, script, containerName, profile);
   const result = await runProcess(runtime, args, root, timeoutMs, async () => {
     await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
   const finishedAt = new Date();
-  result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=none, readOnlyRoot=true, capDrop=ALL, noNewPrivileges=true, memory=1g, cpus=2, pids=128\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
+  result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=" + profile.network + ", readOnlyRoot=" + String(profile.readOnlyRoot) + ", capDrop=" + (profile.dropAllCapabilities ? "ALL" : "NONE") + ", noNewPrivileges=" + String(profile.noNewPrivileges) + ", memory=" + profile.maxMemory + ", cpus=" + String(profile.maxCpus) + ", pids=" + String(profile.maxProcesses) + "\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
   return {
     id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
