@@ -379,7 +379,16 @@ async function main(args: string[]): Promise<void> {
         report.suiteId = suite.id;
         report.goal = goal;
         if (configVersions.size) report.candidateProvenance = [...configVersions.entries()].map(([candidateId, item]) => ({ candidateId, configVersionId: item.id, fingerprint: item.fingerprint }));
+        const experimentManifest = await captureExperimentManifest({
+          projectPath: target, matrixFile: path.resolve(configFile), matrixId: config.id, suiteId: suite.id, suite,
+          provider: "matrix", model: "candidate-specific",
+          baseUrl: process.env.FORGE_BASE_URL,
+          agentConfigFingerprints: report.candidateProvenance ?? []
+        });
+        const manifestPath = await saveExperimentManifest(target, experimentManifest);
+        report.experimentManifest = { id: experimentManifest.id, fingerprint: experimentManifest.fingerprint };
         const saved = await saveBenchmarkMatrix(target, report);
+        process.stdout.write("Experiment manifest: " + experimentManifest.id + " · sha256:" + experimentManifest.fingerprint + "\\nManifest saved: " + path.relative(target, manifestPath) + "\\n");
         process.stdout.write(formatBenchmarkMatrix(report) + "\nSaved: " + path.relative(target, saved) + "\n");
         if (report.results.some(item => item.status === "failed") || report.results.some(item => !item.passed)) process.exitCode = 2;
       } catch (error) { process.stderr.write("FORGE benchmark matrix failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
