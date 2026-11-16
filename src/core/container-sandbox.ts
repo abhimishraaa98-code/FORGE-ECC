@@ -12,6 +12,18 @@ const IMAGE_DIGEST = /^.+@sha256:[a-f0-9]{64}$/;
 export interface ContainerVerificationOptions {
   timeoutMs?: number;
   runtimePath?: string;
+  requireRootless?: boolean;
+}
+
+/** Returns true/false for a recognized Docker rootless security option, otherwise null. */
+export function detectDockerRootless(securityOptionsOutput: string): boolean | null {
+  let values: unknown;
+  try { values = JSON.parse(securityOptionsOutput); } catch { return null; }
+  if (!Array.isArray(values) || values.some(value => typeof value !== "string")) return null;
+  const options = values as string[];
+  if (options.some(value => /(?:^|[, ])name=rootless(?:$|[, ])/i.test(value))) return true;
+  if (options.length > 0) return false;
+  return null;
 }
 
 export function buildContainerRunArgs(
@@ -137,6 +149,14 @@ export async function runContainerVerification(
   const inspect = await runProcess(runtime, ["image", "inspect", image], root, 15_000);
   if (inspect.error) throw new Error("Could not start container runtime: " + inspect.error);
   if (inspect.code !== 0) throw new Error("Pinned sandbox image is not available locally. Pull and verify it separately; FORGE never pulls images automatically. " + inspect.output);
+  const security = await runProcess(runtime, ["info", "--format", "{{json .SecurityOptions}}"], root, 15_000);
+  if (security.error || security.code !== 0) throw new Error("Could not inspect container runtime security options; refusing container verification. " + (security.output || security.error || ""));
+  const rootless = detectDockerRootless(security.output.trim());
+  if (options.requireRootless && rootless !== true) {
+    throw new Error(rootless === false
+      ? "Rootless container runtime is required, but the selected Docker daemon is rootful."
+      : "Rootless container runtime status could not be verified; refusing verification.");
+  }
   const startedAt = new Date();
   const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
   const args = buildContainerRunArgs(root, image, script, containerName);
@@ -144,6 +164,7 @@ export async function runContainerVerification(
     await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
   const finishedAt = new Date();
+  result.output = "[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
   return {
     id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
