@@ -1,4 +1,5 @@
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface ForgePermissionPolicy {
@@ -47,16 +48,25 @@ export async function loadPermissionPolicy(projectPath: string): Promise<ForgePe
     if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) {
       throw new Error("The .forge policy directory must be a real directory inside the project.");
     }
-    const info = await lstat(file);
-    if (info.isSymbolicLink() || !info.isFile()) {
-      throw new Error("The .forge/permissions.json policy file must be a regular file, not a symbolic link.");
+    // Bound policy parsing and reject a final-component symlink swap at open time.
+    const handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      const info = await handle.stat();
+      if (!info.isFile()) {
+        throw new Error("The .forge/permissions.json policy file must be a regular file, not a symbolic link.");
+      }
+      if (info.size > 16 * 1024) {
+        throw new Error("The .forge/permissions.json policy file exceeds the 16 KiB limit.");
+      }
+      const actualFile = await realpath(file);
+      const relative = path.relative(root, actualFile);
+      if (relative.startsWith(".." + path.sep) || relative === ".." || path.isAbsolute(relative)) {
+        throw new Error("The permission policy file must stay inside the project.");
+      }
+      return validatePermissionPolicy(JSON.parse(await handle.readFile({ encoding: "utf8" })));
+    } finally {
+      await handle.close();
     }
-    const actualFile = await realpath(file);
-    const relative = path.relative(root, actualFile);
-    if (relative.startsWith(".." + path.sep) || relative === ".." || path.isAbsolute(relative)) {
-      throw new Error("The permission policy file must stay inside the project.");
-    }
-    return validatePermissionPolicy(JSON.parse(await readFile(actualFile, "utf8")));
   } catch (error) {
     if (isMissing(error)) return { ...DEFAULT_PERMISSION_POLICY, allowedTools: [] };
     throw error;
