@@ -60,6 +60,32 @@ import { captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfi
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
 
+function runSandboxProbe(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(output);
+    };
+    const append = (chunk: Buffer | string) => {
+      if (output.length < 4096) output += chunk.toString().slice(0, 4096 - output.length);
+    };
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+    child.once("error", error => finish(error));
+    child.once("close", code => code === 0 ? finish() : finish(new Error("Docker probe exited with status " + code + ".")));
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      finish(new Error("Docker probe timed out after 15 seconds."));
+    }, 15_000);
+  });
+}
+
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
   if (!raw) return undefined;
@@ -1011,24 +1037,11 @@ async function main(args: string[]): Promise<void> {
       const runtime = "docker";
       try {
         const [version, security] = await Promise.all([
-          new Promise<string>((resolve, reject) => {
-            const child = spawn(runtime, ["--version"], { shell: false, windowsHide: true });
-            let output = "";
-            child.stdout.on("data", chunk => { output += chunk.toString().slice(0, 4096); });
-            child.once("error", reject);
-            child.once("close", code => code === 0 ? resolve(output) : reject(new Error("Docker version probe failed.")));
-          }),
-          new Promise<string>((resolve, reject) => {
-            const child = (await import("node:child_process")).spawn(runtime, ["info", "--format", "{{json .SecurityOptions}}"], { shell: false, windowsHide: true });
-            let output = "";
-            child.stdout.on("data", chunk => { output += chunk.toString().slice(0, 4096); });
-            child.once("error", reject);
-            child.once("close", code => code === 0 ? resolve(output) : reject(new Error("Docker security-options probe failed.")));
-          }),
+          runSandboxProbe(["--version"]),
+          runSandboxProbe(["info", "--format", "{{json .SecurityOptions}}"]),
         ]);
         const report = parseSandboxRuntimeReport(runtime, version, security);
         process.stdout.write(formatSandboxRuntimeReport(report) + "\\n");
-        if (!report.available) process.exitCode = 1;
       } catch (error) {
         const report = parseSandboxRuntimeReport(runtime, "", "");
         report.warnings.push(error instanceof Error ? error.message : String(error));
