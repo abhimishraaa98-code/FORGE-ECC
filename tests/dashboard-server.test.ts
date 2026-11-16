@@ -32,10 +32,10 @@ describe("local dashboard server", () => {
     expect(html).toContain("Agent handoff map");
     expect(html).toContain("Execution telemetry");
     expect(html).toContain("Live event stream");
-    expect(await page.text()).toContain("Create replay of retryable tasks");
-    expect(await page.text()).toContain("Compare with previous run");
-    expect(await page.text()).toContain("Cancel run");
-    expect(await page.text()).toContain("Retry this task and blocked dependants");
+    expect(html).toContain("Create replay of retryable tasks");
+    expect(html).toContain("Compare with previous run");
+    expect(html).toContain("Cancel run");
+    expect(html).toContain("Retry this task and blocked dependants");
 
     await mkdir(path.join(root, "src"));
     await writeFile(path.join(root, "src", "demo.ts"), "export const demo = true;\\n");
