@@ -141,7 +141,7 @@ export class OpenAICompatibleProvider implements AgentProvider {
             toolResult = { error: error instanceof Error ? error.message : "Tool execution failed." };
           }
           const serialized = JSON.stringify(toolResult);
-          messages.push({ role: "tool", tool_call_id: callId, content: serialized.length > 16000 ? serialized.slice(0, 16000) + "\\n[tool output truncated]" : serialized });
+          messages.push({ role: "tool", tool_call_id: callId, content: serialized.length > 16000 ? serialized.slice(0, 16000) + "\n[tool output truncated]" : serialized });
           toolCallsUsed += 1;
         }
         continue;
