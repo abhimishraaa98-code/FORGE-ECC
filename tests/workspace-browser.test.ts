@@ -34,10 +34,16 @@ describe("workspace browser", () => {
     const outside = path.join(root, "outside.ts");
     await writeFile(outside, "outside");
     await symlink(outside, path.join(root, "linked.ts"));
+    const outsideDir = path.join(root, "outside-dir");
+    await mkdir(outsideDir);
+    await writeFile(path.join(outsideDir, "hidden.ts"), "do not follow directory symlink");
+    await symlink(outsideDir, path.join(root, "linked-dir"));
     await writeFile(path.join(root, "large.ts"), "x".repeat(129 * 1024));
     const listing = await listWorkspaceDirectory(root);
     expect(listing.entries.map(item => item.name)).not.toContain("linked.ts");
+    expect(listing.entries.map(item => item.name)).not.toContain("linked-dir");
     await expect(readWorkspaceFile(root, "linked.ts")).rejects.toThrow();
+    await expect(listWorkspaceDirectory(root, "linked-dir")).rejects.toThrow();
     await expect(readWorkspaceFile(root, "large.ts")).rejects.toThrow("128 KiB");
   });
 
