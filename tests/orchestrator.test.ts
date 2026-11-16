@@ -148,7 +148,7 @@ describe("FORGE orchestration engine", () => {
     ]);
     await advanceRun(run, handoffProvider);
     expect(received[0]).toMatchObject({ id: "architect", fromAgent: "architect", taskTitle: "Map architecture" });
-    expect(received[0]?.result).toContain("Proposal from architect");
+    expect(received[0]?.result).toBe("proposal");
   });
   it("holds approval-gated work until explicit approval", async () => {
     const run = createRun("Review a change", [
