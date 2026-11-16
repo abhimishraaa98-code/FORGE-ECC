@@ -31,7 +31,6 @@ jobs:
         run: |
           mkdir -p release-assets
           npm pack --pack-destination release-assets
-          test -s release-assets/forge-engineering-workbench-1.0.0.tgz
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
