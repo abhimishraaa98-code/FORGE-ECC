@@ -269,4 +269,15 @@ describe("local run history", () => {
     await expect(saveRun(root, run)).rejects.toThrow(/maximum file size/);
   });
 
+  it("rejects oversized run-history files before parsing them", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-oversized-read-"));
+    const run = createRun("Oversized stored run", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft" },
+    ]);
+    await saveRun(root, run);
+    const file = path.join(root, ".forge", "runs", run.id + ".json");
+    await writeFile(file, " ".repeat(5 * 1024 * 1024 + 1));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/exceeds the size limit/);
+  });
+
 });
