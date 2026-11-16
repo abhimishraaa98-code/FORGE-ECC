@@ -29,7 +29,11 @@ describe("hosted agent provider security and protocol handling", () => {
     expect(() => new HostedAgentProvider({ provider: "ollama", model: "llama3.2", baseUrl: "http://localhost:11434" })).not.toThrow();
   });
 
-  it("allows IPv6 loopback HTTP for local model servers", () => {\n    expect(() => new HostedAgentProvider({ provider: "ollama", model: "llama3.2", baseUrl: "http://[::1]:11434" })).not.toThrow();\n  });\n\n  it("sends Anthropic credentials and parses proposal text", async () => {
+  it("allows IPv6 loopback HTTP for local model servers", () => {
+    expect(() => new HostedAgentProvider({ provider: "ollama", model: "llama3.2", baseUrl: "http://[::1]:11434" })).not.toThrow();
+  });
+
+  it("sends Anthropic credentials and parses proposal text", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("x-api-key")).toBe("test-key");
       expect(new Headers(init?.headers).get("anthropic-version")).toBe("2023-06-01");
