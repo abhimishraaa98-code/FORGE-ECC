@@ -11,6 +11,7 @@ import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
 import { saveRun, listRuns, loadRun, decideTaskApproval, recoverInterruptedRun, withRunExecutionLock } from "./core/run-store.js";
 import { advanceRun, type RunRecord } from "./core/orchestrator.js";
+import { formatRunHistoryJson } from "./core/run-history-output.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { createHostedAgentProvider } from "./core/hosted-agent-provider.js";
 import { ClaudeCodeProvider } from "./ai/claude-code-provider.js";
@@ -886,24 +887,7 @@ async function main(args: string[]): Promise<void> {
       try {
         const runs = await listRuns(path.resolve(target));
         if (rest.includes("--json")) {
-          const output = {
-            schemaVersion: 1,
-            runs: runs.map(run => ({
-              id: run.id,
-              goal: run.goal,
-              status: run.status,
-              createdAt: run.createdAt,
-              updatedAt: run.updatedAt,
-              taskCount: run.tasks.length,
-              pendingTaskCount: run.tasks.filter(task => task.status === "pending").length,
-              awaitingApprovalTaskCount: run.tasks.filter(task => task.status === "awaiting_approval").length,
-              completedTaskCount: run.tasks.filter(task => task.status === "completed").length,
-              failedTaskCount: run.tasks.filter(task => task.status === "failed").length,
-              blockedTaskCount: run.tasks.filter(task => task.status === "blocked").length,
-              eventCount: run.events.length,
-            })),
-          };
-          process.stdout.write(JSON.stringify(output, null, 2) + "\n");
+          process.stdout.write(formatRunHistoryJson(runs));
         } else {
           process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
       } catch (error) {
