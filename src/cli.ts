@@ -32,6 +32,8 @@ import { generateRemediationPlan, formatRemediationPlan } from "./core/remediati
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
+import { ModelRouter } from "./core/model-router.js";
+import { saveExecutionTrace } from "./core/execution-trace.js";
 
 const VERSION = "0.34.0";
 
@@ -239,16 +241,21 @@ async function main(args: string[]): Promise<void> {
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
-        const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
-        const provider = providerChoice === "claude-code"
-          ? new ClaudeCodeProvider({ cwd: target, ...(model ? { model } : {}) })
-          : (() => {
-              const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
-              const selectedModel = model ?? "gpt-4.1-mini";
-              const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
-              if (!apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code to use your configured Claude Code CLI, or set FORGE_API_KEY for an OpenAI-compatible provider.");
-              return new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
-            })();
+        const baseModel = model ?? "gpt-4.1-mini";
+        const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+        const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+        if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code to use your configured Claude Code CLI, or set FORGE_API_KEY for an OpenAI-compatible provider.");
+        const createProvider = (selectedModel: string) => providerChoice === "claude-code"
+          ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
+          : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+        const router = new ModelRouter({
+          fastModel: process.env.FORGE_MODEL_FAST ?? baseModel,
+          balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel,
+          reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel,
+          ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}),
+          createProvider,
+        });
+        const provider = router;
         const plan = createReviewPlan(goal);
         const skills = selectSkills(await loadSkillRegistry(target), goal);
         const skillContext = formatSkillContext(skills);
@@ -265,7 +272,10 @@ async function main(args: string[]): Promise<void> {
         const projectContext = [memory.text, skillContext].filter(Boolean).join("\n\n");
         const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext });
         const saved = await saveRun(target, completed);
-        process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
+        const tracePath = await saveExecutionTrace(target, completed.id, router.traces);
+        process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\nExecution trace: ${path.relative(target, tracePath)}\n`);
+        const totals = router.traces.reduce((sum, trace) => ({ input: sum.input + trace.inputTokensEstimate, output: sum.output + trace.outputTokensEstimate, duration: sum.duration + trace.durationMs, fallback: sum.fallback + (trace.outcome === "fallback" ? 1 : 0) }), { input: 0, output: 0, duration: 0, fallback: 0 });
+        process.stdout.write(`Estimated tokens: ${totals.input} in / ${totals.output} out | Agent time: ${totals.duration} ms | Fallbacks: ${totals.fallback}\n`);
         for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\n`);
         if (completed.status === "failed") process.exitCode = 1;
       } catch (error) {
