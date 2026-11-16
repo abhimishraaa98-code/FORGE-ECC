@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import path from "node:path";
+import os from "node:os";
+import { mkdtemp, rm } from "node:fs/promises";
 import { initializeProject } from "./core/project-init.js";
 import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.js";
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
@@ -47,7 +49,7 @@ import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } f
 import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
 import { createSkillExperimentMatrix, formatSkillExperimentMatrix, createModelComparisonMatrix, formatModelComparisonMatrix } from "./core/agent-experiment-studio.js";
 import { buildExperimentHistory, formatExperimentHistory } from "./core/experiment-history.js";
-import { captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
+import { captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions, materializeAgentConfigVersion } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
 
@@ -506,33 +508,43 @@ async function main(args: string[]): Promise<void> {
             ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}),
             createProvider,
           });
-          const run = createReviewPlan(goal);
-          const skillRegistry = await loadSkillRegistry(target);
-          const requestedSkillIds = candidate.skillIds;
-          const unknownSkills = (requestedSkillIds ?? []).filter(id => !skillRegistry.some(skill => skill.id === id));
-          if (unknownSkills.length) throw new Error("Candidate " + candidate.id + " references unknown skill(s): " + unknownSkills.join(", "));
-          const selectedSkillsForTask = (task: { agent: string; title: string; prompt: string }) => requestedSkillIds === undefined ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : skillRegistry.filter(skill => requestedSkillIds.includes(skill.id));
-          const hooks = await loadHooks(target);
-          for (const record of run.tasks) {
-            const applied = applyBeforeAgentHooks(record.task, hooks);
-            record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\n\nHook guidance:\n" + applied.context.join("\n") : applied.task.prompt };
-            if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
+          const configWorkspace = await mkdtemp(path.join(os.tmpdir(), "forge-candidate-config-"));
+          try {
+            const snapshotId = candidate.configVersionId;
+            if (snapshotId) await materializeAgentConfigVersion(target, snapshotId, configWorkspace);
+            const configRoot = snapshotId ? configWorkspace : target;
+            const run = createReviewPlan(goal);
+            const skillRegistry = await loadSkillRegistry(configRoot);
+            const agentRegistry = await loadAgentRegistry(configRoot);
+            const requestedSkillIds = candidate.skillIds;
+            const unknownSkills = (requestedSkillIds ?? []).filter(id => !skillRegistry.some(skill => skill.id === id));
+            if (unknownSkills.length) throw new Error("Candidate " + candidate.id + " references unknown skill(s): " + unknownSkills.join(", "));
+            const selectedSkillsForTask = (task: { agent: string; title: string; prompt: string }) => requestedSkillIds === undefined ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : skillRegistry.filter(skill => requestedSkillIds.includes(skill.id));
+            const agentGuidanceForTask = (task: { agent: string }) => agentRegistry.find(agent => agent.id === task.agent)?.instructions ?? "";
+            const hooks = await loadHooks(target);
+            for (const record of run.tasks) {
+              const applied = applyBeforeAgentHooks(record.task, hooks);
+              record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\n\nHook guidance:\n" + applied.context.join("\n") : applied.task.prompt };
+              if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
+            }
+            const memory = await buildProjectMemoryContext(target, goal);
+            const projectContext = memory.text;
+            const started = Date.now();
+            const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => [agentGuidanceForTask(task), formatSkillContext(selectedSkillsForTask(task))].filter(Boolean).join("\n\n") });
+            const durationMs = Date.now() - started;
+            await saveRun(target, completed);
+            await saveExecutionTrace(target, completed.id, router.traces);
+            const evaluation = evaluateRun(completed, suite);
+            await saveEvaluationReport(target, evaluation);
+            return {
+              runId: completed.id, score: evaluation.score, passed: evaluation.passed,
+              durationMs,
+              estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
+              agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectedSkillsForTask(task) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id), failedCriteria: item.criteria.filter(criterion => !criterion.passed).map(criterion => ({ id: criterion.id, failedChecks: criterion.checks.filter(check => !check.passed).map(check => check.rule + ": " + check.detail) })) }; }),
+            };
+          } finally {
+            await rm(configWorkspace, { recursive: true, force: true });
           }
-          const memory = await buildProjectMemoryContext(target, goal);
-          const projectContext = memory.text;
-          const started = Date.now();
-          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => formatSkillContext(selectedSkillsForTask(task)) });
-          const durationMs = Date.now() - started;
-          await saveRun(target, completed);
-          await saveExecutionTrace(target, completed.id, router.traces);
-          const evaluation = evaluateRun(completed, suite);
-          await saveEvaluationReport(target, evaluation);
-          return {
-            runId: completed.id, score: evaluation.score, passed: evaluation.passed,
-            durationMs,
-            estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
-            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectedSkillsForTask(task) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id), failedCriteria: item.criteria.filter(criterion => !criterion.passed).map(criterion => ({ id: criterion.id, failedChecks: criterion.checks.filter(check => !check.passed).map(check => check.rule + ": " + check.detail) })) }; }),
-          };
         });
         report.suiteId = suite.id;
         report.goal = goal;
