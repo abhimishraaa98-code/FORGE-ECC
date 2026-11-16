@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
-import { approveReviewPatch, verifyPatchApproval } from "../src/core/patch-approval.js";
+import { approveReviewPatch, revokePatchApproval, verifyPatchApproval } from "../src/core/patch-approval.js";
 import type { CodeReviewReport } from "../src/core/code-review.js";
 import type { AIReviewResult } from "../src/core/ai-code-review.js";
 
@@ -65,6 +65,15 @@ describe("patch approval records", () => {
     expect(result.valid).toBe(false);
   });
 
+  it("revokes an approval and makes verification fail", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    const revoked = await revokePatchApproval(root, approval.id);
+    expect(revoked.revokedAt).toBeTruthy();
+    const result = await verifyPatchApproval(root, approval.id);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toMatch(/revoked/);
+  });
   it("rejects expired approvals", async () => {
     const review = await fixture();
     const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
