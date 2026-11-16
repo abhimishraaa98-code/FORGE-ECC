@@ -16,6 +16,20 @@ forge experiment-studio compare \
 
 This writes a private local config to `.forge/experiments/provider-round-1.json`. It does not call providers or spend API credits. It creates six planned trials (three candidates × two repeats).
 
+You can attach existing immutable agent/skill Markdown snapshots to individual candidates:
+
+```bash
+forge agent-config snapshot --note "Baseline configuration"
+forge agent-config list
+forge experiment-studio compare \
+  --id config-round-1 \
+  --name "Snapshot provenance comparison" \
+  --candidates "baseline:openai:gpt-4.1-mini,treatment:openai:gpt-4.1-mini" \
+  --config-versions "baseline=cfg-0123456789ab,treatment=cfg-abcdef012345"
+```
+
+Replace the example snapshot IDs with IDs returned by `forge agent-config snapshot`. FORGE validates and loads each referenced snapshot and records its content fingerprint in the benchmark report. **Current limitation:** this pins provenance but does not yet execute each candidate inside an isolated copy of its snapshot; the run still reads the active workspace agent/skill files. Snapshots currently cover Markdown files under `.forge/agents` and `.forge/skills`, not hooks, tools or permission settings. Do not interpret this mode as a fully isolated configuration A/B test yet.
+
 Run it explicitly after reviewing the candidate list and choosing a suite and task:
 
 ```bash
