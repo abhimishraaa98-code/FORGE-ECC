@@ -43,7 +43,7 @@ export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouter
 
 function isRetryableProviderError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /HTTP (408|409|425|429|5\\d\\d)\\b|timed? ?out|timeout|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|network error/i.test(message);
+  return /HTTP (408|409|425|429|5\d\d)\b|timed? ?out|timeout|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|network error/i.test(message);
 }
 
 export class ModelRouter implements AgentProvider {
