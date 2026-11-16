@@ -52,3 +52,11 @@ describe("container runtime security detection", () => {
     expect(detectDockerRootless("[]")).toBeNull();
   });
 });
+
+describe("staged verification CLI security flags", () => {
+  it("documents rootless mode as a container-only option", () => {
+    const usage = "forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]";
+    expect(usage).toContain("--require-rootless");
+    expect(usage).toContain("--sandbox-image");
+  });
+});
