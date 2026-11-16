@@ -20,7 +20,7 @@ async function project(): Promise<string> {
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
 describe("agent configuration versioning", () => {
-  it("captures snapshots, compares changes, and records explicit approval without applying files", async () => {
+  it("captures snapshots and compares changes without bypassing benchmark-gated approval", async () => {
     const root = await project();
     const first = await captureAgentConfigVersion(root, { createdBy: "developer", note: "baseline" });
     await writeFile(path.join(root, ".forge", "agents", "planner.md"), "# Planner\nPlan with acceptance criteria.\n");
@@ -31,14 +31,11 @@ describe("agent configuration versioning", () => {
     expect(diff.changed).toEqual(["agents/planner.md"]);
     expect(diff.added).toEqual(["skills/documentation.md"]);
     expect(diff.removed).toEqual(["skills/secure-changes.md"]);
-    const approved = await approveAgentConfigVersion(root, second.id, "reviewer");
-    expect(approved.status).toBe("approved");
-    expect(approved.approvedBy).toBe("reviewer");
+    await expect(approveAgentConfigVersion(root, second.id, "reviewer")).rejects.toThrow("Direct configuration approval is disabled");
     expect(await readFile(path.join(root, ".forge", "agents", "planner.md"), "utf8")).toContain("acceptance criteria");
     expect(await listAgentConfigVersions(root)).toHaveLength(2);
-    expect((await loadAgentConfigVersion(root, second.id)).status).toBe("approved");
-    const pointer = JSON.parse(await readFile(path.join(root, ".forge", "config-versions", "approved.json"), "utf8"));
-    expect(pointer.activeApprovedVersionId).toBe(second.id);
+    expect((await loadAgentConfigVersion(root, second.id)).status).toBe("candidate");
+    await expect(readFile(path.join(root, ".forge", "config-versions", "approved.json"), "utf8")).rejects.toThrow();
   });
   it("rejects traversal IDs and tampered snapshot contents", async () => {
     const root = await project();
