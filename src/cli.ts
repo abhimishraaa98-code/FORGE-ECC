@@ -254,9 +254,11 @@ async function main(args: string[]): Promise<void> {
       }
       try {
         const history = await listBenchmarkMatrices(target);
+        const suiteId = option("--suite");
+        const candidateId = option("--candidate");
         const report = buildAgentEvaluationIntelligence(history, {
-          ...(option("--suite") ? { suiteId: option("--suite") } : {}),
-          ...(option("--candidate") ? { candidateId: option("--candidate") } : {}),
+          ...(suiteId ? { suiteId } : {}),
+          ...(candidateId ? { candidateId } : {}),
           ...(limit !== undefined ? { limit } : {})
         });
         process.stdout.write(formatAgentEvaluationIntelligence(report) + "\\n");
