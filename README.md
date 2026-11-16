@@ -154,10 +154,10 @@ FORGE requires a regular `package-lock.json` and runs `npm ci --ignore-scripts -
 On a machine with Docker Engine available, you can ask FORGE to run the staged check in a pre-pulled, digest-pinned container:
 
 ```bash
-forge patch-verify PATCH_STAGE_ID test --sandbox-image node:22-alpine@sha256:YOUR_VERIFIED_DIGEST --install-dependencies --path .
+forge patch-verify PATCH_STAGE_ID test --sandbox-image node:22-alpine@sha256:YOUR_VERIFIED_DIGEST --require-rootless --install-dependencies --path .
 ```
 
-Replace the example image reference with an image you have independently reviewed and pulled. FORGE requires the exact `@sha256:` digest, checks that the image is already present locally, and never pulls an image automatically. The image must provide Node.js and npm. Dependency preparation, when explicitly requested, occurs in the temporary workspace before container execution using `npm ci --ignore-scripts`; this preparation can access the network on the host. The actual test container runs with networking disabled.
+Replace the example image reference with an image you have independently reviewed and pulled. FORGE requires the exact `@sha256:` digest, checks that the image is already present locally, and never pulls an image automatically. It inspects Docker daemon security options before starting a container and reports whether the daemon advertises rootless mode. Add `--require-rootless` to fail closed unless Docker explicitly reports a rootless daemon; unknown status is rejected when this flag is set. The image must provide Node.js and npm. Dependency preparation, when explicitly requested, occurs in the temporary workspace before container execution using `npm ci --ignore-scripts`; this preparation can access the network on the host. The actual test container runs with networking disabled.
 
 The container profile uses a read-only root filesystem, drops Linux capabilities, enables `no-new-privileges`, uses the runtime's default seccomp policy, applies PID/memory/CPU limits, and mounts the staged snapshot read-only at `/snapshot`. The snapshot is copied inside the container into a 1 GiB bounded writable tmpfs at `/workspace`; tests cannot write back into the host's temporary snapshot. `/tmp` is a separate bounded tmpfs. The container is run as the invoking UID/GID where available. It is removed after execution, and timeout handling asks the runtime to stop it.
 
