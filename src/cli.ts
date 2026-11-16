@@ -35,7 +35,8 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
-import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
+import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, loadEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
+import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkTrial } from "./core/benchmark-engine.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -74,7 +75,8 @@ Usage:
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
-  evaluate RUNID  Score a saved run against a local deterministic evaluation suite
+  evaluate RUNID  Score a saved run against a local evaluation suite
+  benchmark [SUITE] Show benchmark leaderboard or record a run
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -157,6 +159,24 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "benchmark": {
+      const runId = rest.find(arg => !arg.startsWith("--"));
+      const pathIndex = rest.indexOf("--path"), suiteIndex = rest.indexOf("--suite");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : runId;
+      try {
+        if (!runId) {
+          const documents = await listBenchmarks(target);
+          process.stdout.write(documents.length ? documents.map(document => formatBenchmark(document)).join("\\n\\n") + "\\n" : "No benchmark history. Evaluate and record a run with: forge benchmark RUN_ID --path .\\n");
+          return;
+        }
+        const report = await loadEvaluationReport(target, runId, suiteId);
+        const trace = await loadExecutionTrace(target, runId);
+        const document = await recordBenchmarkTrial(target, createBenchmarkTrial(report, trace));
+        process.stdout.write(formatBenchmark(document) + "\\n");
+      } catch (error) { process.stderr.write("FORGE benchmark failed: " + (error instanceof Error ? error.message : String(error)) + "\\n"); process.exitCode = 1; }
       return;
     }
     case "evaluate": {
