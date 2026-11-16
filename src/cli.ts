@@ -25,7 +25,7 @@ import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.js";
-import { stageApprovedPatch } from "./core/patch-application.js";
+import { stageApprovedPatch, reviewStagedPatch } from "./core/patch-application.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -1076,6 +1076,20 @@ async function main(args: string[]): Promise<void> {
       } catch(error) {
         process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
+      }
+      return;
+    }
+    case "patch-review": {
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const stageId = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--path") ?? "";
+      try {
+        if (!stageId) throw new Error("Usage: forge patch-review STAGE_ID --path PROJECT");
+        const review = await reviewStagedPatch(target, stageId);
+        process.stdout.write(["# FORGE Staged Patch Review", "- Stage: " + review.stageId, "- File: " + review.file, "- Source SHA-256: " + review.sourceSha256, "- Staged SHA-256: " + review.stagedSha256, "- Source unchanged: " + review.unchanged, "", review.diff].join("\n") + "\n");
+      } catch (error) {
+        process.stderr.write("FORGE staged patch review failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
       }
       return;
     }
