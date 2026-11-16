@@ -181,7 +181,7 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
       stagedFile: path.relative(project, stagedTarget).split(path.sep).join("/"),
       stagedAt: new Date().toISOString(), sourceSha256: sha(source), stagedSha256: sha(patched),
       workspacePath: path.relative(project, workspaceRoot).split(path.sep).join("/"),
-      workspaceSha256: finalSnapshot.sha256, snapshotFiles: snapshot.files, snapshotBytes: snapshot.bytes,
+      workspaceSha256: finalSnapshot.sha256, snapshotFiles: finalSnapshot.files, snapshotBytes: finalSnapshot.bytes,
     };
     await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     return record;
