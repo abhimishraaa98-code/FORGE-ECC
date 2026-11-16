@@ -11,6 +11,7 @@ import { auditProject } from "../core/quality-audit.js";
 import { analyzeGitChanges } from "../core/git-intelligence.js";
 import { loadAgentRegistry } from "../core/agent-registry.js";
 import { createReviewPlan } from "../core/review-planner.js";
+import { listWorkspaceDirectory, readWorkspaceFile } from "../core/workspace-browser.js";
 
 const WORKSPACE_ROOT = await realpath(process.env.FORGE_WORKSPACE ?? process.cwd());
 
@@ -82,6 +83,42 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       return result(await searchWorkspace(root, query, limit ?? 40));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_list_files",
+  {
+    title: "List workspace files",
+    description: "Read-only directory listing for supported source and documentation files. Hidden paths, secrets, dependencies, generated folders and symlinks are excluded. Results are bounded to 200 entries.",
+    inputSchema: z.object({
+      projectPath: z.string().optional().describe("Workspace-relative project directory. Defaults to the configured workspace root."),
+      relativePath: z.string().max(500).optional().describe("Directory path relative to the selected project root.")
+    })
+  },
+  async ({ projectPath, relativePath }) => {
+    try {
+      const root = await resolveWorkspace(projectPath);
+      return result(await listWorkspaceDirectory(root, relativePath ?? ""));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_read_file",
+  {
+    title: "Read workspace file",
+    description: "Read a supported text/source file inside the selected project. Rejects traversal, symlinks, secret-like filenames, binary content and files larger than 128 KiB. Read-only; does not modify files.",
+    inputSchema: z.object({
+      projectPath: z.string().optional().describe("Workspace-relative project directory. Defaults to the configured workspace root."),
+      relativePath: z.string().min(1).max(500).describe("File path relative to the selected project root.")
+    })
+  },
+  async ({ projectPath, relativePath }) => {
+    try {
+      const root = await resolveWorkspace(projectPath);
+      return result(await readWorkspaceFile(root, relativePath));
     } catch (error) { return failure(error); }
   }
 );
