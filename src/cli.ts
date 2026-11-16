@@ -357,6 +357,8 @@ async function main(args: string[]): Promise<void> {
           ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}),
           ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}),
           ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
+          ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
+          ...(readAgentDurationBudgets() ? { maxTaskDurationMsByAgent: readAgentDurationBudgets() } : {}),
         });
         const provider = router;
         const plan = createReviewPlan(goal);
