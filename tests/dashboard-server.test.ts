@@ -19,6 +19,19 @@ afterEach(async () => {
 });
 
 describe("local dashboard server", () => {
+  it("renders visual candidate comparisons from historical benchmark entries", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-visual-experiment-history-"));
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const response = await fetch(`http://127.0.0.1:${address.port}/`);
+    const html = await response.text();
+    expect(html).toContain("Visual candidate comparison");
+    expect(html).toContain("experimentComparison");
+    expect(html).toContain("Average score");
+    expect(html).toContain("Pass rate");
+  });
+
   it("serves the latest per-agent benchmark leaderboard", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-leaderboard-"));
     const now = new Date().toISOString();
