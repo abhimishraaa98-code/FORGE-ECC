@@ -26,6 +26,7 @@ import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.js";
 import { stageApprovedPatch, reviewStagedPatch } from "./core/patch-application.js";
+import { verifyStagedPatch } from "./core/staged-verification.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -119,7 +120,7 @@ Commands:
   patch-check ID N  Dry-run validate AI patch N from a saved review
   regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
-  verify SCRIPT    Explicitly run one selected npm script and record its result
+  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
@@ -1000,6 +1001,35 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE verification failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "patch-verify": {
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1);
+      const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
+      const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
+      try {
+        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--path PROJECT]");
+        const result = await verifyStagedPatch(target, stageId, script);
+        process.stdout.write(
+          "# FORGE Staged Patch Verification\n\n" +
+          "- **Stage:** `" + result.stageId + "`\n" +
+          "- **Patch file:** `" + result.file + "`\n" +
+          "- **Staged SHA-256:** `" + result.stagedSha256 + "`\n" +
+          "- **Snapshot files:** `" + result.snapshotFileCount + "`\n" +
+          "- **Snapshot bytes:** `" + result.snapshotBytes + "`\n" +
+          "- **Verification:** **" + result.verification.status.toUpperCase() + "**\n" +
+          "- **Duration:** `" + result.verification.durationMs + " ms`\n\n" +
+          "## Output\n\n```\n" + (result.verification.output || "(No output captured.)") + "\n```\n\n" +
+          "Temporary workspace was removed after verification. Project scripts ran on the local host; this is not an OS-level sandbox.\n",
+        );
+        if (result.verification.status !== "passed") process.exitCode = 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write("FORGE staged verification failed: " + message + "\n");
         process.exitCode = 1;
       }
       return;
