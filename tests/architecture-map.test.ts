@@ -11,6 +11,22 @@ describe("mapArchitecture", () => {
     root = "";
   });
 
+
+  it("excludes source files inside hidden and private configuration directories", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-map-private-"));
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
+    await mkdir(path.join(root, ".ssh"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.ts"), "export const visible = true;");
+    await writeFile(path.join(root, ".forge", "agents", "private.ts"), "export const privateAgent = true;");
+    await writeFile(path.join(root, ".ssh", "helper.ts"), "export const privateHelper = true;");
+
+    const result = await mapArchitecture(root);
+    expect(result.nodes.map(node => node.file)).toEqual(["src/main.ts"]);
+    expect(JSON.stringify(result)).not.toContain("privateAgent");
+    expect(JSON.stringify(result)).not.toContain("privateHelper");
+  });
+
   it("maps relative imports and identifies likely entry points", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-map-"));
     await mkdir(path.join(root, "src", "lib"), { recursive: true });
