@@ -11,7 +11,7 @@ export interface ExperimentManifest {
   createdAt: string;
   fingerprint: string;
   source: { commit: string | null; dirty: boolean | null };
-  runtime: { node: string; platform: string; architecture: string };
+  runtime: { node: string; platform: string; architecture: string };\n  environment: { variables: Array<{ name: string; value: string }>; lockfiles: Array<{ name: string; sha256: string }> };
   inputs: { matrixId: string; matrixSha256: string; suiteId: string; suiteSha256: string; packageLockSha256: string | null };
   provider: { provider: string; model: string; baseUrlHost: string | null };
   configuration: { agentConfigFingerprints: Array<{ candidateId: string; configVersionId: string; fingerprint: string }> };
@@ -37,17 +37,17 @@ export async function captureExperimentManifest(input: {
   agentConfigFingerprints?: Array<{ candidateId: string; configVersionId: string; fingerprint: string }>;
 }): Promise<ExperimentManifest> {
   const root = path.resolve(input.projectPath);
-  const [commit, status, matrixSha256, packageLockSha256] = await Promise.all([
+  const lockfileNames = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock"];\n  const [commit, status, matrixSha256, packageLockSha256, ...lockfileHashes] = await Promise.all([
     git(root, ["rev-parse", "HEAD"]), git(root, ["status", "--porcelain"]),
     hashFile(path.resolve(input.matrixFile)), hashFile(path.join(root, "package-lock.json"))
   ]);
   const suiteSha256 = sha256(JSON.stringify(input.suite));
   const source = { commit, dirty: status === null ? null : status.length > 0 };
   const inputs = { matrixId: input.matrixId, matrixSha256: matrixSha256 ?? "unavailable", suiteId: input.suiteId, suiteSha256, packageLockSha256 };
-  const provider = { provider: input.provider, model: input.model, baseUrlHost: input.baseUrl ? safeHost(input.baseUrl) : null };
+  const provider = { provider: input.provider, model: input.model, baseUrlHost: input.baseUrl ? safeHost(input.baseUrl) : null };\n  const environmentNames = ["CI", "NODE_ENV", "TZ", "LANG", "LC_ALL", "FORGE_MODEL_RETRY_ATTEMPTS", "FORGE_MODEL_RETRY_DELAY_MS", "FORGE_MAX_INPUT_TOKENS_PER_TASK", "FORGE_MAX_OUTPUT_TOKENS_PER_TASK", "FORGE_MAX_ESTIMATED_TOKENS_PER_RUN", "FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT", "FORGE_MAX_TASK_DURATION_MS"];\n  const environment = { variables: environmentNames.filter(name => process.env[name] !== undefined).map(name => ({ name, value: process.env[name]! })).sort((a,b) => a.name.localeCompare(b.name)), lockfiles: lockfileNames.flatMap((name,index) => { const hash = lockfileHashes[index]; return typeof hash === "string" ? [{ name, sha256: hash }] : []; }) };
   const configuration = { agentConfigFingerprints: [...(input.agentConfigFingerprints ?? [])].sort((a,b) => a.candidateId.localeCompare(b.candidateId)) };
-  const canonical = JSON.stringify({ source, runtime: { node: process.version, platform: process.platform, architecture: process.arch }, inputs, provider, configuration });
-  return { version: 1, id: "exp-" + randomUUID().replace(/-/g, "").slice(0,12), createdAt: new Date().toISOString(), fingerprint: sha256(canonical), source, runtime: { node: process.version, platform: process.platform, architecture: process.arch }, inputs, provider, configuration };
+  const runtime = { node: process.version, platform: process.platform, architecture: process.arch };\n  const canonical = JSON.stringify({ source, runtime, environment, inputs, provider, configuration });
+  return { version: 1, id: "exp-" + randomUUID().replace(/-/g, "").slice(0,12), createdAt: new Date().toISOString(), fingerprint: sha256(canonical), source, runtime, environment, inputs, provider, configuration };
 }
 function safeHost(value: string): string | null {
   try { return new URL(value).host; } catch { return null; }
@@ -61,7 +61,7 @@ export function compareExperimentManifests(a: ExperimentManifest, b: ExperimentM
   if (a.inputs.packageLockSha256 !== b.inputs.packageLockSha256) differences.push("package-lock.json differs.");
   if (a.provider.provider !== b.provider.provider || a.provider.model !== b.provider.model || a.provider.baseUrlHost !== b.provider.baseUrlHost) differences.push("Provider, model, or endpoint differs.");
   if (JSON.stringify(a.configuration.agentConfigFingerprints) !== JSON.stringify(b.configuration.agentConfigFingerprints)) differences.push("Agent/skill configuration snapshots differ.");
-  if (a.runtime.node !== b.runtime.node || a.runtime.platform !== b.runtime.platform || a.runtime.architecture !== b.runtime.architecture) differences.push("Runtime environment differs.");
+  if (a.runtime.node !== b.runtime.node || a.runtime.platform !== b.runtime.platform || a.runtime.architecture !== b.runtime.architecture) differences.push("Runtime environment differs.");\n  if (JSON.stringify(a.environment) !== JSON.stringify(b.environment)) differences.push("Allowlisted runtime environment variables or dependency lockfiles differ.");
   return { compatible: differences.length === 0, differences };
 }
 export async function saveExperimentManifest(projectPath: string, manifest: ExperimentManifest): Promise<string> {
@@ -80,5 +80,5 @@ export async function loadExperimentManifest(projectPath: string, id: string): P
   return item;
 }
 export function formatExperimentManifest(item: ExperimentManifest): string {
-  return ["FORGE Experiment Manifest " + item.id, "Fingerprint: sha256:" + item.fingerprint, "Git: " + (item.source.commit ?? "unavailable") + " · working tree " + (item.source.dirty === null ? "unknown" : item.source.dirty ? "dirty" : "clean"), "Runtime: " + item.runtime.node + " · " + item.runtime.platform + "/" + item.runtime.architecture, "Matrix: " + item.inputs.matrixId + " · " + item.inputs.matrixSha256, "Suite: " + item.inputs.suiteId + " · " + item.inputs.suiteSha256, "Lockfile: " + (item.inputs.packageLockSha256 ?? "not found"), "Provider: " + item.provider.provider + " / " + item.provider.model + " · " + (item.provider.baseUrlHost ?? "default endpoint"), "Pinned configs: " + item.configuration.agentConfigFingerprints.length].join("\n");
+  return ["FORGE Experiment Manifest " + item.id, "Fingerprint: sha256:" + item.fingerprint, "Git: " + (item.source.commit ?? "unavailable") + " · working tree " + (item.source.dirty === null ? "unknown" : item.source.dirty ? "dirty" : "clean"), "Runtime: " + item.runtime.node + " · " + item.runtime.platform + "/" + item.runtime.architecture, "Environment variables recorded: " + item.environment.variables.length, "Dependency lockfiles recorded: " + item.environment.lockfiles.map(file => file.name).join(", "), "Matrix: " + item.inputs.matrixId + " · " + item.inputs.matrixSha256, "Suite: " + item.inputs.suiteId + " · " + item.inputs.suiteSha256, "Lockfile: " + (item.inputs.packageLockSha256 ?? "not found"), "Provider: " + item.provider.provider + " / " + item.provider.model + " · " + (item.provider.baseUrlHost ?? "default endpoint"), "Pinned configs: " + item.configuration.agentConfigFingerprints.length].join("\n");
 }
