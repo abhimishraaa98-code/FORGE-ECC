@@ -44,6 +44,7 @@ import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/bench
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
+import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -87,6 +88,7 @@ Commands:
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
+  experiment <capture|show|compare> [options]  Capture and compare reproducible benchmark manifests
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -261,6 +263,49 @@ async function main(args: string[]): Promise<void> {
         if (report.status === "blocked") process.exitCode = 2;
       } catch (error) {
         process.stderr.write("FORGE benchmark regression failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "experiment": {
+      const action = rest[0] ?? "capture";
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        if (action === "capture") {
+          const matrixFile = option("--matrix-file");
+          const suiteId = option("--suite");
+          const matrixId = option("--matrix-id");
+          const provider = option("--provider") ?? process.env.FORGE_AI_PROVIDER ?? "openai";
+          const model = option("--model") ?? process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL ?? "gpt-4.1";
+          if (!matrixFile || !suiteId || !matrixId) throw new Error("Usage: forge experiment capture --matrix-file CONFIG.json --matrix-id ID --suite SUITE_ID [--provider ID] [--model NAME] [--path PROJECT]");
+          const matrix = await loadBenchmarkMatrix(path.resolve(matrixFile));
+          const suites = await loadEvaluationSuites(target);
+          const suite = suites.find(item => item.id === suiteId);
+          if (!suite) throw new Error("Evaluation suite not found: " + suiteId);
+          const fingerprints = [];
+          for (const candidate of matrix.candidates) {
+            if (!candidate.configVersionId) continue;
+            const snapshot = await loadAgentConfigVersion(target, candidate.configVersionId);
+            fingerprints.push({ candidateId: candidate.id, configVersionId: snapshot.id, fingerprint: fingerprintAgentConfig(snapshot.files) });
+          }
+          const manifest = await captureExperimentManifest({ projectPath: target, matrixFile: path.resolve(matrixFile), matrixId, suiteId, suite, provider, model, baseUrl: process.env.FORGE_BASE_URL, agentConfigFingerprints: fingerprints });
+          const saved = await saveExperimentManifest(target, manifest);
+          process.stdout.write(formatExperimentManifest(manifest) + "\\nSaved: " + path.relative(target, saved) + "\\n");
+        } else if (action === "show") {
+          const id = args[0]; if (!id) throw new Error("Usage: forge experiment show EXPERIMENT_ID --path PROJECT");
+          process.stdout.write(formatExperimentManifest(await loadExperimentManifest(target, id)) + "\\n");
+        } else if (action === "compare") {
+          const ids = rest.slice(1).filter((arg,index,all) => !arg.startsWith("--") && all[index-1] !== "--path");
+          if (ids.length !== 2) throw new Error("Usage: forge experiment compare EXPERIMENT_A EXPERIMENT_B --path PROJECT");
+          const [a,b] = await Promise.all([loadExperimentManifest(target,ids[0]!),loadExperimentManifest(target,ids[1]!)]);
+          const comparison = compareExperimentManifests(a,b);
+          process.stdout.write("Experiment reproducibility: " + (comparison.compatible ? "COMPATIBLE" : "NOT COMPARABLE") + "\\n" + (comparison.differences.length ? comparison.differences.map(item => "  - " + item).join("\\n") : "  Critical manifest fields match.") + "\\n");
+          if (!comparison.compatible) process.exitCode = 2;
+        } else throw new Error("Unknown action. Use capture, show or compare.");
+      } catch (error) {
+        process.stderr.write("FORGE experiment command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
