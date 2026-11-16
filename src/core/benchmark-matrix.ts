@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
@@ -121,4 +121,18 @@ export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
   for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "completed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
   lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
   return lines.join("\n");
+}
+
+export async function listBenchmarkMatrices(projectPath: string): Promise<BenchmarkMatrixReport[]> {
+  const directory = path.join(path.resolve(projectPath), ".forge", "benchmark-matrices");
+  let files: string[];
+  try { files = (await readdir(directory)).filter(file => file.endsWith(".json")).sort(); }
+  catch (error) { if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return []; throw error; }
+  const reports: BenchmarkMatrixReport[] = [];
+  for (const file of files.slice(-100)) {
+    const value: unknown = JSON.parse(await readFile(path.join(directory, file), "utf8"));
+    if (!value || typeof value !== "object" || (value as BenchmarkMatrixReport).version !== 1 || !Array.isArray((value as BenchmarkMatrixReport).results) || !Array.isArray((value as BenchmarkMatrixReport).summary)) throw new Error("Stored benchmark matrix report is invalid: " + file);
+    reports.push(value as BenchmarkMatrixReport);
+  }
+  return reports.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
