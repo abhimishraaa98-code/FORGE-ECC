@@ -49,11 +49,11 @@ export function buildAgentEvaluationIntelligence(history: BenchmarkMatrixReport[
   if (!current?.agentSummary?.length) return { status: "insufficient-data", suiteId: options.suiteId ?? current?.suiteId ?? "", runsAnalyzed: eligible.length, generatedAt: new Date().toISOString(), cards: [], recommendations: ["Run benchmark-matrix at least once with per-agent score collection; repeat comparable runs to establish trends."], caveats };
   const selected = current.agentSummary.filter(item => !options.candidateId || item.candidateId === options.candidateId);
   const cards: AgentEffectivenessCard[] = selected.map(item => {
-    const same = eligible.filter(report => report.suiteId === current.suiteId && report.goal === current.goal)
+    const same = eligible.filter(report => report.matrixId === current.matrixId && report.suiteId === current.suiteId && report.goal === current.goal)
       .flatMap(report => (report.agentSummary ?? []).filter(agent => agent.candidateId === item.candidateId && agent.agent === item.agent && agent.provider === item.provider && agent.model === item.model));
     const previous = same.length > 1 ? same[same.length - 2]! : undefined;
     const scoreTrend = previous ? Math.round((item.averageScore - previous.averageScore) * 10) / 10 : null;
-    const scores = eligible.filter(report => report.suiteId === current.suiteId && report.goal === current.goal)
+    const scores = eligible.filter(report => report.matrixId === current.matrixId && report.suiteId === current.suiteId && report.goal === current.goal)
       .flatMap(report => report.results.filter(result => result.candidateId === item.candidateId && result.provider === item.provider && result.model === item.model && result.status === "completed")
         .flatMap(result => (result.agentScores ?? []).filter(score => score.agent === item.agent).map(score => ({ ...score, runId: result.runId }))));
     const caseIds = [...new Set(scores.map(score => score.caseId))].sort();
