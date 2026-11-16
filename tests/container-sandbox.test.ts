@@ -178,13 +178,13 @@ describe("container timeout cleanup", () => {
         "if (args[0] === 'stop' || args[0] === 'rm') { fs.appendFileSync(" + JSON.stringify(callsPath) + ", JSON.stringify(args) + '\\n'); process.exit(1); }",
         "if (args[0] === 'run') { setInterval(() => {}, 1000); }",
         "if (args[0] !== 'run') process.exit(2);",
-      ].join("\\n");
+      ].join("\n");
       await writeFile(runtime, source, "utf8");
       await chmod(runtime, 0o755);
       const result = await runContainerVerification(project, "test", image, {
         runtimePath: runtime, timeoutMs: 1000,
       });
-      const calls = (await readFile(callsPath, "utf8")).trim().split("\\n").map(line => JSON.parse(line) as string[]);
+      const calls = (await readFile(callsPath, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
       expect(result.status).toBe("timed_out");
       expect(calls).toHaveLength(2);
       expect(calls[0][0]).toBe("stop");
