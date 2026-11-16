@@ -585,3 +585,30 @@ forge benchmark --path .
 The local dashboard includes a Benchmark Lab panel with average/best/worst score, pass rate, score standard deviation, average duration and estimated token use, retries and fallbacks. Each trial records the actual provider/model metadata from the execution trace. A run can be recorded only once per suite; recording it again replaces its previous trial. To compare models, run equivalent tasks independently with each model and record each distinct run.
 
 Benchmark token counts are estimates derived from trace data, not provider-billed usage. Results are only comparable when task inputs, evaluation suite, judge settings and environment are held reasonably constant. Model-judged scores should be tracked separately from deterministic rubric scores; human review remains important.
+
+
+### Automated Benchmark Matrix
+
+Run an equivalent engineering goal against multiple provider/model candidates and repeat each candidate up to three times. Matrix definitions are JSON files:
+
+```json
+{
+  "id": "model-comparison",
+  "name": "Model comparison",
+  "repeats": 2,
+  "candidates": [
+    { "id": "openai-fast", "provider": "openai", "model": "gpt-4.1-mini" },
+    { "id": "openai-reasoning", "provider": "openai", "model": "gpt-4.1" }
+  ]
+}
+```
+
+Run it with:
+
+```bash
+forge benchmark-matrix ./matrix.json --suite engineering-basics --goal "Review the architecture and identify reliability risks" --path .
+```
+
+FORGE runs the same review-plan goal and evaluation suite for every candidate/repeat, stores each underlying run and execution trace, and writes a matrix report under `.forge/benchmark-matrices/`. Candidate model selection is pinned across fast, balanced and reasoning tiers, with no fallback model, to keep comparisons interpretable. Runs execute sequentially; a failed trial is recorded and does not prevent later trials from running.
+
+A matrix supports 2–4 candidates and 1–3 repeats (maximum 12 trials) to limit unexpected provider usage. OpenAI candidates use `FORGE_API_KEY` or `OPENAI_API_KEY`; Claude Code candidates use the locally authenticated Claude Code CLI. Matrix reports include average deterministic score, pass rate, score standard deviation, wall-clock duration and estimated token use. Token figures are estimates, not billed usage. Use the same goal, suite, project state and environment when comparing candidates. Model-judge scoring is not currently part of the automated matrix.
