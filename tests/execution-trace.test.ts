@@ -28,4 +28,18 @@ describe("execution trace persistence", () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-trace-"));
     await expect(loadExecutionTrace(root, "../escape")).rejects.toThrow("Invalid FORGE run identifier");
   });
+
+  it("rejects competing writers instead of losing trace updates", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-trace-lock-"));
+    const entry = { taskId: "a", agent: "planner", tier: "balanced" as const, model: "model-x", provider: "test", startedAt: new Date().toISOString(), durationMs: 10, outcome: "success" as const, inputTokensEstimate: 1, outputTokensEstimate: 1 };
+    const results = await Promise.allSettled([
+      saveExecutionTrace(root, "forge-concurrent-trace", [entry]),
+      saveExecutionTrace(root, "forge-concurrent-trace", [{ ...entry, taskId: "b" }]),
+    ]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+    await expect(loadExecutionTrace(root, "forge-concurrent-trace")).resolves.toMatchObject({
+      entries: [expect.objectContaining({ taskId: expect.stringMatching(/^(a|b)$/) })],
+    });
+  });
 });
