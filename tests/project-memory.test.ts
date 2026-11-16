@@ -57,7 +57,7 @@ describe("local project memory", () => {
     await expect(addProjectMemory(root, { kind: "fact", content: "Another note", tags: [42 as unknown as string] })).rejects.toThrow("tags");
   });
 
-  it("serializes concurrent memory writes without losing entries", async () => {
+  it("rejects competing memory writers rather than risking lost updates", async () => {
     const root = await workspace();
     const results = await Promise.allSettled([
       addProjectMemory(root, { kind: "fact", content: "Concurrent note A" }),
