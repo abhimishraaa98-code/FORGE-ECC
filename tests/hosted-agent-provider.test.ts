@@ -10,6 +10,23 @@ const request: AgentRequest = {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+
+  it("applies the shared response-size limit to hosted provider responses", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(" ".repeat(1_048_577), {
+      status: 200, headers: { "content-type": "application/json" },
+    })));
+    const provider = new HostedAgentProvider({ provider: "anthropic", model: "claude-test", apiKey: "test-key" });
+    await expect(provider.complete(request)).rejects.toThrow("1 MiB size limit");
+  });
+
+  it("rejects malformed JSON from a successful hosted provider response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{ malformed", {
+      status: 200, headers: { "content-type": "application/json" },
+    })));
+    const provider = new HostedAgentProvider({ provider: "google", model: "gemini-test", apiKey: "test-key" });
+    await expect(provider.complete(request)).rejects.toThrow("malformed JSON");
+  });
+
 });
 
 describe("hosted agent provider security and protocol handling", () => {
