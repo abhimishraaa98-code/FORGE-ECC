@@ -272,6 +272,45 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.outcome).toBe("failed");
   });
 
+  it("reserves a separate input budget for fallback requests", async () => {
+    const created: string[] = [];
+    const router = new ModelRouter({
+      ...models,
+      fallbackModel: "backup-model",
+      maxEstimatedTokensPerRun: 5,
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          created.push(model);
+          if (model === "large-model") throw new Error("AI provider request failed with HTTP 429.");
+          return { provider: model, content: "fallback proposal" };
+        },
+      }),
+    });
+    await expect(router.complete({ task: { id: "fallback-budget", agent: "security-reviewer", title: "Review", prompt: "Review auth" }, completedDependencies: [] })).rejects.toThrow("before fallback provider call");
+    expect(created).toEqual(["large-model"]);
+    expect(router.traces[0]?.outcome).toBe("failed");
+    expect(router.traces[0]?.provider).toBe("not-started");
+  });
+
+  it("records generated fallback output when a post-response budget rejects it", async () => {
+    const router = new ModelRouter({
+      ...models,
+      fallbackModel: "backup-model",
+      maxOutputTokensPerTask: 1,
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          if (model === "large-model") throw new Error("AI provider request failed with HTTP 429.");
+          return { provider: model, content: "This fallback output exceeds the configured limit." };
+        },
+      }),
+    });
+    await expect(router.complete({ task: { id: "fallback-output", agent: "security-reviewer", title: "Review", prompt: "Review auth" }, completedDependencies: [] })).rejects.toThrow("fallback output estimate");
+    expect(router.traces[0]).toMatchObject({ outcome: "failed", provider: "backup-model" });
+    expect(router.traces[0]?.outputTokensEstimate).toBeGreaterThan(1);
+  });
+
   it("uses configured fallback and records a trace", async () => {
     const created: string[] = [];
     const createProvider = (model: string): AgentProvider => {
