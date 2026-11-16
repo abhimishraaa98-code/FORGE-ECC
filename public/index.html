@@ -81,10 +81,27 @@ body:before,body:after{display:none}
 
 
  .logo{background:transparent!important;border:0!important;box-shadow:none!important;padding:0;overflow:visible}.logo img{width:100%;height:100%;display:block;object-fit:contain;filter:drop-shadow(0 0 13px #a78bfa66)}.hero-product{position:relative;margin-bottom:18px;border-radius:18px;overflow:hidden;border:1px solid #a78bfa66;background:#090914;box-shadow:0 22px 65px #0009}.hero-product img{display:block;width:100%;height:auto}.hero-product span{position:absolute;right:12px;bottom:10px;padding:6px 9px;border:1px solid #ffffff30;border-radius:99px;background:#090914c9;color:#d9cef8;font:9px ui-monospace,monospace;letter-spacing:.1em}.hero{align-items:start}.hero .terminal{margin-top:0}@media(max-width:620px){.hero-product{border-radius:13px}.hero-product span{font-size:7px;right:7px;bottom:7px}}\n
+
+/* Editorial navigation + practical quick-start strip */
+body{background-position:center top}
+header{position:fixed;top:12px;left:0;right:0;width:min(1600px,calc(100% - 48px));margin:0 auto;border:1px solid rgba(224,213,255,.22);border-radius:20px;background:rgba(17,16,25,.78);box-shadow:0 16px 48px rgba(0,0,0,.28);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.nav{height:68px}
+.hero{padding-top:132px}
+.quickstart{margin:-12px auto 76px;position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;padding:22px 26px;border:1px solid rgba(226,220,255,.17);border-radius:20px;background:linear-gradient(110deg,rgba(25,23,35,.92),rgba(16,17,26,.78));box-shadow:0 22px 60px rgba(0,0,0,.22)}
+.quickstart-copy .eyebrow{color:#e8b3a2}.quickstart-copy h2{font-size:21px;letter-spacing:-.035em;margin:5px 0}.quickstart-copy p{margin:0;color:var(--muted);font-size:12px}
+.command-copy{display:flex;align-items:center;gap:16px;min-width:min(100%,560px);padding:14px 16px;border:1px solid rgba(226,220,255,.18);border-radius:13px;background:#0b0b13;font:12px ui-monospace,monospace;color:#e8e2f2}
+.command-copy code{flex:1;white-space:normal;overflow-wrap:anywhere}.command-copy .prompt{font-size:17px;color:#e8b3a2}
+.copy-command{border:0;border-radius:9px;padding:9px 13px;background:#e8b3a2;color:#211512;font-weight:800;cursor:pointer}
+.integration-note{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:16px;border-top:1px solid rgba(226,220,255,.12)}
+.integration-note>span{font-size:10px;color:#aaa5b9;letter-spacing:.12em;text-transform:uppercase}
+.integration-chips{display:flex;gap:9px;flex-wrap:wrap}
+.integration-chips span{font-size:10px;padding:7px 11px;border:1px solid rgba(226,220,255,.15);border-radius:9px;background:#ffffff08;color:#d9d4e6}
+.integration-chips b{color:#e8b3a2;font-size:8px;margin-left:5px}
+@media(max-width:760px){header{width:calc(100% - 20px);top:8px;border-radius:15px}.nav{height:60px}.navlinks{gap:10px}.navlinks a:not(.btn){display:none}.hero{padding-top:112px}.quickstart{grid-template-columns:1fr;margin:0 auto 48px;padding:18px}.command-copy{min-width:0}.integration-note{align-items:flex-start;flex-direction:column}}
+
 </style>
 </head>
 <body>
-<div class="topline"><span>●</span> FORGE v0.34 · LOCAL-FIRST ENGINEERING INTELLIGENCE · OPEN SOURCE</div>
 <header><div class="wrap nav"><a class="brand" href="#"><span class="logo" aria-label="FORGE logo"><img src="/forge-mark.svg" alt="FORGE mark"></span> FORGE</a><nav class="navlinks"><a href="#platform">Platform</a><a href="#tools">Tools</a><a href="#integrations">Integrations</a><a href="#tour">Product tour</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a class="btn" href="https://github.com/ansh44233/FORGE-ECC">GitHub ↗</a></nav></div></header>
 <main>
 <section class="wrap hero">
@@ -94,6 +111,11 @@ body:before,body:after{display:none}
 <span class="ok">✓</span> TypeScript AST parsed
 <span class="ok">✓</span> Import relationships mapped
 <span class="ok">✓</span> Impact candidates collected</div><div class="output"><div class="outrow"><span>Architecture map</span><b class="ok">READY</b></div><div class="outrow"><span>Change-risk signals</span><b class="warn">REVIEW 04</b></div><div class="outrow"><span>Verification history</span><b class="ok">3 SAVED RUNS</b></div><div class="outrow"><span>Dependency assessment</span><b>REPORT-BASED</b></div></div><div class="termfoot"><span>Illustrative terminal walkthrough</span><span>NO LIVE SCAN</span></div></div></div>
+</section>
+<section class="wrap quickstart reveal" aria-label="Quick start">
+<div class="quickstart-copy"><div class="eyebrow">GET STARTED</div><h2>Bring FORGE into your workflow.</h2><p>Clone the open-source project and build it locally. Node.js 22+ required.</p></div>
+<div class="command-copy"><span class="prompt">$</span><code id="forge-install-command">git clone https://github.com/ansh44233/FORGE-ECC.git && cd FORGE-ECC && npm install && npm run build</code><button class="copy-command" id="forge-copy-command" type="button">Copy</button></div>
+<div class="integration-note"><span>Integration roadmap · not native plugins yet</span><div class="integration-chips"><span>Claude Code <b>PLANNED</b></span><span>Codex <b>PLANNED</b></span><span>Cursor <b>PLANNED</b></span><span>OpenCode <b>PLANNED</b></span><span>VS Code <b>PLANNED</b></span><span>MCP <b>PLANNED</b></span></div></div>
 </section>
 <section class="wrap trust reveal"><div class="trustitem glass"><b>Understand</b><span>Project and codebase intelligence</span></div><div class="trustitem glass"><b>Visualize</b><span>Architecture and dependency signals</span></div><div class="trustitem glass"><b>Evaluate</b><span>Risk, reviews and remediation plans</span></div><div class="trustitem glass"><b>Verify</b><span>Checks, history and regression signals</span></div></section>
 <section class="section" id="platform"><div class="wrap"><div class="sectionhead reveal"><div class="eyebrow">The FORGE platform</div><h2>One workbench. <span class="gradient">A complete engineering picture.</span></h2><p>Explore the capabilities currently documented in the FORGE repository. Each tool is designed to surface useful evidence, explain its limits and leave consequential decisions with the developer.</p></div><div class="featuregrid">
@@ -161,6 +183,8 @@ body:before,body:after{display:none}
 </main>
 <footer><div class="wrap foot"><span>© 2026 FORGE · The AI Engineering Workbench · Independent open-source project</span><div class="footlinks"><a href="https://github.com/ansh44233/FORGE-ECC">GitHub</a><a href="https://github.com/ansh44233/FORGE-ECC/issues">Issues</a><a href="https://github.com/ansh44233/FORGE-ECC/blob/main/LICENSE">MIT License</a></div></div></footer>
 <script>
+const copyForgeCommand=document.getElementById("forge-copy-command");
+if(copyForgeCommand){copyForgeCommand.addEventListener("click",async()=>{const value=document.getElementById("forge-install-command").textContent;try{await navigator.clipboard.writeText(value);copyForgeCommand.textContent="Copied";setTimeout(()=>copyForgeCommand.textContent="Copy",1600)}catch{copyForgeCommand.textContent="Select command";}})}
 const tours={
 discover:{title:"Start with context.",desc:"Inspect the repository before making assumptions about how it works.",rows:[["⌘","Project profile","Languages · scripts · manifests · dependencies","FOUND"],["⌗","Source inventory","Recognized files and project structure","INDEXED"],["◉","Scan notes","Limits and unresolved evidence are visible","REVIEW"]]},
 map:{title:"Make structure visible.",desc:"Explore how source files connect and where a change may travel.",rows:[["⌗","Module relationships","Static imports and package edges","MAPPED"],["⌘","Symbols & exports","AST-based declarations and exported names","PARSED"],["↗","Impact candidates","Potential downstream files to inspect","ESTIMATED"]]},
