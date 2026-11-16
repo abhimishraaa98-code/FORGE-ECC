@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readProviderJson } from "../src/core/provider-response.js";
+import { discardProviderResponse, readProviderJson } from "../src/core/provider-response.js";
 
 describe("bounded provider response parsing", () => {
   it("parses valid JSON within the configured byte limit", async () => {
@@ -27,6 +27,15 @@ describe("bounded provider response parsing", () => {
 
   it("rejects malformed JSON with a bounded, non-sensitive error", async () => {
     await expect(readProviderJson(new Response("{not-json"))).rejects.toThrow("malformed JSON");
+  });
+
+  it("cancels unread provider error bodies without reading their contents", async () => {
+    let cancelled = false;
+    const response = new Response(new ReadableStream({
+      cancel() { cancelled = true; },
+    }), { status: 500 });
+    await discardProviderResponse(response);
+    expect(cancelled).toBe(true);
   });
 
   it("rejects an absent response body", async () => {
