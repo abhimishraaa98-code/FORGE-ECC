@@ -1,0 +1,77 @@
+name: Commit generated dependency lockfile
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful main-branch CI run that uploaded generated-package-lock
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: commit-generated-lockfile
+  cancel-in-progress: false
+
+jobs:
+  commit-lockfile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify source CI run
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid run ID" >&2; exit 1; }
+          run_json="$(gh api "repos/$REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          [[ "$(jq -r '.head_branch' <<< "$run_json")" == "main" ]]
+          [[ "$(jq -r '.conclusion' <<< "$run_json")" == "success" ]]
+          [[ "$(jq -r '.head_repository.full_name' <<< "$run_json")" == "$REPOSITORY" ]]
+          echo "source_run_id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download generated lockfile
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-package-lock
+          path: /tmp/generated-lock
+          run-id: ${{ steps.verify.outputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate lockfile and install reproducibly
+        run: |
+          set -euo pipefail
+          test -s /tmp/generated-lock/package-lock.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('/tmp/generated-lock/package-lock.json', 'utf8'));
+          const root = lock.packages?.[''];
+          if (lock.lockfileVersion !== 3 || !root) throw new Error('Unexpected lockfile format');
+          for (const field of ['name', 'version', 'dependencies', 'devDependencies', 'engines']) {
+            if (JSON.stringify(root[field] ?? null) !== JSON.stringify(pkg[field] ?? null)) {
+              throw new Error(`Lockfile root mismatch: ${field}`);
+            }
+          }
+          NODE
+          cp /tmp/generated-lock/package-lock.json ./package-lock.json
+          npm ci --ignore-scripts
+      - name: Commit lockfile if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already matches the generated lockfile."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Add reproducible npm dependency lockfile"
+          git push origin HEAD:main
