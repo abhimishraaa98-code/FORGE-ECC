@@ -49,7 +49,7 @@ describe("local dashboard server", () => {
     const base = `http://127.0.0.1:${address.port}`;
     const inventory = await fetch(base + "/api/config-files");
     expect(inventory.status).toBe(200);
-    expect(await inventory.json()).toEqual([{ category: "agents", id: "planner", bytes: 23 }]);
+    expect(await inventory.json()).toEqual([{ category: "agents", id: "planner", bytes: 25 }]);
     const read = await fetch(base + "/api/config-files?category=agents&id=planner");
     expect((await read.json()).content).toContain("Plan safely");
     const saved = await fetch(base + "/api/config-files", {
