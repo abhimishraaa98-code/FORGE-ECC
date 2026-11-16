@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
 
 export interface BenchmarkCandidate {
   id: string;
@@ -21,6 +23,8 @@ export interface BenchmarkMatrixResult {
   passed: boolean;
   durationMs: number;
   estimatedTokens: number;
+  status: "passed" | "failed";
+  error?: string;
 }
 export interface BenchmarkMatrixReport {
   version: 1;
@@ -63,33 +67,58 @@ export function validateBenchmarkMatrix(value: unknown): BenchmarkMatrixConfig {
 }
 
 export async function loadBenchmarkMatrix(file: string): Promise<BenchmarkMatrixConfig> {
-  return validateBenchmarkMatrix(JSON.parse(await (await import("node:fs/promises")).readFile(file, "utf8")));
+  return validateBenchmarkMatrix(JSON.parse(await readFile(file, "utf8")));
 }
 
 export async function executeBenchmarkMatrix(
   config: BenchmarkMatrixConfig,
-  execute: (candidate: BenchmarkCandidate, repeat: number) => Promise<Omit<BenchmarkMatrixResult, "candidateId" | "provider" | "model" | "repeat">>,
+  execute: (candidate: BenchmarkCandidate, repeat: number) => Promise<Omit<BenchmarkMatrixResult, "candidateId" | "provider" | "model" | "repeat" | "status">>,
 ): Promise<BenchmarkMatrixReport> {
   const results: BenchmarkMatrixResult[] = [];
   for (const candidate of config.candidates) {
     for (let repeat = 1; repeat <= config.repeats; repeat += 1) {
-      const result = await execute(candidate, repeat);
-      results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, ...result });
+      try {
+        const result = await execute(candidate, repeat);
+        results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, status: "passed", ...result });
+      } catch (error) {
+        results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, runId: "", score: 0, passed: false, durationMs: 0, estimatedTokens: 0, status: "failed", error: error instanceof Error ? error.message : String(error) });
+      }
     }
   }
   const summary = config.candidates.map(candidate => {
-    const items = results.filter(item => item.candidateId === candidate.id);
+    const items = results.filter(item => item.candidateId === candidate.id && item.status === "passed");
     const scores = items.map(item => item.score);
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
     return {
-      candidateId: candidate.id, provider: candidate.provider, model: candidate.model, trials: items.length,
+      candidateId: candidate.id, provider: candidate.provider, model: candidate.model, trials: config.repeats,
       completed: items.length,
       averageScore: Math.round(average * 10) / 10,
-      passRate: Math.round(items.filter(item => item.passed).length / items.length * 1000) / 10,
-      scoreStdDev: Math.round(Math.sqrt(scores.reduce((sum, score) => sum + Math.pow(score - average, 2), 0) / scores.length) * 10) / 10,
-      averageDurationMs: Math.round(items.reduce((sum, item) => sum + item.durationMs, 0) / items.length),
-      averageEstimatedTokens: Math.round(items.reduce((sum, item) => sum + item.estimatedTokens, 0) / items.length),
+      passRate: items.length ? Math.round(items.filter(item => item.passed).length / items.length * 1000) / 10 : 0,
+      scoreStdDev: items.length ? Math.round(Math.sqrt(scores.reduce((sum, score) => sum + Math.pow(score - average, 2), 0) / scores.length) * 10) / 10 : 0,
+      averageDurationMs: items.length ? Math.round(items.reduce((sum, item) => sum + item.durationMs, 0) / items.length) : 0,
+      averageEstimatedTokens: items.length ? Math.round(items.reduce((sum, item) => sum + item.estimatedTokens, 0) / items.length) : 0,
     };
   }).sort((a, b) => b.averageScore - a.averageScore || a.averageDurationMs - b.averageDurationMs);
   return { version: 1, matrixId: config.id, matrixName: config.name, suiteId: "", goal: "", createdAt: new Date().toISOString(), results, summary };
+}
+
+export async function saveBenchmarkMatrix(projectPath: string, report: BenchmarkMatrixReport): Promise<string> {
+  const directory = path.join(path.resolve(projectPath), ".forge", "benchmark-matrices");
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const destination = path.join(directory, report.matrixId + "-" + report.createdAt.replace(/[:.]/g, "-") + ".json");
+  const temporary = path.join(directory, "." + randomUUID() + ".tmp");
+  try {
+    await writeFile(temporary, JSON.stringify(report, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } catch (error) { await rm(temporary, { force: true }).catch(() => undefined); throw error; }
+  return destination;
+}
+
+export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
+  const lines = ["FORGE Automated Benchmark Matrix · " + report.matrixName, "Suite: " + report.suiteId, "Goal: " + report.goal, "", "Candidate | Trials | Completed | Avg score | Pass rate | σ score | Avg time | Avg estimated tokens"];
+  for (const item of report.summary) lines.push([item.candidateId + " (" + item.provider + "/" + item.model + ")", item.trials, item.completed, item.averageScore + "/100", item.passRate + "%", item.scoreStdDev, item.averageDurationMs + " ms", item.averageEstimatedTokens].join(" | "));
+  lines.push("", "Trial details:");
+  for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "passed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
+  lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
+  return lines.join("\\n");
 }
