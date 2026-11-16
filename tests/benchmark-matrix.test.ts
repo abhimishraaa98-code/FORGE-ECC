@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { executeBenchmarkMatrix, formatBenchmarkMatrix, saveBenchmarkMatrix, validateBenchmarkMatrix } from "../src/core/benchmark-matrix.js";
+import { executeBenchmarkMatrix, fingerprintAgentConfig, formatBenchmarkMatrix, saveBenchmarkMatrix, validateBenchmarkMatrix } from "../src/core/benchmark-matrix.js";
 
 const config = {
   id: "model-comparison",
@@ -20,6 +20,14 @@ describe("automated benchmark matrix", () => {
     expect(() => validateBenchmarkMatrix({ ...config, repeats: 4 })).toThrow(/between 1 and 3/);
     expect(() => validateBenchmarkMatrix({ ...config, candidates: [...config.candidates, { id: "c", provider: "openai", model: "c" }, { id: "d", provider: "openai", model: "d" }, { id: "e", provider: "openai", model: "e" }] })).toThrow(/between 2 and 4/);
     expect(() => validateBenchmarkMatrix({ ...config, candidates: [{ ...config.candidates[0] }, { ...config.candidates[0] }] })).toThrow(/unique/);
+  });
+
+  it("fingerprints configuration files deterministically and validates snapshot IDs", () => {
+    const first = fingerprintAgentConfig([{ path: "skills/secure.md", sha256: "b".repeat(64) }, { path: "agents/planner.md", sha256: "a".repeat(64) }]);
+    const reordered = fingerprintAgentConfig([{ path: "agents/planner.md", sha256: "a".repeat(64) }, { path: "skills/secure.md", sha256: "b".repeat(64) }]);
+    expect(first).toBe(reordered);
+    expect(first).toMatch(/^[a-f0-9]{64}$/);
+    expect(() => validateBenchmarkMatrix({ ...config, candidates: [{ ...config.candidates[0], configVersionId: "../escape" }, config.candidates[1]] })).toThrow(/configVersionId/);
   });
 
   it("runs each candidate for each repeat and continues after an isolated failure", async () => {
