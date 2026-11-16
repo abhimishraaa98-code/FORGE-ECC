@@ -444,7 +444,11 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
       const info = await lstat(candidate);
       if (info.isSymbolicLink() || !info.isFile()) throw new Error("Rollback only supports regular files.");
     }
-    const [current, original] = await Promise.all([readFile(target), readFile(backup)]);
+    const [targetReal, backupReal] = await Promise.all([realpath(target), realpath(backup)]);
+    if (!targetReal.startsWith(projectReal + path.sep) || !backupReal.startsWith(stageReal + path.sep)) {
+      throw new Error("Rollback target or backup resolves outside its trusted directory.");
+    }
+    const [current, original] = await Promise.all([readFile(targetReal), readFile(backupReal)]);
     const currentHash = sha(current.toString("utf8"));
     if (currentHash === backupSha256) {
       if (journal && !manifest.promotedAt) { await rm(journalPath, { force: true }); throw new Error("Promotion had not changed the target; abandoned journal cleared."); }
