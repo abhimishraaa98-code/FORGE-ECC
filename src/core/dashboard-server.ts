@@ -195,8 +195,8 @@ async function refreshWorkflows(){
 async function saveCurrentWorkflow(){
  const name=el("workflowName").value.trim();if(!name||!workflowTasks.length){el("workflowMessage").textContent="Enter a workflow name and add at least one task.";return;}
  const definition={id:workflowSlug(name),name,description:el("workflowDescription").value.trim(),tasks:workflowTasks};
- try{const saved=await fetch("/api/workflows",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(definition)});const data=await saved.json();if(!saved.ok)throw new Error(data.error||"Could not save workflow.");el("workflowMessage").textContent="Saved locally as .forge/workflows/"+data.id+".json";await refreshWorkflows();}
- catch(error){el("workflowMessage").textContent=error.message;}
+ try{const saved=await fetch("/api/workflows",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(definition)});const data=await saved.json();if(!saved.ok)throw new Error(data.error||"Could not save workflow.");el("workflowMessage").textContent="Saved locally as .forge/workflows/"+data.id+".json";await refreshWorkflows();return data.id;}
+ catch(error){el("workflowMessage").textContent=error.message;return null;}
 }
 async function createWorkflowDraft(id){
  try{const response=await fetch("/api/workflows/"+encodeURIComponent(id)+"/run",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not create draft run.");el("workflowMessage").textContent="Draft run "+data.id+" created. No agent has been called; review it and explicitly run/resume from the CLI.";await refreshWorkflows();await loadRuns();await inspectRun(data.id);}
@@ -208,13 +208,13 @@ async function loadWorkflowIntoEditor(id){
 }
 el("addWorkflowTask").addEventListener("click",()=>{
  const title=el("workflowTaskTitle").value.trim(),prompt=el("workflowTaskPrompt").value.trim();if(!title||!prompt){el("workflowMessage").textContent="A task title and instructions are required.";return;}if(workflowTasks.length>=30){el("workflowMessage").textContent="A workflow can contain at most 30 tasks.";return;}
- const id=workflowSlug(title).slice(0,40)+"-"+(workflowTasks.length+1);const dependency=el("workflowDependency").value;
+ const id=workflowSlug(title).slice(0,30)+"-"+(workflowTasks.length+1);const dependency=el("workflowDependency").value;
  workflowTasks.push({id,agent:el("workflowAgent").value,title,prompt,dependsOn:dependency?[dependency]:[],requiresApproval:el("workflowRequiresApproval").checked});
  el("workflowTaskTitle").value="";el("workflowTaskPrompt").value="";el("workflowRequiresApproval").checked=false;renderWorkflow();el("workflowMessage").textContent="Task added to the pipeline.";
 });
 el("clearWorkflowTasks").addEventListener("click",()=>{workflowTasks=[];renderWorkflow();});
 el("saveWorkflow").addEventListener("click",saveCurrentWorkflow);
-el("createWorkflowRun").addEventListener("click",async()=>{await saveCurrentWorkflow();const id=workflowSlug(el("workflowName").value);await createWorkflowDraft(id);});
+el("createWorkflowRun").addEventListener("click",async()=>{const id=await saveCurrentWorkflow();if(id)await createWorkflowDraft(id);});
 el("refreshWorkflows").addEventListener("click",refreshWorkflows);renderWorkflow();refreshWorkflows();
 \nel("codeSearchButton").addEventListener("click",runCodeSearch);el("codeSearchQuery").addEventListener("keydown",event=>{if(event.key==="Enter")runCodeSearch();});\nel("workspaceUp").addEventListener("click",()=>loadWorkspace(workspaceDirectory.includes("/")?workspaceDirectory.slice(0,workspaceDirectory.lastIndexOf("/")):""));
 el("refreshDependencyIntel").addEventListener("click",loadDependencyIntelligence);loadDependencyIntelligence();el("refreshTimeline").addEventListener("click",loadIntelligenceTimeline);loadIntelligenceTimeline();el("refreshChangeRisk").addEventListener("click",loadChangeRisk);loadChangeRisk();el("refreshRisk").addEventListener("click",loadEngineeringRisk);el("refreshDependencyGraph").addEventListener("click",loadDependencyGraph);loadEngineeringRisk();el("dependencyFilter").addEventListener("input",()=>{if(dependencyGraphData)renderDependencyGraph(dependencyGraphData);});el("dependencyMode").addEventListener("change",()=>{if(dependencyGraphData)renderDependencyGraph(dependencyGraphData);});el("refreshMap").addEventListener("click",loadMap);loadDependencyGraph();loadWorkspace();el("refreshHealth").addEventListener("click",loadHealth);el("refreshRegression").addEventListener("click",loadRegression);el("refreshReviews").addEventListener("click",loadReviews);el("refreshActivity").addEventListener("click",()=>{loadActivity();loadRuns();});loadOverview();loadAgents();loadRuns();loadActivity();loadMap();loadQuality();loadVerifications();loadHealth();loadRegression();loadReviews();setInterval(()=>{loadActivity();loadRuns();loadVerifications();if(selectedRunId)inspectRun(selectedRunId);},5000);
@@ -245,6 +245,31 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     try {
       if (request.method !== "GET" && request.method !== "POST") {
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
+        return;
+      }
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/"))) {
+        const origin = request.headers.origin;
+        if (origin && new URL(origin).host !== request.headers.host) {
+          response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
+          return;
+        }
+        if (!request.headers["content-type"]?.includes("application/json")) {
+          response.writeHead(415, { "content-type": "application/json" }).end(JSON.stringify({ error: "Expected application/json." }));
+          return;
+        }
+        const chunks: Buffer[] = []; let size = 0;
+        for await (const chunk of request) { size += chunk.length; if (size > 16384) { response.writeHead(413, { "content-type": "application/json" }).end(JSON.stringify({ error: "Request body is too large." })); return; } chunks.push(Buffer.from(chunk)); }
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+        if (requestUrl.pathname === "/api/workflows") {
+          const workflow = await saveWorkflow(projectPath, body);
+          response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(workflow));
+          return;
+        }
+        const runId = requestUrl.pathname.slice("/api/workflows/".length, -"/run".length);
+        const workflow = await loadWorkflow(projectPath, decodeURIComponent(runId));
+        const run = createRunFromWorkflow(workflow);
+        await saveRun(projectPath, run);
+        response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: run.id, status: run.status, taskCount: run.tasks.length }));
         return;
       }
       if (request.method === "POST") {
@@ -289,11 +314,6 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       }
       if (requestUrl.pathname === "/") {
         response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(PAGE);
-        return;
-      }
-      if (requestUrl.pathname === "/api/workflows") {
-        const workflows = await listWorkflows(projectPath);
-        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(workflows));
         return;
       }
       if (requestUrl.pathname === "/api/workflows") {
