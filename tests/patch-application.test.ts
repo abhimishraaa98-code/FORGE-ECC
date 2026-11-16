@@ -82,4 +82,27 @@ describe("isolated approved patch staging", () => {
     expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
   });;
 
+  it("verifies the captured staged snapshot even if the live project later changes", async () => {
+    const approval = await fixture();
+    await writeFile(path.join(root, "src/other.txt"), "captured-version");
+    await writeFile(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        check: `node -e "const fs=require('node:fs');if(fs.readFileSync('src/other.txt','utf8')!=='captured-version')process.exit(1);if(!fs.readFileSync('src/a.ts','utf8').includes('a = 2'))process.exit(2)"`,
+      },
+    }));
+    const staged = await stageApprovedPatch(root, approval.id);
+    await writeFile(path.join(root, "src/other.txt"), "changed-after-stage");
+    const result = await verifyStagedPatch(root, staged.id, "check");
+    expect(result.verification.status).toBe("passed");
+    expect(result.snapshotFileCount).toBeGreaterThanOrEqual(3);
+  });
+
+  it("refuses verification if any file in the staged snapshot is tampered with", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    const workspaceFile = path.join(root, staged.workspacePath, "src/a.ts");
+    await writeFile(workspaceFile, "tampered");
+    await expect(verifyStagedPatch(root, staged.id, "test")).rejects.toThrow(/workspace changed after staging/);
+  });
+
 });
