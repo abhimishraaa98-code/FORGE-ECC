@@ -128,3 +128,64 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
   }
   return record;
 }
+
+export interface PatchStageReview {
+  stageId: string;
+  file: string;
+  sourceSha256: string;
+  stagedSha256: string;
+  unchanged: boolean;
+  diff: string;
+}
+function lineDiff(before: string, after: string): string {
+  const left = before.replace(/\\r\\n/g, "\\n").split("\\n");
+  const right = after.replace(/\\r\\n/g, "\\n").split("\\n");
+  if (left.length > 2000 || right.length > 2000) throw new Error("Staged diff exceeds the 2,000-line review limit.");
+  const rows = left.length + 1, cols = right.length + 1;
+  const table = Array.from({ length: rows }, () => new Uint16Array(cols));
+  for (let i = left.length - 1; i >= 0; i--) for (let j = right.length - 1; j >= 0; j--) {
+    table[i]![j] = left[i] === right[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
+  }
+  const out = ["--- original", "+++ staged"];
+  let i = 0, j = 0;
+  while (i < left.length || j < right.length) {
+    if (i < left.length && j < right.length && left[i] === right[j]) { out.push(" " + left[i]); i++; j++; }
+    else if (j < right.length && (i >= left.length || table[i]![j + 1]! >= table[i + 1]![j]!)) { out.push("+" + right[j]); j++; }
+    else { out.push("-" + left[i]); i++; }
+    if (out.length > 4000) throw new Error("Staged diff exceeds the 4,000-line output limit.");
+  }
+  return out.join("\\n");
+}
+
+/** Verifies a staged manifest and returns a bounded, read-only diff. */
+export async function reviewStagedPatch(root: string, stageId: string): Promise<PatchStageReview> {
+  if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
+  const project = path.resolve(root);
+  const projectReal = await realpath(project);
+  const stageRoot = path.join(project, ".forge", "patch-workspaces", stageId);
+  const stageReal = await realpath(stageRoot);
+  if (!stageReal.startsWith(projectReal + path.sep)) throw new Error("Patch stage resolves outside the project.");
+  const manifestPath = path.join(stageRoot, "stage.json");
+  const manifestInfo = await lstat(manifestPath);
+  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("Stage manifest must be a regular file.");
+  const record = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
+  if (record.id !== stageId || typeof record.file !== "string" || typeof record.stagedFile !== "string" ||
+      typeof record.sourceSha256 !== "string" || typeof record.stagedSha256 !== "string") throw new Error("Stage manifest is invalid.");
+  const sourcePath = path.resolve(project, record.file);
+  const stagedPath = path.resolve(project, record.stagedFile);
+  for (const candidate of [sourcePath, stagedPath]) {
+    const relative = path.relative(project, candidate);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Stage review path escapes the project.");
+  }
+  const [sourceReal, stagedReal] = await Promise.all([realpath(sourcePath), realpath(stagedPath)]);
+  if (!sourceReal.startsWith(projectReal + path.sep) || !stagedReal.startsWith(stageReal + path.sep)) throw new Error("Stage review target resolves outside its expected directory.");
+  for (const candidate of [sourcePath, stagedPath]) {
+    const info = await lstat(candidate);
+    if (info.isSymbolicLink() || !info.isFile()) throw new Error("Stage review only supports regular files.");
+  }
+  const [source, staged] = await Promise.all([readFile(sourceReal, "utf8"), readFile(stagedReal, "utf8")]);
+  const sourceSha256 = sha(source), stagedSha256 = sha(staged);
+  if (sourceSha256 !== record.sourceSha256) throw new Error("Original source changed after staging; regenerate and approve a fresh patch.");
+  if (stagedSha256 !== record.stagedSha256) throw new Error("Staged file changed after staging; do not promote this workspace.");
+  return { stageId, file: record.file, sourceSha256, stagedSha256, unchanged: source === staged, diff: lineDiff(source, staged) };
+}
