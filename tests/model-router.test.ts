@@ -65,6 +65,26 @@ describe("task-aware model routing", () => {
     expect(observed).toEqual(["failed"]);
   });
 
+  it("does not consume token budget when provider initialization fails", async () => {
+    let factories = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxEstimatedTokensPerRun: 5,
+      createProvider: model => {
+        factories += 1;
+        if (factories === 1) throw new Error("provider setup failed");
+        return {
+          name: model,
+          async complete() { return { provider: model, content: "ok" }; },
+        };
+      },
+    });
+    await expect(router.complete({ task: { id: "setup", agent: "planner", title: "Setup", prompt: "x" }, completedDependencies: [] })).rejects.toThrow("provider setup failed");
+    const result = await router.complete({ task: { id: "next", agent: "planner", title: "Next", prompt: "x" }, completedDependencies: [] });
+    expect(result.content).toBe("ok");
+    expect(router.traces.map(trace => trace.outcome)).toEqual(["failed", "success"]);
+  });
+
   it("keeps a successful provider result when the trace observer throws", async () => {
     const router = new ModelRouter({
       ...models,
