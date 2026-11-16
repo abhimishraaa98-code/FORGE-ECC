@@ -43,4 +43,31 @@ describe("OpenAI-compatible provider", () => {
       completedDependencies: [],
     })).rejects.toThrow("HTTP 500");
   });
+  it("executes an explicitly allowed read-only tool call and returns its result to the model", async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "forge-agent-tools-"));
+    try {
+      await mkdir(path.join(workspace, "src"));
+      await writeFile(path.join(workspace, "src", "hello.ts"), "export const greeting = 'hello from workspace';");
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: null, tool_calls: [{ id: "call_read_1", type: "function", function: { name: "read-file", arguments: JSON.stringify({ relativePath: "src/hello.ts" }) } }] } }] }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "The file exports a greeting constant." } }] }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file"] });
+      const provider = new OpenAICompatibleProvider({ apiKey: "test-secret", model: "test-model", workspacePath: workspace, permissionPolicy: policy });
+      const result = await provider.complete({ task: { id: "inspect", agent: "reviewer", title: "Inspect file", prompt: "Read src/hello.ts" }, completedDependencies: [] });
+      expect(result.content).toContain("greeting constant");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const body = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body));
+      expect(JSON.stringify(body.messages)).toContain("hello from workspace");
+    } finally { await rm(workspace, { recursive: true, force: true }); }
+  });
+
+  it("does not advertise tools under the default proposal-only policy", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "Proposal only." } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAICompatibleProvider({ apiKey: "test-secret", model: "test-model" });
+    await provider.complete({ task: { id: "plan", agent: "planner", title: "Plan", prompt: "Plan" }, completedDependencies: [] });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body.tools).toBeUndefined();
+  });
 });
