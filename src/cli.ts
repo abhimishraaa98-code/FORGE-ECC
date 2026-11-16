@@ -29,6 +29,7 @@ import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.j
 import { stageApprovedPatch, reviewStagedPatch } from "./core/patch-application.js";
 import { verifyStagedPatch } from "./core/staged-verification.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "./core/sandbox-runtime.js";
+import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "./core/sandbox-lifecycle.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -148,7 +149,7 @@ Commands:
   patch-check ID N  Dry-run validate AI patch N from a saved review
   regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
-  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options
+  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
@@ -1029,6 +1030,31 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE verification failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "sandbox-cleanup": {
+      const apply = rest.includes("--apply");
+      const unknown = rest.filter(arg => arg !== "--apply");
+      try {
+        if (unknown.length) throw new Error("Usage: forge sandbox-cleanup [--apply]. Cleanup is dry-run unless --apply is explicit.");
+        const output = await runSandboxProbe([
+          "ps", "-a", "--filter", "label=com.forge.managed=true",
+          "--format", "{{.ID}}\\t{{.Status}}\\t{{.Names}}",
+        ]);
+        const managed = parseManagedContainers(output);
+        const candidates = selectStoppedManagedContainers(managed);
+        const removed: string[] = [];
+        if (apply) {
+          for (const container of candidates) {
+            await runSandboxProbe(["rm", container.id]);
+            removed.push(container.id);
+          }
+        }
+        process.stdout.write(formatSandboxCleanupReport(candidates, removed, apply) + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE sandbox cleanup failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
