@@ -115,7 +115,7 @@ export function createRun(goal: string, tasks: readonly AgentTask[]): RunRecord 
 
   const now = timestamp();
   return {
-    id: `forge-${Date.now().toString(36)}`,
+    id: `forge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
     goal,
     createdAt: now,
     updatedAt: now,
