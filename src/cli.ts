@@ -169,7 +169,7 @@ async function main(args: string[]): Promise<void> {
       try {
         if (!runId) {
           const documents = await listBenchmarks(target);
-          process.stdout.write(documents.length ? documents.map(document => formatBenchmark(document)).join("\\n\\n") + "\\n" : "No benchmark history. Evaluate and record a run with: forge benchmark RUN_ID --path .\\n");
+          process.stdout.write(documents.length ? documents.map(document => formatBenchmark(document)).join("\n\n") + "\n" : "No benchmark history. Evaluate and record a run with: forge benchmark RUN_ID --path .\n");
           return;
         }
         const report = await loadEvaluationReport(target, runId, suiteId);
