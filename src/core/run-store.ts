@@ -106,7 +106,19 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
     if (!info.isFile() || info.size > MAX_RUN_FILE_BYTES) {
       throw new Error("Stored run file is not a regular file or exceeds the size limit.");
     }
-    serialized = await handle.readFile("utf8");
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    while (totalBytes <= MAX_RUN_FILE_BYTES) {
+      const chunk = Buffer.alloc(Math.min(64 * 1024, MAX_RUN_FILE_BYTES + 1 - totalBytes));
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+      chunks.push(chunk.subarray(0, bytesRead));
+      totalBytes += bytesRead;
+    }
+    if (totalBytes > MAX_RUN_FILE_BYTES) {
+      throw new Error("Stored run file exceeds the size limit.");
+    }
+    serialized = Buffer.concat(chunks).toString("utf8");
   } finally {
     await handle.close();
   }
