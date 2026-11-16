@@ -32,7 +32,7 @@ describe.skipIf(!image)("real Docker sandbox integration", () => {
 
     const result = await runContainerVerification(project, "test", image!, {
       timeoutMs: 60_000,
-      requireRootless: false
+      requireRootless: process.env.FORGE_REQUIRE_ROOTLESS === "true"
     });
 
     expect(result.status, result.output).toBe("passed");
