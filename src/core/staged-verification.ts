@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { runVerification, type VerificationResult } from "./verification.js";
+import { installVerificationDependencies, runVerification, type DependencyInstallResult, type VerificationResult } from "./verification.js";
 import { copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
 
 export interface StagedVerificationResult {
@@ -14,6 +14,7 @@ export interface StagedVerificationResult {
   snapshotFileCount: number;
   snapshotBytes: number;
   verification: VerificationResult;
+  dependencyInstall: DependencyInstallResult | null;
   verifiedAt: string;
 }
 
@@ -29,7 +30,7 @@ export async function verifyStagedPatch(
   projectPath: string,
   stageId: string,
   script: string,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number } = {},
 ): Promise<StagedVerificationResult> {
   const project = await realpath(path.resolve(projectPath));
   if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
@@ -72,7 +73,14 @@ export async function verifyStagedPatch(
   try {
     const counts = await copyStagedWorkspaceSnapshot(workspaceReal, snapshot);
     if (counts.sha256 !== manifest.workspaceSha256) throw new Error("Temporary verification copy does not match the approved staged snapshot.");
-    const verification = await runVerification(snapshot, script, options);
+    let dependencyInstall: DependencyInstallResult | null = null;
+    if (options.installDependencies) {
+      dependencyInstall = await installVerificationDependencies(snapshot, { timeoutMs: options.installTimeoutMs });
+      if (dependencyInstall.status !== "passed") {
+        throw new Error("Dependency preparation " + dependencyInstall.status + " (exit code " + dependencyInstall.exitCode + "). " + dependencyInstall.output);
+      }
+    }
+    const verification = await runVerification(snapshot, script, { timeoutMs: options.timeoutMs });
     const id = "patch-verify-" + verification.id.slice("verify-".length);
     return {
       id, stageId, file: manifest.file,
@@ -81,6 +89,7 @@ export async function verifyStagedPatch(
       snapshotFileCount: counts.files,
       snapshotBytes: counts.bytes,
       verification,
+      dependencyInstall,
       verifiedAt: new Date().toISOString(),
     };
   } finally {
