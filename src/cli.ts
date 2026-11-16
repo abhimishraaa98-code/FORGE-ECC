@@ -44,6 +44,7 @@ import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/bench
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } from "./core/agent-evaluation-intelligence.js";
 import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
+import { createSkillExperimentMatrix, formatSkillExperimentMatrix } from "./core/agent-experiment-studio.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
@@ -90,6 +91,7 @@ Commands:
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
   agent-intelligence [--suite ID] [--candidate ID] [--limit N] [--path PROJECT]  Score agent effectiveness across benchmark history
   agent-evolution MATRIX_ID [--path PROJECT]  Evaluate a controlled baseline/treatment experiment
+  experiment-studio create [options]  Scaffold a controlled baseline/treatment skill experiment
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
   experiment <capture|show|compare> [options]  Capture and compare reproducible benchmark manifests
@@ -239,6 +241,47 @@ async function main(args: string[]): Promise<void> {
         } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
       } catch (error) {
         process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "experiment-studio": {
+      const action = rest[0] ?? "create";
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      if (action !== "create") {
+        process.stderr.write("Usage: forge experiment-studio create --id ID --name NAME --provider openai|claude-code --model MODEL --skills skill-a,skill-b [--repeats 2] [--path PROJECT]\\n");
+        process.exitCode = 1;
+        return;
+      }
+      const id = option("--id");
+      const name = option("--name");
+      const provider = option("--provider") ?? "openai";
+      const model = option("--model");
+      const skills = option("--skills");
+      const repeats = Number(option("--repeats") ?? "2");
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      if (!id || !name || !model || !skills) {
+        process.stderr.write("Usage: forge experiment-studio create --id ID --name NAME --provider openai|claude-code --model MODEL --skills skill-a,skill-b [--repeats 2] [--path PROJECT]\\n");
+        process.exitCode = 1;
+        return;
+      }
+      if (provider !== "openai" && provider !== "claude-code") {
+        process.stderr.write("Provider must be openai or claude-code.\\n"); process.exitCode = 1; return;
+      }
+      try {
+        const skillIds = skills.split(",").map(item => item.trim()).filter(Boolean);
+        const matrix = createSkillExperimentMatrix({ id, name, baselineCandidateId: "baseline", treatmentCandidateId: "treatment", provider, model, repeats, skillIds });
+        const registry = await loadSkillRegistry(target);
+        const unknown = skillIds.filter(skillId => !registry.some(skill => skill.id === skillId));
+        if (unknown.length) throw new Error("Unknown workspace/built-in skill(s): " + unknown.join(", "));
+        const destination = path.join(target, ".forge", "experiments", id + ".json");
+        const { mkdir, writeFile } = await import("node:fs/promises");
+        await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+        await writeFile(destination, JSON.stringify(matrix, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+        process.stdout.write(formatSkillExperimentMatrix(matrix) + "\\nSaved: " + path.relative(target, destination) + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE experiment studio failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
