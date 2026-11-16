@@ -1,5 +1,6 @@
 import type { AgentProvider, AgentRequest, AgentResponse } from "./orchestrator.js";
 import { OpenAICompatibleProvider } from "./openai-compatible-provider.js";
+import type { ForgePermissionPolicy } from "./permission-policy.js";
 
 export type HostedProviderId = "openai" | "anthropic" | "google" | "ollama";
 
@@ -9,6 +10,8 @@ export interface HostedProviderOptions {
   apiKey?: string;
   baseUrl?: string;
   timeoutMs?: number;
+  workspacePath?: string;
+  permissionPolicy?: ForgePermissionPolicy;
 }
 
 function localHttpAllowed(url: URL): boolean {
@@ -73,6 +76,8 @@ export class HostedAgentProvider implements AgentProvider {
         model: this.options.model,
         baseUrl: this.options.baseUrl ?? defaultBase("openai"),
         timeoutMs,
+        ...(this.options.workspacePath ? { workspacePath: this.options.workspacePath } : {}),
+        ...(this.options.permissionPolicy ? { permissionPolicy: this.options.permissionPolicy } : {}),
       }).complete(request);
     }
     const provider = this.options.provider;
@@ -109,12 +114,12 @@ function defaultBase(provider: HostedProviderId): string {
   return "http://localhost:11434";
 }
 
-export function createHostedAgentProvider(env: NodeJS.ProcessEnv = process.env, modelOverride?: string): AgentProvider {
+export function createHostedAgentProvider(env: NodeJS.ProcessEnv = process.env, modelOverride?: string, runtime: Pick<HostedProviderOptions, "workspacePath" | "permissionPolicy"> = {}): AgentProvider {
   const provider = (env.FORGE_AI_PROVIDER ?? "openai").toLowerCase() as HostedProviderId;
   if (!["openai", "anthropic", "google", "ollama"].includes(provider)) throw new Error("Hosted provider must be openai, anthropic, google or ollama.");
   const keyName = provider === "openai" ? "FORGE_API_KEY" : provider === "anthropic" ? "ANTHROPIC_API_KEY" : provider === "google" ? "GOOGLE_API_KEY" : "";
   const apiKey = keyName ? env[keyName] ?? (provider === "openai" ? env.OPENAI_API_KEY : undefined) : undefined;
   const model = modelOverride ?? env.FORGE_AI_MODEL ?? env.FORGE_MODEL ?? (provider === "openai" ? "gpt-4.1-mini" : provider === "anthropic" ? "claude-sonnet-4-5" : provider === "google" ? "gemini-2.5-flash" : "llama3.2");
   const baseUrl = env.FORGE_BASE_URL ?? (provider === "ollama" ? env.OLLAMA_HOST : undefined);
-  return new HostedAgentProvider({ provider, model, ...(apiKey ? { apiKey } : {}), ...(baseUrl ? { baseUrl } : {}) });
+  return new HostedAgentProvider({ provider, model, ...(apiKey ? { apiKey } : {}), ...(baseUrl ? { baseUrl } : {}), ...runtime });
 }
