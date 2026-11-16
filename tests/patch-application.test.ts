@@ -103,7 +103,7 @@ describe("isolated approved patch staging", () => {
     const staged = await stageApprovedPatch(root, approval.id);
     const workspace = path.join(root, staged.workspacePath);
     const tampered = path.join(workspace, "src/a.ts");
-    await writeFile(tampered, "const a = 99;\\n");
+    await writeFile(tampered, "const a = 99;\n");
     const fingerprint = await fingerprintStagedWorkspace(workspace);
     const manifestPath = path.join(root, ".forge", "patch-workspaces", staged.id, "stage.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
@@ -111,10 +111,9 @@ describe("isolated approved patch staging", () => {
     manifest.workspaceSha256 = fingerprint.sha256;
     manifest.snapshotFiles = fingerprint.files;
     manifest.snapshotBytes = fingerprint.bytes;
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\\n");
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
     await expect(verifyStagedPatch(root, staged.id, "test")).rejects.toThrow(/does not equal the exact patch authorized/);
   });
-  it("refuses verification if any file in the staged snapshot is tampered with", async () => {
   it("refuses verification if any file in the staged snapshot is tampered with", async () => {
     const approval = await fixture();
     const staged = await stageApprovedPatch(root, approval.id);
