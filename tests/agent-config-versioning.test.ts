@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -25,6 +25,7 @@ describe("agent configuration versioning", () => {
     const first = await captureAgentConfigVersion(root, { createdBy: "developer", note: "baseline" });
     await writeFile(path.join(root, ".forge", "agents", "planner.md"), "# Planner\nPlan with acceptance criteria.\n");
     await writeFile(path.join(root, ".forge", "skills", "documentation.md"), "# Documentation\nKeep docs current.\n");
+    await unlink(path.join(root, ".forge", "skills", "secure-changes.md"));
     const second = await captureAgentConfigVersion(root, { note: "candidate update" });
     const diff = compareAgentConfigVersions(first, second);
     expect(diff.changed).toEqual(["agents/planner.md"]);
