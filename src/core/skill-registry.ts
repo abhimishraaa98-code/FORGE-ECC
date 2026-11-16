@@ -24,6 +24,7 @@ const BUILTIN_SKILLS: SkillDefinition[] = [
 ];
 
 const MAX_SKILL_FILES = 200;
+const MAX_SKILL_ENTRIES = 5_000;
 const MAX_SKILL_BYTES = 128 * 1024;
 const MAX_SKILL_DEPTH = 6;
 
@@ -69,7 +70,7 @@ function parseSkill(id: string, content: string, filePath: string): SkillDefinit
   };
 }
 
-async function collectSkillFiles(directory: string, root: string, depth: number, output: string[]): Promise<void> {
+async function collectSkillFiles(directory: string, root: string, depth: number, output: string[], visited: { count: number }): Promise<void> {
   if (depth > MAX_SKILL_DEPTH) return;
   let entries;
   try { entries = await readdir(directory, { withFileTypes: true }); }
@@ -79,12 +80,16 @@ async function collectSkillFiles(directory: string, root: string, depth: number,
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
+    visited.count += 1;
+    if (visited.count > MAX_SKILL_ENTRIES) {
+      throw new Error(`Workspace skill registry exceeds the maximum of ${MAX_SKILL_ENTRIES} directory entries.`);
+    }
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
     const candidate = path.join(directory, entry.name);
     const info = await lstat(candidate);
     if (info.isSymbolicLink()) continue;
     if (info.isDirectory()) {
-      await collectSkillFiles(candidate, root, depth + 1, output);
+      await collectSkillFiles(candidate, root, depth + 1, output, visited);
       continue;
     }
     if (!info.isFile() || info.size > MAX_SKILL_BYTES) continue;
@@ -105,7 +110,7 @@ export async function loadSkillRegistry(projectPath: string): Promise<SkillDefin
   const directory = path.join(root, ".forge", "skills");
   const skills = new Map(BUILTIN_SKILLS.map(skill => [skill.id, skill]));
   const files: string[] = [];
-  await collectSkillFiles(directory, root, 0, files);
+  await collectSkillFiles(directory, root, 0, files, { count: 0 });
   for (const filePath of files) {
     const relative = path.relative(directory, filePath).split(path.sep).join("/");
     const id = relative.endsWith("/SKILL.md")
