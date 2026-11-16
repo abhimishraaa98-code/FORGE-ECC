@@ -100,7 +100,7 @@ export class HostedAgentProvider implements AgentProvider {
       url = endpoint(base, "/api/chat");
       body = { model: this.options.model, stream: false, messages: [{ role: "system", content: system }, { role: "user", content: prompt }] };
     }
-    const response = await fetch(url, { method: "POST", headers, signal: AbortSignal.timeout(timeoutMs), body: JSON.stringify(body) });
+    const response = await fetch(url, { method: "POST", headers, signal: AbortSignal.timeout(timeoutMs), redirect: "error", body: JSON.stringify(body) });
     if (!response.ok) throw new Error(provider + " provider request failed with HTTP " + response.status + ".");
     const text = parseText(await response.json(), provider);
     return { provider, model: this.options.model, content: text };
