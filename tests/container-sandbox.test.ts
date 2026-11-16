@@ -3,10 +3,10 @@ import { buildContainerRunArgs, detectDockerRootless } from "../src/core/contain
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { createSandboxComplianceReport, formatSandboxComplianceReport } from "../src/core/sandbox-compliance.js";
-import { validateSandboxPolicy } from "../src/core/sandbox-policy.js";
+import { loadSandboxPolicy, validateSandboxPolicy } from "../src/core/sandbox-policy.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -227,6 +227,41 @@ describe("fail-closed sandbox policy validation", () => {
     expect(result.valid).toBe(false);
     if (!result.valid) expect(result.errors.join(" ")).toMatch(/Unknown policy field/);
   });
+
+  it("loads a valid policy file and rejects symlink paths", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-policy-file-"));
+    try {
+      const policyPath = path.join(root, "policy.json");
+      const linkPath = path.join(root, "policy-link.json");
+      await writeFile(policyPath, JSON.stringify(validPolicy), "utf8");
+      const loaded = await loadSandboxPolicy(policyPath);
+      expect(loaded.valid).toBe(true);
+      await symlink(policyPath, linkPath);
+      const linked = await loadSandboxPolicy(linkPath);
+      expect(linked.valid).toBe(false);
+      if (!linked.valid) expect(linked.errors.join(" ")).toMatch(/non-symlink file/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed and oversized policy files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-policy-invalid-"));
+    try {
+      const policyPath = path.join(root, "policy.json");
+      await writeFile(policyPath, "{broken", "utf8");
+      const malformed = await loadSandboxPolicy(policyPath);
+      expect(malformed.valid).toBe(false);
+      if (!malformed.valid) expect(malformed.errors.join(" ")).toMatch(/valid JSON/);
+      await writeFile(policyPath, " ".repeat(16 * 1024 + 1), "utf8");
+      const oversized = await loadSandboxPolicy(policyPath);
+      expect(oversized.valid).toBe(false);
+      if (!oversized.valid) expect(oversized.errors.join(" ")).toMatch(/16 KiB/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires rootless for hardened policy", () => {
     const result = validateSandboxPolicy({ ...validPolicy, profile: "hardened" });
     expect(result.valid).toBe(false);
