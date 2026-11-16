@@ -1,12 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { isExcludedScanDirectory } from "./workspace-scan-policy.js";
 
-const IGNORED_DIRECTORIES = new Set([
-  ".git", ".next", ".nuxt", ".output", ".turbo", ".vercel",
-  "coverage", "dist", "build", "out", "node_modules", "vendor",
-  ".forge", ".ssh", ".aws", ".azure", ".kube", ".docker", ".gnupg", ".npm", ".config",
-  ".venv", "venv", "__pycache__", ".idea", ".vscode"
-]);
+const IGNORED_DIRECTORIES = { has: isExcludedScanDirectory };
 
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
   ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript",
