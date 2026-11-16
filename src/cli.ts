@@ -24,6 +24,7 @@ import { reviewProject, formatCodeReview } from "./core/code-review.js";
 import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
+import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -1074,6 +1075,43 @@ async function main(args: string[]): Promise<void> {
       } catch(error) {
         process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
+      }
+      return;
+    }
+    case "patch-approve": {
+      const pathIndex = rest.indexOf("--path");
+      const reviewerIndex = rest.indexOf("--reviewer");
+      const reasonIndex = rest.indexOf("--reason");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const values = rest.filter((arg, index) => !arg.startsWith("--") && index !== pathIndex + 1 && index !== reviewerIndex + 1 && index !== reasonIndex + 1);
+      const reviewId = values[0] ?? "";
+      const suggestionNumber = Number(values[1]);
+      const reviewer = reviewerIndex >= 0 ? rest[reviewerIndex + 1] ?? "" : "";
+      const reason = reasonIndex >= 0 ? rest[reasonIndex + 1] : undefined;
+      try {
+        if (!reviewId || !Number.isInteger(suggestionNumber) || suggestionNumber < 1 || !reviewer.trim()) {
+          throw new Error("Usage: forge patch-approve REVIEW_ID SUGGESTION_NUMBER --reviewer NAME [--reason TEXT] --path PROJECT");
+        }
+        const approval = await approveReviewPatch(target, reviewId, suggestionNumber, reviewer, reason);
+        process.stdout.write(["# FORGE Patch Approval", "- Approval ID: " + approval.id, "- Review: " + approval.reviewId, "- Suggestion: " + approval.suggestionNumber, "- File: " + approval.file, "- Reviewer: " + approval.reviewer, "- Approved: " + approval.approvedAt, "- Expires: " + approval.expiresAt, "- Patch SHA-256: " + approval.patchSha256, "- Source SHA-256: " + approval.sourceSha256, "", "No source files were modified."].join("\\n") + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE patch approval failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "patch-approval-check": {
+      const id = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--path") ?? "";
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        if (!id) throw new Error("Usage: forge patch-approval-check APPROVAL_ID --path PROJECT");
+        const result = await verifyPatchApproval(target, id);
+        process.stdout.write((result.valid ? "VALID: " : "INVALID: ") + result.reason + "\\n");
+        if (!result.valid) process.exitCode = 1;
+      } catch (error) {
+        process.stderr.write("FORGE patch approval check failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
       }
       return;
     }
