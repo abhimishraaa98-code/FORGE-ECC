@@ -56,4 +56,16 @@ describe("local project memory", () => {
     await expect(listProjectMemory(root)).rejects.toThrow("invalid entry");
     await expect(addProjectMemory(root, { kind: "fact", content: "Another note", tags: [42 as unknown as string] })).rejects.toThrow("tags");
   });
+
+  it("serializes concurrent memory writes without losing entries", async () => {
+    const root = await workspace();
+    const results = await Promise.allSettled([
+      addProjectMemory(root, { kind: "fact", content: "Concurrent note A" }),
+      addProjectMemory(root, { kind: "fact", content: "Concurrent note B" }),
+      addProjectMemory(root, { kind: "fact", content: "Concurrent note C" }),
+    ]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(result => result.status === "rejected")).toHaveLength(2);
+    expect(await listProjectMemory(root)).toHaveLength(1);
+  });
 });
