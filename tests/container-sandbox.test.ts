@@ -160,6 +160,41 @@ describe("container timeout cleanup", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("warns when both graceful stop and force removal fail", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-timeout-cleanup-failure-"));
+    try {
+      const project = path.join(root, "project");
+      const runtime = path.join(root, "mock-runtime-cleanup-failure.cjs");
+      const callsPath = path.join(root, "cleanup-calls.jsonl");
+      await import("node:fs/promises").then(fs => fs.mkdir(project));
+      await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "sleep" } }), "utf8");
+      const source = [
+        "#!/usr/bin/env node",
+        "const fs = require('node:fs');",
+        "const args = process.argv.slice(2);",
+        "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
+        "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
+        "if (args[0] === 'stop' || args[0] === 'rm') { fs.appendFileSync(" + JSON.stringify(callsPath) + ", JSON.stringify(args) + '\\n'); process.exit(1); }",
+        "if (args[0] === 'run') { setInterval(() => {}, 1000); }",
+        "if (args[0] !== 'run') process.exit(2);",
+      ].join("\\n");
+      await writeFile(runtime, source, "utf8");
+      await chmod(runtime, 0o755);
+      const result = await runContainerVerification(project, "test", image, {
+        runtimePath: runtime, timeoutMs: 1000,
+      });
+      const calls = (await readFile(callsPath, "utf8")).trim().split("\\n").map(line => JSON.parse(line) as string[]);
+      expect(result.status).toBe("timed_out");
+      expect(calls).toHaveLength(2);
+      expect(calls[0][0]).toBe("stop");
+      expect(calls[1].slice(0, 2)).toEqual(["rm", "--force"]);
+      expect(calls[1].at(-1)).toBe(calls[0].at(-1));
+      expect(result.output).toContain("FORGE cleanup warning");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("container runtime fail-closed behavior", () => {
