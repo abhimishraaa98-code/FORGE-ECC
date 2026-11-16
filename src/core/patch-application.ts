@@ -183,7 +183,7 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
       workspacePath: path.relative(project, workspaceRoot).split(path.sep).join("/"),
       workspaceSha256: finalSnapshot.sha256, snapshotFiles: finalSnapshot.files, snapshotBytes: finalSnapshot.bytes,
     };
-    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     return record;
   } catch (error) {
     await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
