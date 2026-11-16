@@ -138,7 +138,7 @@ describe("container timeout cleanup", () => {
         "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
         "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", args.slice(3).join(' ')); process.exit(0); }",
         "if (args[0] === 'run') { setInterval(() => {}, 1000); }",
-        "process.exit(2);",
+        "if (args[0] !== 'run') process.exit(2);",
       ].join("\n");
       await writeFile(runtime, source, "utf8");
       await chmod(runtime, 0o755);
