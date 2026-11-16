@@ -27,6 +27,7 @@ import { loadBenchmarkRegression } from "./benchmark-regression.js";
 import { buildAgentOptimizationPlan } from "./agent-optimization.js";
 import { buildExperimentHistory } from "./experiment-history.js";
 import { createReplayRun, createTaskRetryRun } from "./run-replay.js";
+import { diagnoseProvider, type DiagnosableProvider } from "./provider-diagnostics.js";
 import { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
 
 function safeProviderOrigin(value: string): string {
@@ -109,8 +110,9 @@ const signals=[["Important files",data.importantFiles.length],["Available script
 async function loadAgents(){try{const data=await api("/api/agents");el("agents").innerHTML=data.length?data.map(agent=>'<div class="rowitem"><div><b>'+esc(agent.name)+'</b><div class="run-meta">'+esc(agent.description)+'</div></div><span class="pill">'+esc(agent.source)+'</span></div>').join(""):'<div class="empty">No agent roles found.</div>';}catch(error){el("agents").innerHTML='<div class="error">'+esc(error.message)+'</div>';}}
 let configFiles=[];
 async function loadProviderReadiness(){
- try{const providers=await api("/api/providers");el("providerReadiness").innerHTML=providers.map(item=>'<div class="rowitem"><div><b>'+esc(item.id)+(item.selected?' · selected':'')+'</b><div class="run-meta">'+esc(item.model)+' · '+esc(item.detail)+'</div></div><span class="pill">'+esc(item.status)+'</span></div>').join("");}
- catch(error){el("providerReadiness").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
+ try{const providers=await api("/api/providers");el("providerReadiness").innerHTML=providers.map(item=>'<div class="rowitem"><div><b>'+esc(item.id)+(item.selected?' · selected':'')+'</b><div class="run-meta">'+esc(item.model)+' · '+esc(item.detail)+'</div><div class="run-meta" id="provider-diagnostic-'+esc(item.id)+'">Connection not tested in this session.</div></div><div class="actions">'+(item.id==="claude-code"?'<span class="pill">CLI check not available</span>':'<button class="btn" data-provider-diagnose="'+esc(item.id)+'">Test connection</button>')+'</div><span class="pill">'+esc(item.status)+'</span></div>').join("");
+ el("providerReadiness").querySelectorAll("[data-provider-diagnose]").forEach(button=>button.addEventListener("click",async()=>{const id=button.dataset.providerDiagnose;const output=el("provider-diagnostic-"+id);button.disabled=true;button.textContent="Testing…";output.textContent="Contacting provider model-list endpoint (8 second timeout)…";try{const result=await fetch("/api/providers/"+encodeURIComponent(id)+"/diagnose",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});const data=await result.json();if(!result.ok)throw new Error(data.error||"Provider diagnostic failed.");output.textContent=data.status.toUpperCase()+" · "+data.message+" · "+data.durationMs+" ms"+(data.modelAvailable===null?"":data.modelAvailable?" · configured model listed":" · configured model not listed");}catch(error){output.textContent=error.message;}finally{button.disabled=false;button.textContent="Test again";}}));
+ }catch(error){el("providerReadiness").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
 }
 async function loadConfigReleases(){
  try{const releases=await api("/api/config-releases");el("configReleases").innerHTML=releases.length?releases.map(item=>'<div class="rowitem"><div><b>'+esc(item.id)+' · '+esc(item.status)+'</b><div class="run-meta">candidate '+esc(item.candidateVersionId)+' · baseline '+esc(item.baselineVersionId)+' · gate '+esc(item.benchmarkStatus)+'</div></div>'+(item.status==="pending-approval"?'<div class="actions"><button class="btn" data-release-decision="approve" data-release-id="'+esc(item.id)+'">Approve</button><button class="btn" data-release-decision="reject" data-release-id="'+esc(item.id)+'">Reject</button></div>':'<span class="pill">'+esc(item.status)+'</span>')+'</div>').join(""):'<div class="empty">No release proposals. Prepare one after running comparable benchmark matrices.</div>';
@@ -437,7 +439,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
         return;
       }
-      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || requestUrl.pathname === "/api/config-releases" || /^\/api\/config-releases\/rel-[a-f0-9]{12}\/(?:approve|reject)$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || /^\/api\/providers\/(?:openai|anthropic|google|ollama)\/diagnose$/.test(requestUrl.pathname) || requestUrl.pathname === "/api/config-releases" || /^\/api\/config-releases\/rel-[a-f0-9]{12}\/(?:approve|reject)$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -450,6 +452,12 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         const chunks: Buffer[] = []; let size = 0;
         for await (const chunk of request) { size += chunk.length; if (size > (requestUrl.pathname === "/api/config-files" ? 140000 : 16384)) { response.writeHead(413, { "content-type": "application/json" }).end(JSON.stringify({ error: "Request body is too large." })); return; } chunks.push(Buffer.from(chunk)); }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+        const providerDiagnosticRoute = requestUrl.pathname.match(/^\/api\/providers\/(openai|anthropic|google|ollama)\/diagnose$/);
+        if (providerDiagnosticRoute) {
+          const diagnostic = await diagnoseProvider(providerDiagnosticRoute[1] as DiagnosableProvider);
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(diagnostic));
+          return;
+        }
         if (requestUrl.pathname === "/api/config-releases") {
           const input = body as { candidateVersionId?: unknown; baselineVersionId?: unknown; matrixId?: unknown };
           if (typeof input?.candidateVersionId !== "string" || typeof input.baselineVersionId !== "string" || typeof input.matrixId !== "string" || !input.matrixId.trim()) throw new Error("Candidate, baseline and benchmark matrix IDs are required.");
