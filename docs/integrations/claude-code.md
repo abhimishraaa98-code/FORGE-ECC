@@ -51,3 +51,20 @@ Ask Claude to inspect the project with `forge_inspect_project` and map its archi
 - Use absolute paths in the MCP command.
 - Confirm the workspace path exists and is the intended repository.
 - Inspect Claude Code's MCP status with `/mcp`.
+
+
+## Use Claude Code as FORGE's AI provider
+
+The FORGE provider abstraction can invoke an already-installed Claude Code CLI using its existing local authentication. This does not use an Anthropic API key from FORGE.
+
+Set:
+
+```bash
+FORGE_AI_PROVIDER=claude-code
+# Optional:
+FORGE_AI_MODEL=sonnet
+```
+
+The provider invokes Claude Code in non-interactive print mode, requests JSON output, starts in plan permission mode, denies Bash/Edit/Write tools, and caps the run at three agentic turns. The process also has a two-minute default timeout and a one-megabyte output cap. It returns a text proposal only; it does not apply file edits or run shell commands.
+
+This is a first local harness adapter, not a full Agent SDK integration. Confirm Claude Code is installed and authenticated on the same machine and that your plan permits the CLI usage you intend. Subscription entitlements and usage limits are controlled by Anthropic and may change. FORGE does not read, store, or bypass Claude credentials.
