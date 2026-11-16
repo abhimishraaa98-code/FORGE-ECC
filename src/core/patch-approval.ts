@@ -121,7 +121,7 @@ export async function revokePatchApproval(root: string, id: string): Promise<Pat
   const destination = path.join(dir, id + ".json");
   const temporary = path.join(dir, "." + id + "." + randomUUID() + ".tmp");
   try {
-    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);
@@ -164,6 +164,12 @@ export async function verifyPatchApproval(root: string, id: string): Promise<{ v
   const approval = await loadPatchApproval(root, id);
   if (approval.revokedAt) return { valid: false, reason: "Approval has been revoked; request a new approval." };
   if (approval.usedAt) return { valid: false, reason: "Approval has already been used; request a new approval." };
+  try {
+    await lstat(path.join(await safeApprovalDirectory(root), id + ".used"));
+    return { valid: false, reason: "Approval is already claimed or its state transition did not complete; request a new approval." };
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOENT") throw error;
+  }
   if (Date.now() >= Date.parse(approval.expiresAt)) return { valid: false, reason: "Approval has expired; request a new review." };
   const review = await loadReview(root, approval.reviewId);
   const suggestion = review.ai?.suggestions[approval.suggestionNumber - 1];
