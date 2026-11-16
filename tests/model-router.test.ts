@@ -95,6 +95,18 @@ describe("task-aware model routing", () => {
     expect(calls).toBe(1);
   });
 
+
+  it("stops waiting when a task exceeds its duration budget and skips fallback", async () => {
+    let primaryCalls = 0; let fallbackCalls = 0;
+    const router = new ModelRouter({ ...models, maxTaskDurationMs: 5, fallbackModel: "backup-model", createProvider: model => ({ name: model, async complete() { if (model === "backup-model") fallbackCalls += 1; else primaryCalls += 1; await new Promise(resolve => setTimeout(resolve, 30)); return { provider: model, content: "late response" }; } }) });
+    await expect(router.complete({ task: { id: "slow", agent: "planner", title: "Slow", prompt: "Wait" }, completedDependencies: [] })).rejects.toThrow(/duration exceeded 5 ms/);
+    expect(primaryCalls).toBe(1); expect(fallbackCalls).toBe(0); expect(router.traces[0]?.outcome).toBe("failed");
+  });
+
+  it("applies a stricter per-agent duration ceiling", async () => {
+    const router = new ModelRouter({ ...models, maxTaskDurationMs: 100, maxTaskDurationMsByAgent: { planner: 5 }, createProvider: model => ({ name: model, async complete() { await new Promise(resolve => setTimeout(resolve, 25)); return { provider: model, content: "late" }; } }) });
+    await expect(router.complete({ task: { id: "slow", agent: "planner", title: "Slow", prompt: "Wait" }, completedDependencies: [] })).rejects.toThrow(/duration exceeded 5 ms/);
+  });
   it("uses configured fallback and records a trace", async () => {
     const created: string[] = [];
     const createProvider = (model: string): AgentProvider => {
