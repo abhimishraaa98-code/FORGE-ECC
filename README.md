@@ -627,6 +627,37 @@ The report compares matching provider/model candidates against the most recent e
 The local dashboard exposes the same analysis in Regression Intelligence. These thresholds are configurable in source for now. The report is a signal, not a release guarantee: use identical code snapshots, prompts, suite definitions, model versions and runtime conditions. Token comparisons are estimated, not billed usage.
 
 
+### Controlled Skill Experiments
+
+Use an automated benchmark matrix to compare the same provider/model with a skill disabled versus enabled. Set the baseline candidate's `skillIds` to an empty array and the treatment candidate's `skillIds` to exactly the skill IDs listed in `skillExperiment`:
+
+```json
+{
+  "id": "secure-skill-test",
+  "name": "Secure Changes skill experiment",
+  "repeats": 3,
+  "candidates": [
+    { "id": "baseline", "provider": "openai", "model": "gpt-4.1-mini", "skillIds": [] },
+    { "id": "with-secure-skill", "provider": "openai", "model": "gpt-4.1-mini", "skillIds": ["secure-changes"] }
+  ],
+  "skillExperiment": {
+    "baselineCandidateId": "baseline",
+    "treatmentCandidateId": "with-secure-skill",
+    "skillIds": ["secure-changes"]
+  }
+}
+```
+
+Run with the same goal and evaluation suite:
+
+```bash
+forge benchmark-matrix ./skill-experiment.json --suite engineering-basics --goal "Review authentication and authorization risks" --path .
+```
+
+Candidate `skillIds` controls skill selection: omitted means normal automatic selection, an empty array disables skills, and a list pins the exact skill set. The experiment validator requires the same provider and model, an explicit no-skill baseline, and an exact treatment skill set. Unknown skill IDs fail before the trial starts.
+
+The report compares baseline and treatment score, pass rate, duration, estimated tokens and matching per-agent scores. The local dashboard includes a Skill Experiments history panel. Use at least three repeats where practical and inspect the underlying outputs. This is a controlled configuration comparison, not proof of causation: model nondeterminism, execution order and environment changes can still affect results. Token counts are estimates, not billed usage.
+
 ### Agent Evaluation Intelligence
 
 Automated benchmark-matrix trials now retain per-agent evaluation cases alongside each candidate's overall score. The matrix report includes agent scorecards grouped by candidate and agent, with average rubric score, pass rate, completed evaluation count and the skill IDs actually selected for that task.
