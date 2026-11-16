@@ -9,7 +9,7 @@ import { formatArchitectureMap, mapArchitecture } from "./core/architecture-map.
 import { formatProjectReport, inspectProject } from "./core/project-inspector.js";
 import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
-import { saveRun, listRuns, loadRun, decideTaskApproval } from "./core/run-store.js";
+import { saveRun, listRuns, loadRun, decideTaskApproval, recoverInterruptedRun } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { createHostedAgentProvider } from "./core/hosted-agent-provider.js";
@@ -791,7 +791,13 @@ async function main(args: string[]): Promise<void> {
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         assertSupportedAgentPolicy(permissions, providerChoice, "FORGE resume");
         const savedRun = await loadRun(target, runId);
-        if (savedRun.status !== "pending" && savedRun.status !== "awaiting_approval") throw new Error("Only pending or approval-cleared runs can be resumed. Use `forge replay` for a failed run.");
+        if (savedRun.status === "running") {
+          const recovered = await recoverInterruptedRun(target, runId);
+          process.stdout.write("Recovered interrupted run " + runId + ": " + recovered.status + "\\n");
+          process.stdout.write("Any task that was running has an unknown provider outcome and was marked failed. FORGE did not replay provider requests. Review the run before explicitly retrying failed work.\\n");
+          return;
+        }
+        if (savedRun.status !== "pending" && savedRun.status !== "awaiting_approval") throw new Error("Only pending or approval-cleared runs can be resumed. Use `forge replay` only after reviewing failed tasks.");
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel, { workspacePath: target, permissionPolicy: permissions });
