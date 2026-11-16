@@ -134,7 +134,7 @@ async function main(args: string[]): Promise<void> {
       try {
         if (action === "list") {
           const entries = await listProjectMemory(target);
-          process.stdout.write(entries.length ? entries.map(entry => `${entry.id} [${entry.kind}] ${entry.content}`).join("\n") + "\n" : "No project memory entries.\\n");
+          process.stdout.write(entries.length ? entries.map(entry => `${entry.id} [${entry.kind}] ${entry.content}`).join("\n") + "\n" : "No project memory entries.\n");
         } else if (action === "add") {
           const kind = option("--kind") as ProjectMemoryKind | undefined;
           const content = option("--content");
@@ -142,16 +142,16 @@ async function main(args: string[]): Promise<void> {
           if (!kind || !allowed.includes(kind) || !content) throw new Error("Usage: forge memory add [path] --kind decision|architecture|constraint|preference|fact --content TEXT [--tags a,b]");
           const tags = option("--tags")?.split(",") ?? [];
           const entry = await addProjectMemory(target, { kind, content, tags });
-          process.stdout.write(`Saved ${entry.id} to .forge/memory.json\\n`);
+          process.stdout.write(`Saved ${entry.id} to .forge/memory.json\n`);
         } else if (action === "remove") {
           const id = memoryArgs.find(arg => arg.startsWith("mem-"));
           if (!id) throw new Error("Usage: forge memory remove [path] mem-ID");
           const removed = await removeProjectMemory(target, id);
-          process.stdout.write(removed ? `Removed ${id}.\\n` : `Memory entry ${id} was not found.\\n`);
+          process.stdout.write(removed ? `Removed ${id}.\n` : `Memory entry ${id} was not found.\n`);
         } else if (action === "context") {
           const query = option("--query") ?? "";
           const context = await buildProjectMemoryContext(target, query);
-          process.stdout.write(context.text || "No relevant project memory.\\n");
+          process.stdout.write(context.text || "No relevant project memory.\n");
         } else {
           throw new Error("Memory actions: add, list, remove, context.");
         }
