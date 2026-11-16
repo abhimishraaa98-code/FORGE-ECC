@@ -64,7 +64,7 @@ describe("workspace tool broker", () => {
     const audit: WorkspaceToolAuditEvent[] = [];
     await executeWorkspaceAgentTool(root, policy, "read-file", { relativePath: "src/component-name.ts" }, { onAudit: event => { audit.push(event); } });
     expect(audit).toHaveLength(1);
-    expect(audit[0]?.summary).toMatch(/^Read one file \\(\\d+ bytes\\)\\.$/);
+    expect(audit[0]?.summary).toMatch(/^Read one file \(\d+ bytes\)\.$);
     expect(JSON.stringify(audit)).not.toContain("private-component-name");
     expect(JSON.stringify(audit)).not.toContain(root);
   });
