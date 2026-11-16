@@ -24,6 +24,20 @@ describe("declarative lifecycle hooks", () => {
     const blocked = applyBeforeAgentHooks({ id: "wipe", agent: "devops-engineer", title: "Production wipe", prompt: "production wipe" }, hooks);
     expect(blocked.blockedReason).toContain("blocked");
   });
+  it("rejects duplicate IDs and malformed filters", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-hooks-"));
+    const dir = path.join(root, ".forge");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "hooks.json"), JSON.stringify([
+      { id: "same", event: "before-agent", action: "append-context", message: "one" },
+      { id: "same", event: "before-agent", action: "append-context", message: "two" }
+    ]));
+    await expect(loadHooks(root)).rejects.toThrow("duplicated");
+    await writeFile(path.join(dir, "hooks.json"), JSON.stringify([
+      { id: "bad-filter", event: "before-agent", action: "append-context", message: "x", match: { agents: [""] } }
+    ]));
+    await expect(loadHooks(root)).rejects.toThrow("invalid agent filters");
+  });
   it("rejects unsupported hook actions", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-hooks-"));
     const dir = path.join(root, ".forge");
