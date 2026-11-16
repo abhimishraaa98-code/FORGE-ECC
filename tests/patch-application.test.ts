@@ -100,6 +100,7 @@ describe("isolated approved patch staging", () => {
 
   it("rejects staged content that differs from the approved patch even if manifest hashes are recomputed", async () => {
     const approval = await fixture();
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }));
     const staged = await stageApprovedPatch(root, approval.id);
     const workspace = path.join(root, staged.workspacePath);
     const tampered = path.join(workspace, "src/a.ts");
