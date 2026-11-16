@@ -27,10 +27,11 @@ describe("local dashboard server", () => {
 
     const page = await fetch(base);
     expect(page.status).toBe(200);
-    expect(await page.text()).toContain("FORGE");
-    expect(await page.text()).toContain("Agent handoff map");
-    expect(await page.text()).toContain("Execution telemetry");
-    expect(await page.text()).toContain("Live event stream");
+    const html = await page.text();
+    expect(html).toContain("FORGE");
+    expect(html).toContain("Agent handoff map");
+    expect(html).toContain("Execution telemetry");
+    expect(html).toContain("Live event stream");
     expect(await page.text()).toContain("Create replay of retryable tasks");
     expect(await page.text()).toContain("Compare with previous run");
     expect(await page.text()).toContain("Cancel run");
