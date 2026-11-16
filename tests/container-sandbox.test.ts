@@ -128,6 +128,7 @@ describe("container timeout cleanup", () => {
       const project = path.join(root, "project");
       const runtime = path.join(root, "mock-runtime-timeout.cjs");
       const stoppedPath = path.join(root, "container-stopped.txt");
+      const startedPath = path.join(root, "container-started.txt");
       await import("node:fs/promises").then(fs => fs.mkdir(project));
       await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "sleep" } }), "utf8");
       const source = [
@@ -136,8 +137,8 @@ describe("container timeout cleanup", () => {
         "const args = process.argv.slice(2);",
         "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
         "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
-        "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", args.slice(3).join(' ')); process.exit(0); }",
-        "if (args[0] === 'run') { setInterval(() => {}, 1000); }",
+        "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", JSON.stringify(args.slice(1))); process.exit(0); }",
+        "if (args[0] === 'run') { const i = args.indexOf('--name'); fs.writeFileSync(" + JSON.stringify(startedPath) + ", args[i + 1]); setInterval(() => {}, 1000); }",
         "if (args[0] !== 'run') process.exit(2);",
       ].join("\n");
       await writeFile(runtime, source, "utf8");
@@ -146,7 +147,10 @@ describe("container timeout cleanup", () => {
         runtimePath: runtime, timeoutMs: 1000,
       });
       expect(result.status).toBe("timed_out");
-      expect(await readFile(stoppedPath, "utf8")).toMatch(/^forge-verify-/);
+      const startedName = await readFile(startedPath, "utf8");
+      const stopArgs = JSON.parse(await readFile(stoppedPath, "utf8")) as string[];
+      expect(startedName).toMatch(/^forge-verify-/);
+      expect(stopArgs).toEqual(["--time", "2", startedName]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
