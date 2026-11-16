@@ -45,3 +45,6 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/forge-clean-install" "$RUNNER_TEMP"/forge-engineering-workbench-*.tgz
           "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" --version
           "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" --help
+          mkdir -p "$RUNNER_TEMP/forge-smoke-project"
+          "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" init "$RUNNER_TEMP/forge-smoke-project"
+          "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" inspect "$RUNNER_TEMP/forge-smoke-project"
