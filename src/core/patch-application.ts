@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
@@ -15,8 +15,66 @@ export interface PatchStageRecord {
   stagedAt: string;
   sourceSha256: string;
   stagedSha256: string;
+  workspacePath: string;
+  workspaceSha256: string;
+  snapshotFiles: number;
+  snapshotBytes: number;
 }
 function sha(value: string): string { return createHash("sha256").update(value).digest("hex"); }
+
+const SNAPSHOT_MAX_FILES = 20_000;
+const SNAPSHOT_MAX_BYTES = 256 * 1024 * 1024;
+const SNAPSHOT_EXCLUDED_DIRS = new Set([".git", ".forge", ".next", ".turbo", "coverage", "node_modules", "dist", "build", ".cache", ".vercel"]);
+const SNAPSHOT_SECRET_FILE = /^(?:\\.env(?:\\..*)?|\\.npmrc|\\.pypirc|\\.netrc|id_rsa|id_ed25519|credentials(?:\\..*)?)$/i;
+const SNAPSHOT_SECRET_EXTENSION = /\\.(?:pem|key|p12|pfx)$/i;
+
+function excludedSnapshotEntry(name: string): boolean {
+  return SNAPSHOT_EXCLUDED_DIRS.has(name) || SNAPSHOT_SECRET_FILE.test(name) || SNAPSHOT_SECRET_EXTENSION.test(name);
+}
+
+async function walkSnapshot(
+  root: string,
+  destination?: string,
+): Promise<{ files: number; bytes: number; sha256: string }> {
+  let files = 0;
+  let bytes = 0;
+  const hash = createHash("sha256");
+  async function walk(current: string, relative: string): Promise<void> {
+    if (destination) await mkdir(path.join(destination, relative), { recursive: true, mode: 0o700 });
+    const names = (await readdir(path.join(root, relative))).sort();
+    for (const name of names) {
+      if (excludedSnapshotEntry(name)) continue;
+      const rel = relative ? path.join(relative, name) : name;
+      const source = path.join(root, rel);
+      const info = await lstat(source);
+      if (info.isSymbolicLink()) throw new Error("Project snapshots reject symbolic links; remove or replace links before staging.");
+      if (info.isDirectory()) {
+        await walk(root, rel);
+      } else if (info.isFile()) {
+        files++;
+        bytes += info.size;
+        if (files > SNAPSHOT_MAX_FILES) throw new Error("Project snapshot exceeds the 20,000-file limit.");
+        if (bytes > SNAPSHOT_MAX_BYTES) throw new Error("Project snapshot exceeds the 256 MiB limit.");
+        const content = await readFile(source);
+        hash.update(rel.split(path.sep).join("/")).update("\\0").update(content).update("\\0");
+        if (destination) {
+          const target = path.join(destination, rel);
+          await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+          await writeFile(target, content, { flag: "wx", mode: 0o600 });
+        }
+      }
+    }
+  }
+  await walk(root, "");
+  return { files, bytes, sha256: hash.digest("hex") };
+}
+
+export async function fingerprintStagedWorkspace(workspace: string): Promise<{ files: number; bytes: number; sha256: string }> {
+  const resolved = await realpath(workspace);
+  const info = await lstat(resolved);
+  if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Staged workspace must be a regular directory.");
+  return walkSnapshot(resolved);
+}
 async function ensureSafeDirectory(project: string, target: string): Promise<void> {
   const relative = path.relative(project, target);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Staging directory must be inside the project.");
@@ -107,27 +165,33 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
   const patched = applyUnifiedDiff(source, suggestion.patch, approval.file);
   const id = "patch-stage-" + randomUUID();
   const stageRoot = path.join(project, ".forge", "patch-workspaces", id);
-  const stagedFile = path.join(stageRoot, relative);
-  await ensureSafeDirectory(project, path.dirname(stagedFile));
+  const workspaceRoot = path.join(stageRoot, "workspace");
+  await ensureSafeDirectory(project, workspaceRoot);
   try {
-    await writeFile(stagedFile, patched, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    const snapshot = await walkSnapshot(project, workspaceRoot);
+    const stagedTarget = path.resolve(workspaceRoot, relative);
+    const stagedRelative = path.relative(workspaceRoot, stagedTarget);
+    if (!stagedRelative || stagedRelative.startsWith("..") || path.isAbsolute(stagedRelative)) throw new Error("Patch target escapes the staged snapshot.");
+    await mkdir(path.dirname(stagedTarget), { recursive: true, mode: 0o700 });
+    await writeFile(stagedTarget, patched, { encoding: "utf8", flag: "w", mode: 0o600 });
+    const finalSnapshot = await walkSnapshot(workspaceRoot);
+    const record: PatchStageRecord = {
+      id, approvalId, reviewId: approval.reviewId, suggestionNumber: approval.suggestionNumber,
+      file: approval.file,
+      stagedFile: path.relative(project, stagedTarget).split(path.sep).join("/"),
+      stagedAt: new Date().toISOString(), sourceSha256: sha(source), stagedSha256: sha(patched),
+      workspacePath: path.relative(project, workspaceRoot).split(path.sep).join("/"),
+      workspaceSha256: finalSnapshot.sha256, snapshotFiles: snapshot.files, snapshotBytes: snapshot.bytes,
+    };
+    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return record;
   } catch (error) {
     await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
     throw error;
   }
-  const record: PatchStageRecord = {
-    id, approvalId, reviewId: approval.reviewId, suggestionNumber: approval.suggestionNumber,
-    file: approval.file, stagedFile: path.relative(project, stagedFile).split(path.sep).join("/"),
-    stagedAt: new Date().toISOString(), sourceSha256: sha(source), stagedSha256: sha(patched),
-  };
-  try {
-    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
-  } catch (error) {
-    await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
-    throw error;
-  }
-  return record;
 }
+
+
 
 export interface PatchStageReview {
   stageId: string;
