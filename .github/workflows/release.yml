@@ -1,0 +1,41 @@
+name: FORGE Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-release:
+    name: Verify package and publish GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Pack distributable
+        run: |
+          mkdir -p release-assets
+          npm pack --pack-destination release-assets
+          test -s release-assets/forge-engineering-workbench-1.0.0.tgz
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: FORGE ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: release-assets/*.tgz
+          generate_release_notes: true
