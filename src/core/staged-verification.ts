@@ -7,7 +7,7 @@ import { reviewStagedPatch, type PatchStageRecord } from "./patch-application.js
 
 const MAX_FILES = 20_000;
 const MAX_BYTES = 256 * 1024 * 1024;
-const EXCLUDED_DIRS = new Set([".git", ".forge", ".next", ".turbo", "coverage"]);
+const EXCLUDED_DIRS = new Set([".git", ".forge", ".next", ".turbo", "coverage", "node_modules", "dist", "build", ".cache", ".vercel"]);
 const SECRET_FILE = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa|id_ed25519|credentials(?:\..*)?)$/i;
 const SECRET_EXTENSION = /\.(?:pem|key|p12|pfx)$/i;
 
