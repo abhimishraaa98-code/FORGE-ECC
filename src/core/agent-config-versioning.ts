@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile, lstat, realpath } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface AgentConfigFile {
