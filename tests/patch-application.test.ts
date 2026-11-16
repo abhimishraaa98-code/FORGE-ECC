@@ -44,7 +44,7 @@ describe("isolated approved patch staging", () => {
   it("does not allow the same approval to stage a second time", async () => {
     const approval = await fixture();
     const first = await stageApprovedPatch(root, approval.id);
-    expect(await readFile(path.join(root, first.stagedFile), "utf8")).toBe("const a = 2;\\n");
+    expect(await readFile(path.join(root, first.stagedFile), "utf8")).toBe("const a = 2;\n");
     await expect(stageApprovedPatch(root, approval.id)).rejects.toThrow(/already been used|already claimed/);
   });
   it("refuses staging when the source changed after approval", async () => {
