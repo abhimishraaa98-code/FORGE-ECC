@@ -42,6 +42,7 @@ import { fingerprintAgentConfig } from "./core/benchmark-matrix.js";
 import { loadAgentConfigVersion } from "./core/agent-config-versioning.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
+import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } from "./core/agent-evaluation-intelligence.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
@@ -86,6 +87,7 @@ Commands:
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
+  agent-intelligence [--suite ID] [--candidate ID] [--limit N] [--path PROJECT]  Score agent effectiveness across benchmark history
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
   experiment <capture|show|compare> [options]  Capture and compare reproducible benchmark manifests
@@ -235,6 +237,32 @@ async function main(args: string[]): Promise<void> {
         } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
       } catch (error) {
         process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "agent-intelligence": {
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const rawLimit = option("--limit");
+      const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+      if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 2 || limit > 50)) {
+        process.stderr.write("FORGE agent intelligence: --limit must be an integer from 2 to 50.\\n");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const history = await listBenchmarkMatrices(target);
+        const report = buildAgentEvaluationIntelligence(history, {
+          ...(option("--suite") ? { suiteId: option("--suite") } : {}),
+          ...(option("--candidate") ? { candidateId: option("--candidate") } : {}),
+          ...(limit !== undefined ? { limit } : {})
+        });
+        process.stdout.write(formatAgentEvaluationIntelligence(report) + "\\n");
+        if (report.status === "insufficient-data") process.exitCode = 2;
+      } catch (error) {
+        process.stderr.write("FORGE agent intelligence failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
