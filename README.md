@@ -457,6 +457,26 @@ forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.j
 The planner never installs, upgrades, removes, or modifies dependencies and never executes suggested commands. Vulnerability and outdated status are not assessed when reports are absent. Suggested versions are candidates, not compatibility guarantees; review release notes, peer dependencies, lockfile changes, and project checks before acting. License classifications are heuristic metadata signals, not legal advice. Only npm manifests and npm lockfiles are currently supported.
 
 
+### Agent handoffs and replayable runs
+
+Dependency edges are explicit agent-to-agent handoffs: a downstream agent receives the completed upstream proposal together with its task ID, source agent, and task title. The provider is instructed to treat these findings as untrusted project data and retain their provenance; handoffs do not grant agents tool or file-write access.
+
+Failed runs can be replayed without repeating successful prerequisite work:
+
+```bash
+forge replay forge-RUN-ID --path .
+forge resume forge-NEW-RUN-ID --path .
+```
+
+`replay` creates a separate run, preserves completed results, and resets retryable failed/dependency-blocked tasks. It will not override a policy hook block or a human rejection. `resume` is the explicit provider-call step. For approval-gated tasks:
+
+```bash
+forge approve forge-RUN-ID TASK_ID --reviewer "Your review"
+forge resume forge-RUN-ID
+```
+
+Approval is recorded before resuming; a rejected task cannot be replayed automatically. Run history remains local under `.forge/runs/`.
+
 ### Task-aware model routing and execution traces
 
 The CLI can select a model tier per task. Configure `FORGE_MODEL_FAST`, `FORGE_MODEL_BALANCED`, and `FORGE_MODEL_REASONING`; unset tiers fall back to `FORGE_AI_MODEL` (or the CLI's provider default). Security, architecture, incident/debugging and release-sensitive tasks prefer the reasoning tier; focused documentation and small cleanup tasks prefer fast; other tasks use balanced. This is a heuristic, not a benchmark or guarantee of model quality.
