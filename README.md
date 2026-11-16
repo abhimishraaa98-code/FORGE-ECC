@@ -132,13 +132,15 @@ The command prints a bounded unified-style diff and rechecks both SHA-256 finger
 
 ### Staged patch verification
 
-Run an explicitly selected npm script against a temporary copy of the current project with the approved staged file overlaid:
+Run an explicitly selected npm script against a temporary copy of the **workspace snapshot captured at patch-staging time**:
 
 ```bash
 forge patch-verify PATCH_STAGE_ID test --path .
 ```
 
-The temporary copy excludes `.git`, `.forge`, dependency/build caches, and common environment or private-key files. Symlinks are rejected and snapshots are capped at 20,000 files and 256 MiB. The temporary workspace is removed after the command. Dependencies are not copied, so scripts that require installed packages may not run in this first version; the command does not install packages or access the network. This verifies the staged patch against the copied source tree, but it is not a reproducible snapshot of every file as it existed at patch-stage time. Project scripts still execute on the local host and this is not an OS-level sandbox.
+Patch staging now captures a bounded project snapshot under `.forge/patch-workspaces/<stage-id>/workspace`, overlays the approved patch, and records a SHA-256 tree fingerprint plus file/byte counts. The snapshot excludes `.git`, `.forge`, dependency/build caches, common environment files, and private-key files. Symlinks are rejected; snapshots are capped at 20,000 files and 256 MiB. Before verification, FORGE checks the entire snapshot fingerprint, then copies that exact snapshot to a temporary workspace and checks the fingerprint again. Later edits to the live project do not change the snapshot being verified. Tampering with any staged snapshot file causes verification to fail closed.
+
+The temporary workspace is removed after the command. Dependencies are not copied or installed, so scripts requiring packages from `node_modules` may not run; the command does not install packages or access the network. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
 
 ### Verification runner safety
 
