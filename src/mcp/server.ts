@@ -6,12 +6,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { inspectProject } from "../core/project-inspector.js";
 import { mapArchitecture } from "../core/architecture-map.js";
-import { searchWorkspace } from "../core/code-search.js";
+import { executeWorkspaceAgentTool } from "../core/workspace-tool-broker.js";
+import { loadPermissionPolicy } from "../core/permission-policy.js";
 import { auditProject } from "../core/quality-audit.js";
 import { analyzeGitChanges } from "../core/git-intelligence.js";
 import { loadAgentRegistry } from "../core/agent-registry.js";
 import { createReviewPlan } from "../core/review-planner.js";
-import { listWorkspaceDirectory, readWorkspaceFile } from "../core/workspace-browser.js";
+
 
 const WORKSPACE_ROOT = await realpath(process.env.FORGE_WORKSPACE ?? process.cwd());
 
@@ -82,7 +83,8 @@ server.registerTool(
   async ({ query, projectPath, limit }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await searchWorkspace(root, query, limit ?? 40));
+      const policy = await loadPermissionPolicy(root);
+      return result(await executeWorkspaceAgentTool(root, policy, "search-code", { query, limit: Math.min(limit ?? 10, 20) }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
     } catch (error) { return failure(error); }
   }
 );
@@ -100,7 +102,8 @@ server.registerTool(
   async ({ projectPath, relativePath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await listWorkspaceDirectory(root, relativePath ?? ""));
+      const policy = await loadPermissionPolicy(root);
+      return result(await executeWorkspaceAgentTool(root, policy, "list-files", { relativePath: relativePath ?? "" }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
     } catch (error) { return failure(error); }
   }
 );
@@ -118,7 +121,8 @@ server.registerTool(
   async ({ projectPath, relativePath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await readWorkspaceFile(root, relativePath));
+      const policy = await loadPermissionPolicy(root);
+      return result(await executeWorkspaceAgentTool(root, policy, "read-file", { relativePath }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
     } catch (error) { return failure(error); }
   }
 );
