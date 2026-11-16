@@ -27,6 +27,18 @@ describe("OpenAI-compatible provider", () => {
     expect((request.headers as Record<string, string>).authorization).toBe("Bearer test-secret");
   });
 
+
+  it("rejects provider redirects rather than following them with a credentialed request", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("redirect mode is error"));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAICompatibleProvider({ apiKey: "test-secret", model: "test-model" });
+    await expect(provider.complete({
+      task: { id: "redirect", agent: "planner", title: "Redirect", prompt: "Test redirect" },
+      completedDependencies: [],
+    })).rejects.toThrow("redirect mode is error");
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).redirect).toBe("error");
+  });
+
   it("rejects non-HTTPS remote endpoints", () => {
     expect(() => new OpenAICompatibleProvider({
       apiKey: "key",
