@@ -886,7 +886,23 @@ async function main(args: string[]): Promise<void> {
       try {
         const runs = await listRuns(path.resolve(target));
         if (rest.includes("--json")) {
-          process.stdout.write(JSON.stringify(runs, null, 2) + "\n");
+          const output = {
+            schemaVersion: 1,
+            runs: runs.map(run => ({
+              id: run.id,
+              goal: run.goal,
+              status: run.status,
+              createdAt: run.createdAt,
+              updatedAt: run.updatedAt,
+              taskCount: run.tasks.length,
+              completedTaskCount: run.tasks.filter(task => task.status === "completed").length,
+              failedTaskCount: run.tasks.filter(task => task.status === "failed").length,
+              eventCount: run.events.length,
+            })),
+          };
+          process.stdout.write(JSON.stringify(output, null, 2) + "\n");
+        } else {
+          process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
         } else {
           process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
         }
