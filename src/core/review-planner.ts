@@ -71,7 +71,7 @@ export function createReviewPlan(goal: string): RunRecord {
       id: "release",
       agent: "release-manager",
       title: "Prepare engineering readiness summary",
-      prompt: `Synthesize the preceding specialist findings for ${normalized}. Produce a concise readiness summary, unresolved risks, required checks and go/no-go recommendation. Mark all unverified claims explicitly.`,
+      prompt: `Synthesize the preceding specialist findings for ${normalized}. Separate points of agreement from disagreements between reviewers. For each disagreement, quote or reference the competing claims, identify the evidence each claim relies on, state what evidence is missing, and leave the issue unresolved when the evidence is insufficient. Do not manufacture consensus or average incompatible conclusions. Produce a concise readiness summary with confirmed findings, hypotheses, unresolved conflicts, required verification checks and a go/no-go recommendation. Mark all unverified claims explicitly.`,
       dependsOn: ["review", "security", "performance", "debugging", "tests", "docs", "delivery"],
     },
   ];

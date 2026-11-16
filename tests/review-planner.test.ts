@@ -12,6 +12,9 @@ describe("specialist review plan", () => {
       expect(byId.get(id)?.dependsOn).toEqual(["plan"]);
     }
     expect(byId.get("release")?.dependsOn).toHaveLength(7);
+    expect(byId.get("release")?.prompt).toContain("Separate points of agreement from disagreements");
+    expect(byId.get("release")?.prompt).toContain("Do not manufacture consensus");
+    expect(byId.get("release")?.prompt).toContain("leave the issue unresolved");
   });
 
   it("rejects an empty goal", () => {
