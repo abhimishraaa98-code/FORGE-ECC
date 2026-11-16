@@ -29,6 +29,18 @@ jobs:
             echo "The configured Docker daemon is not reporting rootless mode." >&2
             exit 1
           fi
+          CGROUP_VERSION="$(docker info --format '{{.CgroupVersion}}')"
+          CGROUP_DRIVER="$(docker info --format '{{.CgroupDriver}}')"
+          echo "Cgroup version: $CGROUP_VERSION; driver: $CGROUP_DRIVER"
+          if [[ "$CGROUP_VERSION" != "2" ]]; then
+            echo "Rootless sandbox validation requires cgroup v2." >&2
+            exit 1
+          fi
+          if [[ "$CGROUP_DRIVER" != "systemd" ]]; then
+            echo "Rootless sandbox validation requires the systemd cgroup driver with delegation." >&2
+            exit 1
+          fi
+          docker run --rm --memory=128m --cpus=0.5 --pids-limit=64 node:22-alpine node -e "if (process.pid !== 1) process.exit(1)"
       - name: Install dependencies
         run: npm install
       - name: Pull sandbox image and resolve immutable digest
