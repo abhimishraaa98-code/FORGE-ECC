@@ -599,7 +599,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           try { entries = await readdir(directory, { withFileTypes: true }); }
           catch (error) { if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") continue; throw error; }
           for (const entry of entries) {
-            const name = entry.name.replace(/\\.md$/, "");
+            const name = entry.name.replace(/\.md$/, "");
             if (!entry.isFile() || !entry.name.endsWith(".md") || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(name)) continue;
             const info = await lstat(path.join(directory, entry.name));
             if (info.isSymbolicLink() || info.size > 128 * 1024) continue;
