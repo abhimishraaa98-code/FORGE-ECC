@@ -20,7 +20,7 @@ export interface QualityAudit {
   findings: QualityFinding[];
   limitations: string[];
 }
-const IGNORED = new Set([".git","node_modules","dist","build","coverage",".next",".venv","vendor"]);
+const IGNORED = new Set([".git","node_modules","dist","build","coverage",".next",".venv","vendor",".forge",".ssh",".aws",".azure",".kube",".docker",".gnupg",".npm",".config"]);
 const SOURCE = new Set([".ts",".tsx",".js",".jsx",".mjs",".cjs",".py",".go",".rs",".java",".cs",".rb",".php"]);
 async function collect(root: string, rel = "", files: string[] = []): Promise<string[]> {
   if (files.length >= 5000) return files;
