@@ -28,7 +28,7 @@ forge experiment-studio compare \
   --config-versions "baseline=cfg-0123456789ab,treatment=cfg-abcdef012345"
 ```
 
-Replace the example snapshot IDs with IDs returned by `forge agent-config snapshot`. FORGE validates and loads each referenced snapshot and records its content fingerprint in the benchmark report. **Current limitation:** this pins provenance but does not yet execute each candidate inside an isolated copy of its snapshot; the run still reads the active workspace agent/skill files. Snapshots currently cover Markdown files under `.forge/agents` and `.forge/skills`, not hooks, tools or permission settings. Do not interpret this mode as a fully isolated configuration A/B test yet.
+Replace the example snapshot IDs with IDs returned by `forge agent-config snapshot`. FORGE validates and loads each referenced snapshot and records its content fingerprint in the benchmark report. A candidate with a snapshot runs with its own agent and skill Markdown plus its snapshotted `.forge/hooks.json` policy. Snapshots captured before hook isolation must be recreated before they can be used for benchmark runs.
 
 Run it explicitly after reviewing the candidate list and choosing a suite and task:
 
@@ -62,4 +62,4 @@ npm run build
 
 When a benchmark candidate specifies `configVersionId`, FORGE now materializes that verified snapshot into a fresh temporary workspace for the candidate run. Workspace agent and skill Markdown are loaded from that snapshot and passed as task guidance; the temporary configuration workspace is removed after the trial. The source project's configuration files are not overwritten.
 
-This is configuration isolation for **agent and skill Markdown only**. Project hooks are still loaded from the target workspace, project memory remains shared, and the candidate still inspects the original project working tree (including its code). Tool permissions and execution policy are not snapshotted or isolated by this feature. Do not interpret these trials as fully hermetic or security-sandboxed runs. The report records the snapshot ID and content fingerprint so the exact agent/skill inputs can be traced.
+This isolates the candidate's agent/skill Markdown and declarative `.forge/hooks.json` policy in a temporary configuration workspace. If the snapshot predates hook support, the benchmark refuses to run it rather than silently falling back to active workspace hooks. Project memory remains shared, and agents still inspect the original project working tree (including its code). Tool permissions, provider credentials, environment variables and the execution host are not snapshotted or isolated. This is not a hermetic execution sandbox or a security boundary. The report records the snapshot ID and content fingerprint so configuration inputs can be traced.
