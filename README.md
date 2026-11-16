@@ -276,7 +276,7 @@ Create a version 1 JSON policy with a built-in profile and restrictive controls,
 
 ## Machine-readable run history
 
-Use `forge runs --json` for a stable, versioned summary intended for scripts and external tools. The command prints a JSON object with a `schemaVersion` field and a `runs` array. Version 1 exposes run identity, goal, status, timestamps, task-state counts (including running tasks), and event count; it deliberately does not expose internal task payloads or prompt data.
+Use `forge runs` to list saved runs newest-first. Add `--limit N` to show only the newest N entries, or `--status STATUS` to filter by `pending`, `awaiting_approval`, `running`, `completed`, `failed`, or `cancelled`. These filters can be combined. Use `forge runs --json` for a stable, versioned summary intended for scripts and external tools. The command prints a JSON object with a `schemaVersion` field and a `runs` array. Version 1 exposes run identity, goal, status, timestamps, task-state counts (including running tasks), and event count; it deliberately does not expose internal task payloads or prompt data.
 
 ```json
 {
@@ -301,4 +301,4 @@ Use `forge runs --json` for a stable, versioned summary intended for scripts and
 }
 ```
 
-Consumers should check `schemaVersion` before interpreting fields. A future incompatible output change will increment this value. Use `forge show-run RUN_ID` when the complete persisted run record is needed.
+Examples: `forge runs --status failed --limit 10` lists the ten newest failed runs, and `forge runs ./project --json --status completed` returns completed runs for another project. Consumers should check `schemaVersion` before interpreting fields. A future incompatible output change will increment this value. Use `forge show-run RUN_ID` when the complete persisted run record is needed.
