@@ -72,6 +72,12 @@ forge agent-evolution provider-round-1
 
 Use the same suite, goal, workspace, permissions and environment for fair comparisons. Provider availability, model access and actual billing depend on each configured account. FORGE's token counts are estimates, not billing records. Benchmark results are evidence for a decision, not a universal model ranking.
 
+### Token-budget behavior
+
+Normal runs and resumed runs can apply estimated token ceilings with `FORGE_MAX_INPUT_TOKENS_PER_TASK`, `FORGE_MAX_OUTPUT_TOKENS_PER_TASK`, `FORGE_MAX_ESTIMATED_TOKENS_PER_RUN`, and `FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT`. These are local estimate-based safeguards, not provider-enforced token caps or billing limits. In particular, the output ceiling is checked against the returned response; it cannot prevent a provider from generating that response.
+
+When a cumulative run-wide or per-agent ceiling is configured, FORGE serializes provider calls within that router so each completed response's output estimate is charged before another task passes its budget preflight. This intentionally trades some parallel throughput for more reliable cumulative estimate enforcement. Without a cumulative ceiling, configured task-level checks do not disable normal parallel task execution.
+
 For controlled skill experiments, use `forge experiment-studio create` with `--provider`, `--model`, and `--skills`.
 
 ## Run-history lock recovery
