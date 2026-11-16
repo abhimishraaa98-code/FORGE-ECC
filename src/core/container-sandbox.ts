@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { VerificationResult } from "./verification.js";
 import { getSandboxSecurityProfile, type SandboxSecurityProfileName } from "./sandbox-security-profiles.js";
+import type { SandboxPolicy } from "./sandbox-policy.js";
 
 const MAX_OUTPUT = 64 * 1024;
 const DEFAULT_TIMEOUT = 120_000;
@@ -15,6 +16,7 @@ export interface ContainerVerificationOptions {
   runtimePath?: string;
   requireRootless?: boolean;
   securityProfile?: SandboxSecurityProfileName;
+  sandboxPolicy?: SandboxPolicy;
 }
 
 /** Returns true/false for a recognized Docker rootless security option, otherwise null. */
@@ -34,6 +36,7 @@ export function buildContainerRunArgs(
   script: string,
   containerName: string,
   profile: ReturnType<typeof getSandboxSecurityProfile> = getSandboxSecurityProfile("balanced"),
+  policy?: SandboxPolicy,
 ): string[] {
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
   if (!/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,79}$/.test(script) || /^pre|^post/.test(script)) {
@@ -44,8 +47,8 @@ export function buildContainerRunArgs(
   return [
     "run", "--rm", "--pull=never", "--name", containerName, "--label", "com.forge.managed=true",
     "--network=none", "--read-only", "--cap-drop=ALL",
-    "--security-opt=no-new-privileges", "--pids-limit=" + String(profile.maxProcesses),
-    "--memory=" + profile.maxMemory, "--memory-swap=" + profile.maxMemory, "--cpus=" + String(profile.maxCpus), "--ulimit", "nofile=1024:1024",
+    "--security-opt=no-new-privileges", "--pids-limit=" + String(policy?.maxProcesses ?? profile.maxProcesses),
+    "--memory=" + (policy?.maxMemory ?? profile.maxMemory), "--memory-swap=" + (policy?.maxMemory ?? profile.maxMemory), "--cpus=" + String(policy?.maxCpus ?? profile.maxCpus), "--ulimit", "nofile=1024:1024",
     "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
     "--tmpfs", "/workspace:rw,nosuid,nodev,size=1g,mode=1777",
     "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1", "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
@@ -148,8 +151,9 @@ export async function runContainerVerification(
     throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
   }
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
-  const profile = getSandboxSecurityProfile(options.securityProfile ?? "balanced");
-  const requireRootless = options.requireRootless === true || profile.requireRootless;
+  const profile = getSandboxSecurityProfile(options.securityProfile ?? options.sandboxPolicy?.profile ?? "balanced");
+  const policy = options.sandboxPolicy;
+  const requireRootless = options.requireRootless === true || profile.requireRootless || policy?.requireRootless === true;
   const runtime = options.runtimePath ?? "docker";
   const inspect = await runProcess(runtime, ["image", "inspect", image], root, 15_000);
   if (inspect.error) throw new Error("Could not start container runtime: " + inspect.error);
@@ -164,7 +168,7 @@ export async function runContainerVerification(
   }
   const startedAt = new Date();
   const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
-  const args = buildContainerRunArgs(root, image, script, containerName, profile);
+  const args = buildContainerRunArgs(root, image, script, containerName, profile, policy);
   const result = await runProcess(runtime, args, root, timeoutMs, async () => {
     await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
