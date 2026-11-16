@@ -892,12 +892,16 @@ async function main(args: string[]): Promise<void> {
       const rawLimit = limitIndex >= 0 ? rest[limitIndex + 1] : undefined;
       const rawStatus = statusIndex >= 0 ? rest[statusIndex + 1] : undefined;
       const limit = limitIndex < 0 ? undefined : Number(rawLimit);
-      const target = rest.find((arg, index) =>
+      const positionalPaths = rest.filter((arg, index) =>
         !arg.startsWith("--") &&
         !(limitIndex >= 0 && index === limitIndex + 1) &&
         !(statusIndex >= 0 && index === statusIndex + 1)
-      ) ?? ".";
+      );
+      const target = positionalPaths[0] ?? ".";
       try {
+        if (positionalPaths.length > 1) {
+          throw new Error("Usage: forge runs [path] [--json] [--limit N] [--status STATUS]");
+        }
         for (const option of ["--json", "--limit", "--status"]) {
           if (rest.filter(arg => arg === option).length > 1) {
             throw new Error(`${option} may only be specified once.`);
