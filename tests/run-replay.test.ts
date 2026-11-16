@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRun } from "../src/core/orchestrator.js";
-import { createReplayRun } from "../src/core/run-replay.js";
+import { createReplayRun, createTaskRetryRun } from "../src/core/run-replay.js";
 
 describe("run replay", () => {
   it("retains completed prerequisites and resets failed downstream work", () => {
@@ -22,6 +22,20 @@ describe("run replay", () => {
     expect(replay.tasks[1]?.status).toBe("pending");
     expect(replay.tasks[2]?.status).toBe("pending");
     expect(replay.events.at(-1)?.message).toContain(source.id);
+  });
+  it("retries one failed task and its blocked dependants without resetting completed work", () => {
+    const source = createRun("Focused retry", [
+      { id: "done", agent: "architect", title: "Done", prompt: "Done" },
+      { id: "failed", agent: "reviewer", title: "Failed", prompt: "Failed", dependsOn: ["done"] },
+      { id: "downstream", agent: "planner", title: "Downstream", prompt: "Downstream", dependsOn: ["failed"] },
+    ]);
+    source.tasks[0]!.status = "completed";
+    source.tasks[0]!.result = { provider: "test", content: "preserve me" };
+    source.tasks[1]!.status = "failed";
+    source.tasks[2]!.status = "blocked";
+    const retry = createTaskRetryRun(source, "failed");
+    expect(retry.tasks.map(task => task.status)).toEqual(["completed", "pending", "pending"]);
+    expect(retry.tasks[0]!.result?.content).toBe("preserve me");
   });
   it("does not replay tasks explicitly rejected by a reviewer", () => {
     const source = createRun("Review", [{ id: "a", agent: "reviewer", title: "A", prompt: "A" }]);
