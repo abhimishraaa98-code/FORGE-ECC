@@ -38,6 +38,7 @@ import { createReplayRun } from "./core/run-replay.js";
 import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, loadEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
 import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkTrial } from "./core/benchmark-engine.js";
 import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
+import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -78,7 +79,7 @@ Commands:
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
-  benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons
+  benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -161,6 +162,20 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "benchmark-regression": {
+      const targetIndex = rest.indexOf("--path");
+      const target = path.resolve(targetIndex >= 0 ? rest[targetIndex + 1] ?? "." : ".");
+      const matrixId = rest.find((arg, index) => !arg.startsWith("--") && index === 0);
+      try {
+        const report = await loadBenchmarkRegression(target, matrixId);
+        process.stdout.write(formatBenchmarkRegression(report) + "\n");
+        if (report.status === "blocked") process.exitCode = 2;
+      } catch (error) {
+        process.stderr.write("FORGE benchmark regression failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
       return;
     }
     case "benchmark-matrix": {
