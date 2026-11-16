@@ -4,6 +4,7 @@ import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/co
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { createSandboxComplianceReport, formatSandboxComplianceReport } from "../src/core/sandbox-compliance.js";
 import { loadSandboxPolicy, validateSandboxPolicy } from "../src/core/sandbox-policy.js";
+import { verifyStagedPatch } from "../src/core/staged-verification.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
 import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
@@ -95,6 +96,40 @@ describe("staged verification CLI security flags", () => {
     const usage = "forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]";
     expect(usage).toContain("--require-rootless");
     expect(usage).toContain("--sandbox-image");
+  });
+});
+
+describe("staged verification policy integration", () => {
+  const policy = {
+    version: 1, profile: "balanced", network: "none", readOnlyRoot: true,
+    dropAllCapabilities: true, noNewPrivileges: true, maxMemory: "512m",
+    maxCpus: 1, maxProcesses: 64, requireRootless: false, requireImageDigest: true,
+  };
+
+  it("requires container execution when a policy file is supplied", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-policy-cli-"));
+    try {
+      const policyPath = path.join(root, "policy.json");
+      await writeFile(policyPath, JSON.stringify(policy), "utf8");
+      await expect(verifyStagedPatch(root, "patch-stage-12345678901234567890", "test", {
+        sandboxPolicyPath: policyPath,
+      })).rejects.toThrow(/requires --sandbox-image/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a profile that conflicts with the loaded policy", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-policy-profile-"));
+    try {
+      const policyPath = path.join(root, "policy.json");
+      await writeFile(policyPath, JSON.stringify(policy), "utf8");
+      await expect(verifyStagedPatch(root, "patch-stage-12345678901234567890", "test", {
+        sandboxImage: image, sandboxPolicyPath: policyPath, securityProfile: "hardened",
+      })).rejects.toThrow(/must match the profile declared in --policy/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 
