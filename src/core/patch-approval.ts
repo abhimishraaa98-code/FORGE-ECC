@@ -75,7 +75,7 @@ export async function loadPatchApproval(root: string, id: string): Promise<Patch
       !("patchSha256" in parsed) || typeof parsed.patchSha256 !== "string" ||
       !("sourceSha256" in parsed) || typeof parsed.sourceSha256 !== "string" ||
       !("file" in parsed) || typeof parsed.file !== "string" || !parsed.file.trim() ||
-      !("suggestionNumber" in parsed) || !Number.isSafeInteger(parsed.suggestionNumber) || parsed.suggestionNumber < 1 ||
+      !("suggestionNumber" in parsed) || typeof parsed.suggestionNumber !== "number" || !Number.isSafeInteger(parsed.suggestionNumber) || parsed.suggestionNumber < 1 ||
       !("reviewer" in parsed) || typeof parsed.reviewer !== "string" || !parsed.reviewer.trim() ||
       !("approvedAt" in parsed) || typeof parsed.approvedAt !== "string" || !Number.isFinite(Date.parse(parsed.approvedAt)) ||
       !("expiresAt" in parsed) || typeof parsed.expiresAt !== "string" || !Number.isFinite(Date.parse(parsed.expiresAt)) ||
