@@ -35,7 +35,7 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
-import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport } from "./core/evaluation-engine.js";
+import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -171,7 +171,7 @@ async function main(args: string[]): Promise<void> {
         if (!suite) throw new Error(suiteId ? "Evaluation suite not found: " + suiteId : "No evaluation suite found. Add one under .forge/evals/.");
         const run = await loadRun(target, runId);
         const judgeEnabled = rest.includes("--judge");
-        let report;
+        let report: EvaluationReport | JudgedEvaluationReport;
         if (judgeEnabled) {
           const providerChoice = process.env.FORGE_AI_PROVIDER ?? "openai";
           const model = process.env.FORGE_EVAL_JUDGE_MODEL ?? process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1");
