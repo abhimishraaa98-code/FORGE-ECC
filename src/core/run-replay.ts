@@ -33,8 +33,8 @@ export function createReplayRun(source: RunRecord): RunRecord {
 /** Creates a focused retry run for one failed task and its blocked dependants. */
 export function createTaskRetryRun(source: RunRecord, taskId: string): RunRecord {
   const target = source.tasks.find(record => record.task.id === taskId);
-  if (!target || (target.status !== "failed" && target.status !== "blocked")) {
-    throw new Error("Only a failed or blocked task can be retried.");
+  if (!target || target.status !== "failed") {
+    throw new Error("Only a failed task can be retried directly; retry its failed prerequisite instead.");
   }
   if (target.approval?.decision === "rejected") {
     throw new Error("An explicitly rejected task cannot be retried.");
