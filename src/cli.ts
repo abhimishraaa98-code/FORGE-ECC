@@ -831,6 +831,22 @@ async function main(args: string[]): Promise<void> {
           ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}),
           initialEstimatedTokensUsed: priorRunUsage, initialEstimatedTokensByAgent: priorAgentUsage, createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
+        // Re-check current workspace policy before resuming any task that has not completed.
+        // Previously applied hook guidance is kept in the saved prompt and is not appended twice.
+        const resumeHooks = await loadHooks(target);
+        for (const record of savedRun.tasks) {
+          if (record.status !== "pending" && record.status !== "awaiting_approval") continue;
+          const applied = applyBeforeAgentHooks(record.task, resumeHooks);
+          const additions = applied.context.filter(message => !record.task.prompt.includes(message));
+          record.task = {
+            ...applied.task,
+            prompt: additions.length ? record.task.prompt + "\n\nHook guidance:\n" + additions.join("\n") : record.task.prompt,
+          };
+          if (applied.blockedReason) {
+            record.status = "blocked";
+            record.error = "Blocked by current policy hook: " + applied.blockedReason;
+          }
+        }
         const currentTokenUsage = () => {
           const usage = router.traces.reduce((total, entry) => { total.estimatedTokensUsed += entry.inputTokensEstimate + entry.outputTokensEstimate; total.estimatedTokensByAgent[entry.agent] = (total.estimatedTokensByAgent[entry.agent] ?? 0) + entry.inputTokensEstimate + entry.outputTokensEstimate; return total; }, { estimatedTokensUsed: priorRunUsage, estimatedTokensByAgent: { ...priorAgentUsage } as Record<string, number> });
           return usage;
