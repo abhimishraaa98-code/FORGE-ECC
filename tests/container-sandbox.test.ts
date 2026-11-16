@@ -121,6 +121,79 @@ describe("mocked container runtime policy execution", () => {
   });
 });
 
+describe("container runtime fail-closed behavior", () => {
+  async function makeRuntime(root: string, behavior: "rootful" | "missing-image" | "spawn-error"): Promise<string> {
+    const runtime = path.join(root, "mock-runtime-" + behavior + ".cjs");
+    const source = [
+      "#!/usr/bin/env node",
+      "const args = process.argv.slice(2);",
+      behavior === "missing-image"
+        ? "if (args[0] === 'image') { process.stderr.write('image missing'); process.exit(1); }"
+        : "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
+      behavior === "rootful"
+        ? "if (args[0] === 'info') { process.stdout.write('[\\\"name=seccomp\\\"]'); process.exit(0); }"
+        : "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
+      behavior === "spawn-error"
+        ? "if (args[0] === 'run') process.exit(7);"
+        : "if (args[0] === 'run') process.exit(0);",
+      "process.exit(2);",
+    ].join("\n");
+    await writeFile(runtime, source, "utf8");
+    await chmod(runtime, 0o755);
+    return runtime;
+  }
+
+  async function makeProject(root: string): Promise<string> {
+    const project = path.join(root, "project");
+    await import("node:fs/promises").then(fs => fs.mkdir(project));
+    await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }), "utf8");
+    return project;
+  }
+
+  it("refuses a rootful daemon when policy requires rootless", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-rootless-required-"));
+    try {
+      const project = await makeProject(root);
+      const runtime = await makeRuntime(root, "rootful");
+      const policy = {
+        version: 1 as const, profile: "rootless-required" as const, network: "none" as const,
+        readOnlyRoot: true as const, dropAllCapabilities: true as const,
+        noNewPrivileges: true as const, maxMemory: "512m", maxCpus: 1,
+        maxProcesses: 64, requireRootless: true, requireImageDigest: true as const,
+      };
+      await expect(runContainerVerification(project, "test", image, { runtimePath: runtime, sandboxPolicy: policy }))
+        .rejects.toThrow(/Rootless container runtime is required/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the pinned image is not locally available", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-image-missing-"));
+    try {
+      const project = await makeProject(root);
+      const runtime = await makeRuntime(root, "missing-image");
+      await expect(runContainerVerification(project, "test", image, { runtimePath: runtime }))
+        .rejects.toThrow(/not available locally/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns a failed verification when the runtime exits unsuccessfully", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-runtime-error-"));
+    try {
+      const project = await makeProject(root);
+      const runtime = await makeRuntime(root, "spawn-error");
+      const result = await runContainerVerification(project, "test", image, { runtimePath: runtime });
+      expect(result.status).toBe("failed");
+      expect(result.exitCode).toBe(7);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("container runtime security detection", () => {
   it("recognizes rootless Docker security options", () => {
     expect(detectDockerRootless('["name=seccomp,profile=builtin","name=rootless"]')).toBe(true);
