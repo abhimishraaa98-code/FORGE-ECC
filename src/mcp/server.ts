@@ -7,6 +7,7 @@ import { z } from "zod";
 import { inspectProject } from "../core/project-inspector.js";
 import { mapArchitecture } from "../core/architecture-map.js";
 import { executeWorkspaceAgentTool } from "../core/workspace-tool-broker.js";
+import { assertWorkspacePathAllowed } from "../core/workspace-browser.js";
 import { loadPermissionPolicy } from "../core/permission-policy.js";
 import { auditProject } from "../core/quality-audit.js";
 import { analyzeGitChanges } from "../core/git-intelligence.js";
@@ -22,6 +23,7 @@ async function resolveWorkspace(input?: string): Promise<string> {
   if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
     throw new Error("Requested project path is outside the configured FORGE workspace.");
   }
+  assertWorkspacePathAllowed(relative.split(path.sep).join("/"));
   const info = await stat(candidate);
   if (!info.isDirectory()) throw new Error("Project path must be a directory.");
   return candidate;
