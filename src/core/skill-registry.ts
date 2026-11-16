@@ -136,10 +136,15 @@ async function collectSkillFiles(directory: string, root: string, depth: number,
 
 export async function loadSkillRegistry(projectPath: string): Promise<SkillDefinition[]> {
   const root = await realpath(path.resolve(projectPath));
-  const directory = path.join(root, ".forge", "skills");
+  const forgeDirectory = path.join(root, ".forge");
+  const directory = path.join(forgeDirectory, "skills");
   const skills = new Map(BUILTIN_SKILLS.map(skill => [skill.id, skill]));
   const files: string[] = [];
   try {
+    const forgeInfo = await lstat(forgeDirectory);
+    if (forgeInfo.isSymbolicLink() || !forgeInfo.isDirectory()) {
+      return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
+    }
     const info = await lstat(directory);
     if (info.isSymbolicLink() || !info.isDirectory()) return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
   } catch (error) {
