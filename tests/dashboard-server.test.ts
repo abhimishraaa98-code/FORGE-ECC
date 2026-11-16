@@ -31,6 +31,9 @@ describe("local dashboard server", () => {
     expect(html).toContain("FORGE");
     expect(html).toContain("Agent handoff map");
     expect(html).toContain("Execution telemetry");
+    expect(html).toContain("Agent observability");
+    expect(html).toContain("Per-agent utilization");
+    expect(html).toContain("Provider health");
     expect(html).toContain("Live event stream");
     expect(html).toContain("Create replay of retryable tasks");
     expect(html).toContain("Compare with previous run");
@@ -124,6 +127,14 @@ describe("local dashboard server", () => {
 
     const runDetail = await fetch(base + "/api/runs/forge-not-found");
     expect(runDetail.status).toBe(500);
+
+    const observability = await fetch(base + "/api/observability");
+    expect(observability.status).toBe(200);
+    const telemetry = await observability.json();
+    expect(telemetry).toHaveProperty("totals");
+    expect(Array.isArray(telemetry.agents)).toBe(true);
+    expect(Array.isArray(telemetry.providers)).toBe(true);
+    expect(telemetry.budgets).toHaveProperty("perAgentTokens");
 
     const agents = await fetch(base + "/api/agents");
     expect(agents.status).toBe(200);
