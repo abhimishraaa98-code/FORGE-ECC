@@ -77,7 +77,12 @@ describe("run-history CLI help", () => {
 
   it("rejects missing, zero, and non-numeric limits", async () => {
     const directory = await createWorkspace();
-    for (const args of [["--limit"], ["--limit", "0"], ["--limit", "many"], ["--status"], ["--status", "unknown"]]) {
+    for (const args of [
+      ["--limit"], ["--limit", "0"], ["--limit", "many"], ["--limit", "--json"],
+      ["--status"], ["--status", "unknown"], ["--status", "--json"],
+      ["--limit", "1", "--limit", "2"], ["--status", "completed", "--status", "failed"],
+      ["--json", "--json"], ["--unexpected"],
+    ]) {
       expect(() => runCli("runs", directory, ...args)).toThrow();
     }
   });
