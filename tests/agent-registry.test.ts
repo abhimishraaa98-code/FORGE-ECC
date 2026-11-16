@@ -19,6 +19,19 @@ describe("agent registry", () => {
     expect(agents.every(agent => agent.source === "builtin")).toBe(true);
   });
 
+  it("registers the expanded specialist team", async () => {
+    temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "forge-agents-"));
+    const agents = await loadAgentRegistry(temporaryDirectory);
+    const ids = new Set(agents.map(agent => agent.id));
+    for (const id of [
+      "planner", "architect", "code-reviewer", "test-engineer", "security-reviewer",
+      "debugger", "performance-engineer", "documentation-writer", "devops-engineer",
+      "database-reviewer", "accessibility-reviewer", "release-manager",
+    ]) {
+      expect(ids.has(id), `expected built-in agent ${id}`).toBe(true);
+    }
+  });
+
   it("loads valid workspace markdown and overrides a built-in definition", async () => {
     temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "forge-agents-"));
     const directory = path.join(temporaryDirectory, ".forge", "agents");
