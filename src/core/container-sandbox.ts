@@ -1,0 +1,162 @@
+import { spawn } from "node:child_process";
+import { lstat, readFile, realpath } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import type { VerificationResult } from "./verification.js";
+
+const MAX_OUTPUT = 64 * 1024;
+const DEFAULT_TIMEOUT = 120_000;
+const MAX_TIMEOUT = 10 * 60_000;
+const IMAGE_DIGEST = /^.+@sha256:[a-f0-9]{64}$/;
+
+export interface ContainerVerificationOptions {
+  timeoutMs?: number;
+  runtimePath?: string;
+}
+
+export function buildContainerRunArgs(
+  workspace: string,
+  image: string,
+  script: string,
+  containerName: string,
+): string[] {
+  if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,79}$/.test(script) || /^pre|^post/.test(script)) {
+    throw new Error("Choose a valid, explicit package script name.");
+  }
+  if (workspace.includes(",")) throw new Error("Sandbox workspace paths cannot contain commas.");
+  return [
+    "run", "--rm", "--pull=never", "--name", containerName,
+    "--network=none", "--read-only", "--cap-drop=ALL",
+    "--security-opt=no-new-privileges", "--pids-limit=128",
+    "--memory=1g", "--cpus=2",
+    "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+    "--user", "0:0",
+    "--mount", "type=bind,source=" + workspace + ",target=/workspace,rw",
+    "--workdir", "/workspace",
+    "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1",
+    image, "npm", "run-script", "--ignore-scripts", script,
+  ];
+}
+
+async function projectRoot(inputPath: string): Promise<string> {
+  const root = await realpath(path.resolve(inputPath));
+  const info = await lstat(root);
+  if (!info.isDirectory()) throw new Error("Sandbox target must be a real directory.");
+  const manifestPath = path.join(root, "package.json");
+  const manifestInfo = await lstat(manifestPath);
+  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("package.json must be a regular, non-symlink file.");
+  const parsed: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("package.json must contain a JSON object.");
+  const scripts = (parsed as { scripts?: unknown }).scripts;
+  if (!scripts || typeof scripts !== "object" || Array.isArray(scripts) ||
+      typeof (scripts as Record<string, unknown>)[scriptName] !== "string") {
+    throw new Error("Selected script is not defined in package.json.");
+  }
+  return root;
+}
+
+let scriptName = "";
+
+function runProcess(
+  command: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+  onTimeout?: () => void,
+): Promise<{ code: number | null; signal: NodeJS.Signals | null; output: string; truncated: boolean; error?: string; timedOut: boolean }> {
+  return new Promise(resolve => {
+    const chunks: string[] = [];
+    let size = 0;
+    let truncated = false;
+    let settled = false;
+    const windows = process.platform === "win32";
+    const child = spawn(command, args, {
+      cwd, shell: windows && command.toLowerCase().endsWith(".exe") === false && command === "docker",
+      windowsHide: true,
+      env: {
+        PATH: process.env.PATH ?? "",
+        ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+        ...(process.env.WINDIR ? { WINDIR: process.env.WINDIR } : {}),
+        ...(process.env.TEMP ? { TEMP: process.env.TEMP } : {}),
+        ...(process.env.TMP ? { TMP: process.env.TMP } : {}),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: !windows,
+    });
+    const append = (chunk: Buffer | string) => {
+      const value = chunk.toString();
+      const remaining = MAX_OUTPUT - size;
+      if (remaining > 0) {
+        chunks.push(value.slice(0, remaining));
+        size += Math.min(value.length, remaining);
+      }
+      if (value.length > remaining) truncated = true;
+    };
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+    let timedOut = false;
+    const finish = (result: { code: number | null; signal: NodeJS.Signals | null; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ...result, output: chunks.join(""), truncated, timedOut });
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      onTimeout?.();
+      if (!windows && child.pid) {
+        try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
+      } else child.kill("SIGTERM");
+    }, timeoutMs);
+    child.once("error", error => finish({ code: null, signal: null, error: error.message }));
+    child.once("close", (code, signal) => finish({ code, signal }));
+  });
+}
+
+/**
+ * Executes an explicitly selected project script in a pre-pulled, digest-pinned
+ * container with no network, a read-only root filesystem, dropped capabilities,
+ * PID/memory/CPU limits, and only the temporary workspace mounted writable.
+ * The caller must have explicitly opted in to container execution.
+ */
+export async function runContainerVerification(
+  inputPath: string,
+  script: string,
+  image: string,
+  options: ContainerVerificationOptions = {},
+): Promise<VerificationResult> {
+  scriptName = script;
+  const root = await projectRoot(inputPath);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > MAX_TIMEOUT) {
+    throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
+  }
+  if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
+  const runtime = options.runtimePath ?? "docker";
+  const inspect = await runProcess(runtime, ["image", "inspect", image], root, 15_000);
+  if (inspect.error) throw new Error("Could not start container runtime: " + inspect.error);
+  if (inspect.code !== 0) throw new Error("Pinned sandbox image is not available locally. Pull and verify it separately; FORGE never pulls images automatically. " + inspect.output);
+  const startedAt = new Date();
+  const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
+  const args = buildContainerRunArgs(root, image, script, containerName);
+  const result = await runProcess(runtime, args, root, timeoutMs, () => {
+    void runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
+  });
+  const finishedAt = new Date();
+  if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
+  return {
+    id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
+    projectPath: root,
+    script,
+    command: runtime + " " + args.map(value => JSON.stringify(value)).join(" "),
+    status: result.error ? "spawn_error" : result.timedOut ? "timed_out" : result.code === 0 ? "passed" : "failed",
+    exitCode: result.code,
+    signal: result.signal,
+    durationMs: finishedAt.getTime() - startedAt.getTime(),
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    output: result.output,
+    outputTruncated: result.truncated,
+  };
+}
