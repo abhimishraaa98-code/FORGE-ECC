@@ -36,7 +36,7 @@ import { generateRemediationPlan, formatRemediationPlan } from "./core/remediati
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
-import { assertProposalOnlyPolicy, assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
+import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
