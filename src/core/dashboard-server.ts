@@ -419,7 +419,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
         return;
       }
-      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || /^\\/api\\/config-snapshots\\/[^/]+\\/approve$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || /^\/api\/config-snapshots\/[^/]+\/approve$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -439,7 +439,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: version.id, status: version.status, files: version.files.map(file => ({ path: file.path, sha256: file.sha256 })), createdAt: version.createdAt }));
           return;
         }
-        const configApproval = requestUrl.pathname.match(/^\\/api\\/config-snapshots\\/(cfg-[a-f0-9]{12})\\/approve$/);
+        const configApproval = requestUrl.pathname.match(/^\/api\/config-snapshots\/(cfg-[a-f0-9]{12})\/approve$/);
         if (configApproval) {
           const input = body as { reviewer?: unknown };
           if (typeof input?.reviewer !== "string" || !input.reviewer.trim() || input.reviewer.length > 80) throw new Error("Reviewer label must contain 1–80 characters.");
