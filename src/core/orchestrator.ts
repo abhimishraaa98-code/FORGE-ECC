@@ -57,7 +57,7 @@ export interface RunRecord {
   events: Array<{
     at: string;
     taskId: string;
-    type: "approval_required" | "approved" | "rejected" | "started" | "completed" | "failed" | "blocked";
+    type: "approval_required" | "approved" | "rejected" | "started" | "completed" | "failed" | "blocked" | "budget_exceeded";
     message: string;
   }>;
 }
