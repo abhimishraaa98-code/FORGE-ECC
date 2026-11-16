@@ -31,7 +31,7 @@ export async function verifyStagedPatch(
   projectPath: string,
   stageId: string,
   script: string,
-  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number; sandboxImage?: string; runtimePath?: string; requireRootless?: boolean } = {},
+  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number; sandboxImage?: string; runtimePath?: string; requireRootless?: boolean; securityProfile?: "balanced" | "hardened" | "rootless-required" } = {},
 ): Promise<StagedVerificationResult> {
   const project = await realpath(path.resolve(projectPath));
   if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
@@ -86,6 +86,7 @@ export async function verifyStagedPatch(
           ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
           ...(options.runtimePath === undefined ? {} : { runtimePath: options.runtimePath }),
           ...(options.requireRootless === undefined ? {} : { requireRootless: options.requireRootless }),
+          ...(options.securityProfile === undefined ? {} : { securityProfile: options.securityProfile }),
         })
       : await runVerification(snapshot, script, options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs });
     const id = "patch-verify-" + verification.id.slice("verify-".length);
