@@ -41,6 +41,7 @@ import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, lis
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions, loadAgentConfigVersion } from "./core/agent-config-versioning.js";
+import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -83,6 +84,7 @@ Commands:
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
+  agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -165,6 +167,40 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "agent-release": {
+      const action = rest[0] ?? "list";
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const args = rest.slice(1).filter((arg, index, all) => !arg.startsWith("--") && all[index - 1] !== "--path" && all[index - 1] !== "--reviewer" && all[index - 1] !== "--matrix");
+      try {
+        if (action === "prepare") {
+          const [candidateVersionId, baselineVersionId] = args;
+          const matrixId = option("--matrix");
+          if (!candidateVersionId || !baselineVersionId || !matrixId) throw new Error("Usage: forge agent-release prepare CANDIDATE_CONFIG_ID BASELINE_CONFIG_ID --matrix MATRIX_ID --path PROJECT");
+          const regression = await loadBenchmarkRegression(target, matrixId);
+          const release = await prepareAgentConfigRelease(target, { candidateVersionId, baselineVersionId, regression });
+          process.stdout.write(formatAgentConfigRelease(release) + "\\nHuman approval is still required. No live files were changed.\\n");
+        } else if (action === "list") {
+          const items = await listAgentConfigReleases(target);
+          process.stdout.write(items.length ? items.map(item => item.id + "  " + item.status.padEnd(17) + "  " + item.candidateVersionId + "  " + item.benchmarkStatus).join("\\n") + "\\n" : "No agent configuration releases found.\\n");
+        } else if (action === "show") {
+          const id = args[0]; if (!id) throw new Error("Usage: forge agent-release show RELEASE_ID --path PROJECT");
+          const item = (await listAgentConfigReleases(target)).find(entry => entry.id === id);
+          if (!item) throw new Error("Release not found: " + id);
+          process.stdout.write(formatAgentConfigRelease(item) + "\\n");
+        } else if (action === "approve" || action === "reject") {
+          const id = args[0]; if (!id) throw new Error("Usage: forge agent-release approve|reject RELEASE_ID --reviewer NAME --path PROJECT");
+          const reviewer = option("--reviewer"); if (!reviewer?.trim()) throw new Error("A reviewer is required via --reviewer NAME.");
+          const item = await decideAgentConfigRelease(target, id, reviewer, action);
+          process.stdout.write(formatAgentConfigRelease(item) + "\\n");
+        } else throw new Error("Unknown action. Use prepare, list, show, approve or reject.");
+      } catch (error) {
+        process.stderr.write("FORGE agent release failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
       return;
     }
     case "agent-config": {
