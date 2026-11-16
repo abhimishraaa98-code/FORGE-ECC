@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
 import { approveReviewPatch } from "../src/core/patch-approval.js";
-import { stageApprovedPatch, reviewStagedPatch } from "../src/core/patch-application.js";
+import { stageApprovedPatch, reviewStagedPatch, promoteStagedPatch, rollbackStagedPatch } from "../src/core/patch-application.js";
 import { verifyStagedPatch } from "../src/core/staged-verification.js";
 import type { CodeReviewReport } from "../src/core/code-review.js";
 import type { AIReviewResult } from "../src/core/ai-code-review.js";
@@ -109,6 +109,29 @@ describe("isolated approved patch staging", () => {
     const workspaceFile = path.join(root, staged.workspacePath, "src/a.ts");
     await writeFile(workspaceFile, "tampered");
     await expect(verifyStagedPatch(root, staged.id, "test")).rejects.toThrow(/workspace changed after staging/);
+  });
+
+
+  it("requires the exact staged hash, backs up the source, promotes, and rolls back", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    await expect(promoteStagedPatch(root, staged.id, "reviewer", "0".repeat(64))).rejects.toThrow(/confirmation does not match/);
+    const promoted = await promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256);
+    expect(promoted.promotedSha256).toBe(staged.stagedSha256);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\n");
+    expect(await readFile(path.join(root, promoted.backupPath), "utf8")).toBe("const a = 1;\n");
+    await expect(promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256)).rejects.toThrow(/already been promoted/);
+    await rollbackStagedPatch(root, staged.id, "reviewer");
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
+  });
+
+  it("refuses rollback if the promoted file has changed since promotion", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    await promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256);
+    await writeFile(path.join(root, "src/a.ts"), "newer user work\n");
+    await expect(rollbackStagedPatch(root, staged.id, "reviewer")).rejects.toThrow(/changed since promotion/);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("newer user work\n");
   });
 
 });
