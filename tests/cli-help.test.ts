@@ -48,20 +48,29 @@ describe("run-history CLI help", () => {
     const newer = createRun("Newer run", [{ id: "newer-task", agent: "planner", title: "Newer task", prompt: "Plan newer run" }]);
     newer.createdAt = "2026-01-02T00:00:00.000Z";
     newer.status = "completed";
+    const newest = createRun("Newest run", [{ id: "newest-task", agent: "planner", title: "Newest task", prompt: "Plan newest run" }]);
+    newest.createdAt = "2026-01-03T00:00:00.000Z";
+    newest.status = "completed";
     await saveRun(directory, older);
     await saveRun(directory, newer);
+    await saveRun(directory, newest);
 
     const textOutput = runCli("runs", directory, "--limit", "1");
-    expect(textOutput).toContain(newer.id);
+    expect(textOutput).toContain(newest.id);
+    expect(textOutput).not.toContain(newer.id);
     expect(textOutput).not.toContain(older.id);
 
     const jsonOutput = JSON.parse(runCli("runs", directory, "--json", "--limit", "1"));
     expect(jsonOutput.runs).toHaveLength(1);
-    expect(jsonOutput.runs[0].id).toBe(newer.id);
+    expect(jsonOutput.runs[0].id).toBe(newest.id);
 
     const completedOutput = runCli("runs", directory, "--status", "completed");
     expect(completedOutput).toContain(newer.id);
+    expect(completedOutput).toContain(newest.id);
     expect(completedOutput).not.toContain(older.id);
+    const combinedJson = JSON.parse(runCli("runs", "--status", "completed", "--limit", "1", directory, "--json"));
+    expect(combinedJson.runs).toHaveLength(1);
+    expect(combinedJson.runs[0].id).toBe(newest.id);
     const failedJson = JSON.parse(runCli("runs", directory, "--json", "--status", "failed"));
     expect(failedJson.runs.map((run: { id: string }) => run.id)).toEqual([older.id]);
   });
