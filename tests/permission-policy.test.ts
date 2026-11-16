@@ -44,4 +44,15 @@ describe("FORGE permission policy", () => {
     expect(() => assertSupportedAgentPolicy({ version: 1, mode: "restricted", allowedTools: [] }, "openai")).toThrow(/only OpenAI/);
     expect(() => assertSupportedAgentPolicy(DEFAULT_PERMISSION_POLICY, "claude-code")).not.toThrow();
   });
+  it("allows only OpenAI with explicitly allowlisted read-only tools in restricted mode", () => {
+    const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file", "search-code"] });
+    expect(() => assertSupportedAgentPolicy(policy, "openai")).not.toThrow();
+    expect(() => assertSupportedAgentPolicy(policy, "anthropic")).toThrow(/only OpenAI/);
+  });
+
+  it("rejects unsupported or empty restricted tool policies", () => {
+    expect(() => assertSupportedAgentPolicy({ version: 1, mode: "restricted", allowedTools: ["shell"] }, "openai")).toThrow(/only OpenAI/);
+    expect(() => assertSupportedAgentPolicy({ version: 1, mode: "restricted", allowedTools: [] }, "openai")).toThrow(/only OpenAI/);
+    expect(() => assertSupportedAgentPolicy(DEFAULT_PERMISSION_POLICY, "claude-code")).not.toThrow();
+  });
 });
