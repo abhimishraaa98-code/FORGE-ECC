@@ -151,8 +151,11 @@ export async function runContainerVerification(
     throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
   }
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
-  const profile = getSandboxSecurityProfile(options.securityProfile ?? options.sandboxPolicy?.profile ?? "balanced");
   const policy = options.sandboxPolicy;
+  if (options.securityProfile && policy && options.securityProfile !== policy.profile) {
+    throw new Error("Security profile must match the profile declared in the sandbox policy.");
+  }
+  const profile = getSandboxSecurityProfile(options.securityProfile ?? policy?.profile ?? "balanced");
   const requireRootless = options.requireRootless === true || profile.requireRootless || policy?.requireRootless === true;
   const runtime = options.runtimePath ?? "docker";
   const inspect = await runProcess(runtime, ["image", "inspect", image], root, 15_000);
