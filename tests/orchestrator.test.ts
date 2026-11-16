@@ -26,6 +26,22 @@ describe("FORGE orchestration engine", () => {
     ])).toThrow(/cycle/);
   });
 
+  it("publishes running and completed progress snapshots", async () => {
+    const snapshots: Array<{ status: string; taskStatus: string }> = [];
+    const run = createRun("Monitor progress", [
+      { id: "inspect", agent: "architect", title: "Inspect", prompt: "Inspect" },
+    ]);
+    const result = await advanceRun(run, provider, new Set(), {
+      onUpdate: snapshot => snapshots.push({
+        status: snapshot.status,
+        taskStatus: snapshot.tasks[0]?.status ?? "missing",
+      }),
+    });
+    expect(snapshots.some(item => item.status === "running" && item.taskStatus === "running")).toBe(true);
+    expect(snapshots.at(-1)).toEqual({ status: "completed", taskStatus: "completed" });
+    expect(result.status).toBe("completed");
+  });
+
   it("runs dependency-ordered tasks and passes completed context", async () => {
     const run = createRun("Improve reliability", [
       { id: "inspect", agent: "architect", title: "Inspect", prompt: "Inspect structure" },
