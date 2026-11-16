@@ -68,7 +68,8 @@ describe("agent configuration versioning", () => {
     expect(await readFile(path.join(isolated, ".forge", "skills", "secure-changes.md"), "utf8")).toContain("least privilege");
     await expect(readFile(path.join(root, ".forge", "agents", "planner.md"), "utf8")).resolves.toContain("Plan carefully");
     await expect(readFile(path.join(isolated, ".forge", "hooks.json"), "utf8")).resolves.toContain("Snapshot-specific policy guidance.");
-    await expect(loadHooks(isolated)).resolves.toMatchObject([{ id: "candidate-policy", message: "Snapshot-specific policy guidance." }]);\n    await expect(loadPermissionPolicy(isolated)).resolves.toEqual({ version: 1, mode: "proposal-only", allowedTools: [] });
+    await expect(loadHooks(isolated)).resolves.toMatchObject([{ id: "candidate-policy", message: "Snapshot-specific policy guidance." }]);
+    await expect(loadPermissionPolicy(isolated)).resolves.toEqual({ version: 1, mode: "proposal-only", allowedTools: [] });
   });
   it("captures an explicit empty hook policy when the workspace has no hooks file", async () => {
     const root = await project();
