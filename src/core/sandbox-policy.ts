@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { SandboxSecurityProfileName } from "./sandbox-security-profiles.js";
 
@@ -18,6 +18,7 @@ export interface SandboxPolicy {
 
 const ALLOWED_PROFILES = ["balanced", "hardened", "rootless-required"];
 const MEMORY = /^([1-9][0-9]{0,3})(m|g)$/;
+const MAX_POLICY_BYTES = 16 * 1024;
 
 export function validateSandboxPolicy(value: unknown): { valid: true; policy: SandboxPolicy } | { valid: false; errors: string[] } {
   const errors: string[] = [];
@@ -45,7 +46,17 @@ export function validateSandboxPolicy(value: unknown): { valid: true; policy: Sa
 export async function loadSandboxPolicy(filePath: string): Promise<{ valid: true; policy: SandboxPolicy; path: string } | { valid: false; errors: string[]; path: string }> {
   const resolved = path.resolve(filePath);
   try {
+    const metadata = await lstat(resolved);
+    if (metadata.isSymbolicLink() || !metadata.isFile()) {
+      return { valid: false, errors: ["Policy path must be a regular, non-symlink file."], path: resolved };
+    }
+    if (metadata.size > MAX_POLICY_BYTES) {
+      return { valid: false, errors: ["Policy file exceeds the 16 KiB size limit."], path: resolved };
+    }
     const raw = await readFile(resolved, "utf8");
+    if (Buffer.byteLength(raw, "utf8") > MAX_POLICY_BYTES) {
+      return { valid: false, errors: ["Policy file exceeds the 16 KiB size limit."], path: resolved };
+    }
     let parsed: unknown;
     try { parsed = JSON.parse(raw); } catch { return { valid: false, errors: ["Policy file is not valid JSON."], path: resolved }; }
     const result = validateSandboxPolicy(parsed);
