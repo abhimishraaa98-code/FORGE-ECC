@@ -39,7 +39,7 @@ export function buildContainerRunArgs(
   if (workspace.includes(",")) throw new Error("Sandbox workspace paths cannot contain commas.");
   const copyAndRun = "const fs=require('node:fs');fs.cpSync('/snapshot','/workspace',{recursive:true});const r=require('node:child_process').spawnSync('npm',['run-script','--ignore-scripts',process.argv[1]],{cwd:'/workspace',stdio:'inherit'});process.exit(r.status===null?1:r.status);";
   return [
-    "run", "--rm", "--pull=never", "--name", containerName,
+    "run", "--rm", "--pull=never", "--name", containerName, "--label", "com.forge.managed=true",
     "--network=none", "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges", "--pids-limit=128",
     "--memory=1g", "--memory-swap=1g", "--cpus=2", "--ulimit", "nofile=1024:1024",
