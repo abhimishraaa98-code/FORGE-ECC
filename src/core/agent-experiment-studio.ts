@@ -85,5 +85,5 @@ export function formatModelComparisonMatrix(matrix: BenchmarkMatrixConfig): stri
     "Next: forge benchmark-matrix <CONFIG_FILE> --suite <SUITE_ID> --goal \"<task>\"",
     "",
     "Candidates run sequentially against the same suite and goal. For a fair comparison, keep the evaluation suite, workspace, permissions and environment unchanged."
-  ].join("\\n");
+  ].join("\n");
 }
