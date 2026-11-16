@@ -3,6 +3,7 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { VerificationResult } from "./verification.js";
+import { getSandboxSecurityProfile, type SandboxSecurityProfileName } from "./sandbox-security-profiles.js";
 
 const MAX_OUTPUT = 64 * 1024;
 const DEFAULT_TIMEOUT = 120_000;
@@ -13,6 +14,7 @@ export interface ContainerVerificationOptions {
   timeoutMs?: number;
   runtimePath?: string;
   requireRootless?: boolean;
+  securityProfile?: SandboxSecurityProfileName;
 }
 
 /** Returns true/false for a recognized Docker rootless security option, otherwise null. */
@@ -145,6 +147,8 @@ export async function runContainerVerification(
     throw new Error("Timeout must be between 1,000 and 600,000 milliseconds.");
   }
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be pinned by an immutable sha256 digest (image@sha256:...).");
+  const profile = getSandboxSecurityProfile(options.securityProfile ?? "balanced");
+  const requireRootless = options.requireRootless === true || profile.requireRootless;
   const runtime = options.runtimePath ?? "docker";
   const inspect = await runProcess(runtime, ["image", "inspect", image], root, 15_000);
   if (inspect.error) throw new Error("Could not start container runtime: " + inspect.error);
@@ -152,7 +156,7 @@ export async function runContainerVerification(
   const security = await runProcess(runtime, ["info", "--format", "{{json .SecurityOptions}}"], root, 15_000);
   if (security.error || security.code !== 0) throw new Error("Could not inspect container runtime security options; refusing container verification. " + (security.output || security.error || ""));
   const rootless = detectDockerRootless(security.output.trim());
-  if (options.requireRootless && rootless !== true) {
+  if (requireRootless && rootless !== true) {
     throw new Error(rootless === false
       ? "Rootless container runtime is required, but the selected Docker daemon is rootful."
       : "Rootless container runtime status could not be verified; refusing verification.");
@@ -164,7 +168,7 @@ export async function runContainerVerification(
     await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
   const finishedAt = new Date();
-  result.output = "[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
+  result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=none, readOnlyRoot=true, capDrop=ALL, noNewPrivileges=true, memory=1g, cpus=2, pids=128\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
   return {
     id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
