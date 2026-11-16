@@ -612,3 +612,16 @@ forge benchmark-matrix ./matrix.json --suite engineering-basics --goal "Review t
 FORGE runs the same review-plan goal and evaluation suite for every candidate/repeat, stores each underlying run and execution trace, and writes a matrix report under `.forge/benchmark-matrices/`. Candidate model selection is pinned across fast, balanced and reasoning tiers, with no fallback model, to keep comparisons interpretable. Runs execute sequentially; a failed trial is recorded and does not prevent later trials from running.
 
 A matrix supports 2–4 candidates and 1–3 repeats (maximum 12 trials) to limit unexpected provider usage. OpenAI candidates use `FORGE_API_KEY` or `OPENAI_API_KEY`; Claude Code candidates use the locally authenticated Claude Code CLI. Matrix reports include average deterministic score, pass rate, score standard deviation, wall-clock duration and estimated token use. Token figures are estimates, not billed usage. Use the same goal, suite, project state and environment when comparing candidates. Model-judge scoring is not currently part of the automated matrix.
+
+
+### Benchmark Regression Intelligence
+
+After running a benchmark matrix at least twice with the same matrix ID, evaluation suite and goal, inspect historical changes:
+
+```bash
+forge benchmark-regression model-comparison --path .
+```
+
+The report compares matching provider/model candidates against the most recent earlier comparable matrix. A score drop of at least 5 points or pass-rate drop of at least 20 percentage points blocks the report (exit code 2). A 25% or greater increase in wall-clock time or estimated token use, score standard deviation of at least 15, or failed trials produces warnings. Missing or incomparable baselines are reported as insufficient history rather than release-ready.
+
+The local dashboard exposes the same analysis in Regression Intelligence. These thresholds are configurable in source for now. The report is a signal, not a release guarantee: use identical code snapshots, prompts, suite definitions, model versions and runtime conditions. Token comparisons are estimated, not billed usage.
