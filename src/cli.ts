@@ -235,7 +235,7 @@ async function main(args: string[]): Promise<void> {
             runId: completed.id, score: evaluation.score, passed: evaluation.passed,
             durationMs,
             estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
-            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectedSkillsForTask(task) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id) }; }),
+            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectedSkillsForTask(task) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id), failedCriteria: item.criteria.filter(criterion => !criterion.passed).map(criterion => ({ id: criterion.id, failedChecks: criterion.checks.filter(check => !check.passed).map(check => check.rule + ": " + check.detail) })) }; }),
           };
         });
         report.suiteId = suite.id;
