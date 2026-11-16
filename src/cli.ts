@@ -832,7 +832,6 @@ async function main(args: string[]): Promise<void> {
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         assertSupportedAgentPolicy(permissions, providerChoice, "FORGE run");
-        assertSupportedAgentPolicy(permissions, providerChoice, "FORGE run");
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
         const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
