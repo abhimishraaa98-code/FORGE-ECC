@@ -54,6 +54,8 @@ describe("isolated approved patch staging", () => {
     expect(review.unchanged).toBe(false);
     expect(review.diff).toContain("-const a = 1;");
     expect(review.diff).toContain("+const a = 2;");
+    expect(review.diff.split("\n")).toContain("-const a = 1;");
+    expect(review.diff.split("\n")).toContain("+const a = 2;");
   });
   it("rejects a staged file modified after staging", async () => {
     const approval = await fixture();
