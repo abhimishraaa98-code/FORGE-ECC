@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { lstat, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type VerificationStatus = "passed" | "failed" | "timed_out" | "spawn_error";
@@ -169,8 +169,8 @@ export async function installVerificationDependencies(
   const userConfig = path.join(root, ".forge-npm-user-config");
   const globalConfig = path.join(root, ".forge-npm-global-config");
   await Promise.all([
-    import("node:fs/promises").then(({ writeFile }) => writeFile(userConfig, "", { flag: "wx", mode: 0o600 })),
-    import("node:fs/promises").then(({ writeFile }) => writeFile(globalConfig, "", { flag: "wx", mode: 0o600 })),
+    writeFile(userConfig, "", { flag: "wx", mode: 0o600 }),
+    writeFile(globalConfig, "", { flag: "wx", mode: 0o600 }),
   ]);
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH ?? "", CI: "1", NODE_ENV: "test", FORGE_VERIFICATION: "1",
