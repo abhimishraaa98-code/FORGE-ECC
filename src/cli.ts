@@ -187,6 +187,12 @@ async function main(args: string[]): Promise<void> {
             fastModel: candidate.model, balancedModel: candidate.model, reasoningModel: candidate.model,
             retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2),
             retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500),
+            ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}),
+            ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}),
+            ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
+            ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT ? { maxEstimatedTokensPerAgent: readAgentTokenBudgets()! } : {}),
+            ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
+            ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}),
             createProvider,
           });
           const run = createReviewPlan(goal);
