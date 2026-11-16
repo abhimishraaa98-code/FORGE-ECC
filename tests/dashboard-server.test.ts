@@ -30,6 +30,8 @@ describe("local dashboard server", () => {
     expect(await page.text()).toContain("FORGE");
     expect(await page.text()).toContain("Agent handoff map");
     expect(await page.text()).toContain("Execution telemetry");
+    expect(await page.text()).toContain("Live event stream");
+    expect(await page.text()).toContain("Create replay of retryable tasks");
 
     await mkdir(path.join(root, "src"));
     await writeFile(path.join(root, "src", "demo.ts"), "export const demo = true;\\n");
@@ -153,7 +155,8 @@ describe("local dashboard server", () => {
     const createdDraftJson = await createdDraft.json();
     expect(createdDraftJson.status).toBe("pending");
     expect(createdDraftJson.tasks[1].dependsOn).toEqual(["plan"]);
-\n    const pendingRun = await advanceRun(createRun("Review a release", [
+
+    const pendingRun = await advanceRun(createRun("Review a release", [
       { id: "review", agent: "reviewer", title: "Review release", prompt: "Review the proposed release", requiresApproval: true },
     ]), new DemoAgentProvider());
     await saveRun(root, pendingRun);
@@ -166,6 +169,23 @@ describe("local dashboard server", () => {
     const approvalResult = await approval.json();
     expect(approvalResult.task.approval.decision).toBe("approved");
     expect(approvalResult.task.approval.reviewer).toBe("test-reviewer");
+
+    const failedRun = createRun("Recover failed task", [
+      { id: "retry-me", agent: "planner", title: "Retry me", prompt: "Try again" },
+    ]);
+    failedRun.status = "failed";
+    failedRun.tasks[0]!.status = "failed";
+    failedRun.tasks[0]!.error = "Temporary provider failure";
+    await saveRun(root, failedRun);
+    const replayResponse = await fetch(base + "/api/runs/" + failedRun.id + "/replay", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    });
+    expect(replayResponse.status).toBe(201);
+    const replayResult = await replayResponse.json();
+    expect(replayResult.sourceRunId).toBe(failedRun.id);
+    const replayDetail = await fetch(base + "/api/runs/" + replayResult.id);
+    const replayJson = await replayDetail.json();
+    expect(replayJson.tasks[0].status).toBe("pending");
 
     const detail = await fetch(base + "/api/runs/" + pendingRun.id);
     const detailResult = await detail.json();
