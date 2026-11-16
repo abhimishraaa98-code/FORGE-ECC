@@ -212,6 +212,10 @@ async function main(args: string[]): Promise<void> {
           });
           const run = createReviewPlan(goal);
           const skillRegistry = await loadSkillRegistry(target);
+          const requestedSkillIds = candidate.skillIds;
+          const unknownSkills = (requestedSkillIds ?? []).filter(id => !skillRegistry.some(skill => skill.id === id));
+          if (unknownSkills.length) throw new Error("Candidate " + candidate.id + " references unknown skill(s): " + unknownSkills.join(", "));
+          const selectedSkillsForTask = (task: { agent: string; title: string; prompt: string }) => requestedSkillIds === undefined ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : skillRegistry.filter(skill => requestedSkillIds.includes(skill.id));
           const hooks = await loadHooks(target);
           for (const record of run.tasks) {
             const applied = applyBeforeAgentHooks(record.task, hooks);
@@ -221,7 +225,7 @@ async function main(args: string[]): Promise<void> {
           const memory = await buildProjectMemoryContext(target, goal);
           const projectContext = memory.text;
           const started = Date.now();
-          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => formatSkillContext(selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt)) });
+          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => formatSkillContext(selectedSkillsForTask(task)) });
           const durationMs = Date.now() - started;
           await saveRun(target, completed);
           await saveExecutionTrace(target, completed.id, router.traces);
@@ -231,7 +235,7 @@ async function main(args: string[]): Promise<void> {
             runId: completed.id, score: evaluation.score, passed: evaluation.passed,
             durationMs,
             estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
-            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id) }; }),
+            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectedSkillsForTask(task) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id) }; }),
           };
         });
         report.suiteId = suite.id;
