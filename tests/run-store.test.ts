@@ -177,6 +177,35 @@ describe("local run history", () => {
     await expect(withRunExecutionLock(root, run.id, async () => "acquired")).resolves.toBe("acquired");
   });
 
+  it("does not allow approval to race an active resume execution", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-approval-execution-"));
+    const run = createRun("Serialize approval and execution", [
+      { id: "review", agent: "reviewer", title: "Review", prompt: "Review", requiresApproval: true },
+    ]);
+    const awaiting = {
+      ...run,
+      status: "awaiting_approval" as const,
+      tasks: run.tasks.map(task => ({ ...task, status: "awaiting_approval" as const })),
+    };
+    await saveRun(root, awaiting);
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const hold = new Promise<void>(resolve => { release = resolve; });
+    const execution = withRunExecutionLock(root, run.id, async () => {
+      entered();
+      await hold;
+    });
+    await started;
+    await expect(decideTaskApproval(root, run.id, "review", "approved", "reviewer"))
+      .rejects.toThrow(/locked by another or interrupted/);
+    release();
+    await execution;
+    const approved = await decideTaskApproval(root, run.id, "review", "approved", "reviewer");
+    expect(approved.tasks[0]?.approval?.decision).toBe("approved");
+    expect(approved.status).toBe("pending");
+  });
+
   it("rejects path-like run identifiers", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-store-"));
     await expect(loadRun(root, "../outside")).rejects.toThrow(/identifier/);
