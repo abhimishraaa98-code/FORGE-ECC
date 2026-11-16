@@ -154,7 +154,7 @@ describe("OpenAI-compatible provider", () => {
       })).resolves.toMatchObject({ content: expect.stringContaining("unavailable") });
       const secondBody = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body));
       const toolMessage = secondBody.messages.find((message: { role: string }) => message.role === "tool");
-      expect(toolMessage.content).toContain("not allowed");
+      expect(toolMessage.content).toContain("Unknown workspace tool: run-shell");
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {
       await rm(workspace, { recursive: true, force: true });
