@@ -1,4 +1,4 @@
-import {readFile} from "node:fs/promises";
+import {lstat, readFile, realpath} from "node:fs/promises";
 import path from "node:path";
 import type {ReviewRecord} from "./review-history.js";
 export type PatchValidationStatus="applicable"|"stale"|"invalid";
@@ -28,12 +28,25 @@ export async function validateReviewPatch(root:string,record:ReviewRecord,sugges
  const suggestion=record.ai?.suggestions[suggestionNumber-1];
  if(!suggestion)return {...base,reason:"That AI suggestion does not exist in this saved review."};
  const file=suggestion.file;
- const resolved=path.resolve(root,file);const project=path.resolve(root);
+ const project=path.resolve(root);
+ const resolved=path.resolve(project,file);
  if(!resolved.startsWith(project+path.sep))return {...base,file,reason:"Target path escapes the project directory."};
  if(!suggestion.patch)return {...base,file,reason:"This suggestion has no validated patch proposal."};
  const parsed=parsePatch(suggestion.patch,file);
  if(parsed.reason)return {...base,file,hunks:parsed.hunks.length,reason:parsed.reason};
- let source:string;try{source=await readFile(resolved,"utf8");}catch{return {...base,file,hunks:parsed.hunks.length,status:"stale",reason:"Target file is missing or unreadable; the proposal cannot be checked against the current workspace."};}
+ let source:string;
+ try {
+  const realProject=await realpath(project);
+  const info=await lstat(resolved);
+  if(info.isSymbolicLink()||!info.isFile())return {...base,file,hunks:parsed.hunks.length,reason:"Patch target must be a regular file, not a symbolic link or special file."};
+  const realTarget=await realpath(resolved);
+  if(!realTarget.startsWith(realProject+path.sep))return {...base,file,hunks:parsed.hunks.length,reason:"Resolved patch target escapes the real project directory."};
+  source=await readFile(realTarget,"utf8");
+ } catch(error) {
+  const code=error&&typeof error==="object"&&"code" in error?error.code:undefined;
+  if(code==="ENOENT"||code==="ENOTDIR")return {...base,file,hunks:parsed.hunks.length,status:"stale",reason:"Target file or one of its parent directories is missing; regenerate the review against the current workspace."};
+  return {...base,file,hunks:parsed.hunks.length,reason:"Target file could not be safely inspected; no patch may be applied."};
+ }
  const sourceLines=source.split(/\r?\n/);let previousEnd=0;
  for(const hunk of parsed.hunks){
   const start=hunk.oldStart===0?0:hunk.oldStart-1;
