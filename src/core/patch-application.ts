@@ -69,7 +69,12 @@ async function walkSnapshot(
   return { files, bytes, sha256: hash.digest("hex") };
 }
 
-export async function copyStagedWorkspaceSnapshot(source: string, destination: string): Promise<{ files: number; bytes: number; sha256: string }> {\n  const resolved = await realpath(source);\n  return walkSnapshot(resolved, destination);\n}\n\nexport async function fingerprintStagedWorkspace(workspace: string): Promise<{ files: number; bytes: number; sha256: string }> {
+export async function copyStagedWorkspaceSnapshot(source: string, destination: string): Promise<{ files: number; bytes: number; sha256: string }> {
+  const resolved = await realpath(source);
+  return walkSnapshot(resolved, destination);
+}
+
+export async function fingerprintStagedWorkspace(workspace: string): Promise<{ files: number; bytes: number; sha256: string }> {
   const resolved = await realpath(workspace);
   const info = await lstat(resolved);
   if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Staged workspace must be a regular directory.");
@@ -89,7 +94,10 @@ async function ensureSafeDirectory(project: string, target: string): Promise<voi
   }
 }
 function parseHunks(patch: string, file: string) {
-  const lines = patch.replace(/\r\n/g, "\n").split("\n");
+  const lines = patch.replace(/\r
+/g, "
+").split("
+");
   if (lines[0] !== `--- a/${file}` || lines[1] !== `+++ b/${file}`) throw new Error("Patch headers do not match the approved target.");
   const hunks: { oldStart: number; oldCount: number; newCount: number; lines: string[] }[] = [];
   let current: { oldStart: number; oldCount: number; newCount: number; lines: string[] } | undefined;
@@ -109,9 +117,16 @@ function parseHunks(patch: string, file: string) {
   return hunks;
 }
 function applyUnifiedDiff(source: string, patch: string, file: string): string {
-  const newline = source.includes("\r\n") ? "\r\n" : "\n";
-  const hadFinalNewline = source.endsWith("\n");
-  const input = source.replace(/\r\n/g, "\n").split("\n");
+  const newline = source.includes("\r
+") ? "\r
+" : "
+";
+  const hadFinalNewline = source.endsWith("
+");
+  const input = source.replace(/\r
+/g, "
+").split("
+");
   if (hadFinalNewline) input.pop();
   const output: string[] = [];
   let cursor = 0;
@@ -183,7 +198,8 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
       workspacePath: path.relative(project, workspaceRoot).split(path.sep).join("/"),
       workspaceSha256: finalSnapshot.sha256, snapshotFiles: finalSnapshot.files, snapshotBytes: finalSnapshot.bytes,
     };
-    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "
+", { encoding: "utf8", flag: "wx", mode: 0o600 });
     return record;
   } catch (error) {
     await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
@@ -202,8 +218,14 @@ export interface PatchStageReview {
   diff: string;
 }
 function lineDiff(before: string, after: string): string {
-  const left = before.replace(/\r\n/g, "\n").split("\n");
-  const right = after.replace(/\r\n/g, "\n").split("\n");
+  const left = before.replace(/\r
+/g, "
+").split("
+");
+  const right = after.replace(/\r
+/g, "
+").split("
+");
   if (left.length > 2000 || right.length > 2000) throw new Error("Staged diff exceeds the 2,000-line review limit.");
   const rows = left.length + 1, cols = right.length + 1;
   const table = Array.from({ length: rows }, () => new Uint16Array(cols));
@@ -218,7 +240,8 @@ function lineDiff(before: string, after: string): string {
     else { out.push("-" + left[i]); i++; }
     if (out.length > 4000) throw new Error("Staged diff exceeds the 4,000-line output limit.");
   }
-  return out.join("\n");
+  return out.join("
+");
 }
 
 /** Verifies a staged manifest and returns a bounded, read-only diff. */
