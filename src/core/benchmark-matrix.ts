@@ -13,6 +13,8 @@ export interface BenchmarkMatrixConfig {
   repeats: number;
   candidates: BenchmarkCandidate[];
 }
+export interface AgentBenchmarkScore { agent: string; caseId: string; score: number; passed: boolean; skillIds: string[]; }
+export interface AgentBenchmarkSummary { candidateId: string; provider: string; model: string; agent: string; trials: number; completed: number; averageScore: number; passRate: number; skillsObserved: string[]; }
 export interface BenchmarkMatrixResult {
   candidateId: string;
   provider: string;
@@ -23,6 +25,7 @@ export interface BenchmarkMatrixResult {
   passed: boolean;
   durationMs: number;
   estimatedTokens: number;
+  agentScores?: AgentBenchmarkScore[];
   status: "completed" | "failed";
   error?: string;
 }
@@ -34,6 +37,7 @@ export interface BenchmarkMatrixReport {
   goal: string;
   createdAt: string;
   results: BenchmarkMatrixResult[];
+  agentSummary: AgentBenchmarkSummary[];
   summary: Array<{
     candidateId: string;
     provider: string;
@@ -99,7 +103,15 @@ export async function executeBenchmarkMatrix(
       averageEstimatedTokens: items.length ? Math.round(items.reduce((sum, item) => sum + item.estimatedTokens, 0) / items.length) : 0,
     };
   }).sort((a, b) => b.averageScore - a.averageScore || a.averageDurationMs - b.averageDurationMs);
-  return { version: 1, matrixId: config.id, matrixName: config.name, suiteId: "", goal: "", createdAt: new Date().toISOString(), results, summary };
+  const agentKeys = new Set(results.flatMap(item => (item.agentScores ?? []).map(score => item.candidateId + "::" + score.agent)));
+  const agentSummary = [...agentKeys].map(key => {
+    const [candidateId, agent] = key.split("::");
+    const candidate = config.candidates.find(item => item.id === candidateId)!;
+    const scores = results.filter(item => item.candidateId === candidateId && item.status === "completed").flatMap(item => (item.agentScores ?? []).filter(score => score.agent === agent));
+    const skillsObserved = [...new Set(scores.flatMap(item => item.skillIds))].sort();
+    return { candidateId, provider: candidate.provider, model: candidate.model, agent, trials: config.repeats, completed: scores.length, averageScore: scores.length ? Math.round(scores.reduce((sum, item) => sum + item.score, 0) / scores.length * 10) / 10 : 0, passRate: scores.length ? Math.round(scores.filter(item => item.passed).length / scores.length * 1000) / 10 : 0, skillsObserved };
+  }).sort((a, b) => b.averageScore - a.averageScore || a.agent.localeCompare(b.agent));
+  return { version: 1, matrixId: config.id, matrixName: config.name, suiteId: "", goal: "", createdAt: new Date().toISOString(), results, summary, agentSummary };
 }
 
 export async function saveBenchmarkMatrix(projectPath: string, report: BenchmarkMatrixReport): Promise<string> {
@@ -117,6 +129,7 @@ export async function saveBenchmarkMatrix(projectPath: string, report: Benchmark
 export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
   const lines = ["FORGE Automated Benchmark Matrix · " + report.matrixName, "Suite: " + report.suiteId, "Goal: " + report.goal, "", "Candidate | Trials | Completed | Avg score | Pass rate | σ score | Avg time | Avg estimated tokens"];
   for (const item of report.summary) lines.push([item.candidateId + " (" + item.provider + "/" + item.model + ")", item.trials, item.completed, item.averageScore + "/100", item.passRate + "%", item.scoreStdDev, item.averageDurationMs + " ms", item.averageEstimatedTokens].join(" | "));
+  if (report.agentSummary?.length) { lines.push("", "Per-agent scorecards:", "Candidate | Agent | Cases | Average score | Pass rate | Skills observed"); for (const item of report.agentSummary) lines.push([item.candidateId, item.agent, item.completed, item.averageScore + "/100", item.passRate + "%", item.skillsObserved.join(", ") || "none"].join(" | ")); }
   lines.push("", "Trial details:");
   for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "completed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
   lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
