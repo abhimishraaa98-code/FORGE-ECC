@@ -8,3 +8,8 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Local FORGE state (never commit project memory or run history)
+.forge/memory.json
+.forge/runs/
+.forge/intelligence/
