@@ -55,8 +55,15 @@ jobs:
           const lock = JSON.parse(fs.readFileSync('/tmp/generated-lock/package-lock.json', 'utf8'));
           const root = lock.packages?.[''];
           if (lock.lockfileVersion !== 3 || !root) throw new Error('Unexpected lockfile format');
+          const canonical = (value) => {
+            if (Array.isArray(value)) return value.map(canonical);
+            if (value && typeof value === 'object') {
+              return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+            }
+            return value;
+          };
           for (const field of ['name', 'version', 'dependencies', 'devDependencies', 'engines']) {
-            if (JSON.stringify(root[field] ?? null) !== JSON.stringify(pkg[field] ?? null)) {
+            if (JSON.stringify(canonical(root[field] ?? null)) !== JSON.stringify(canonical(pkg[field] ?? null))) {
               throw new Error(`Lockfile root mismatch: ${field}`);
             }
           }
