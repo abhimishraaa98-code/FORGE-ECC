@@ -36,3 +36,8 @@ export async function readProviderJson(response: Response, maxBytes = MAX_PROVID
     throw new Error("AI provider returned malformed JSON.");
   }
 }
+
+/** Release an unused upstream error body without exposing its contents. */
+export async function discardProviderResponse(response: Response): Promise<void> {
+  await response.body?.cancel().catch(() => undefined);
+}
