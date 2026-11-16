@@ -61,6 +61,36 @@ async function readDocument(projectPath: string): Promise<MemoryDocument> {
   }
 }
 
+async function withMemoryWriteLock<T>(projectPath: string, action: () => Promise<T>): Promise<T> {
+  const directory = path.dirname(memoryPath(projectPath));
+  await mkdir(directory, { recursive: true });
+  const lock = path.join(directory, ".memory-write.lock");
+  const token = randomUUID();
+  try {
+    await mkdir(lock, { mode: 0o700 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      throw new Error("Project memory is being changed by another or interrupted FORGE process. Inspect .forge/.memory-write.lock before manual recovery.");
+    }
+    throw error;
+  }
+  try {
+    await writeFile(path.join(lock, "owner.json"), JSON.stringify({
+      token, pid: process.pid, startedAt: new Date().toISOString(),
+    }) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return await action();
+  } finally {
+    try {
+      const owner: unknown = JSON.parse(await readFile(path.join(lock, "owner.json"), "utf8"));
+      if (owner && typeof owner === "object" && "token" in owner && owner.token === token) {
+        await rm(lock, { recursive: true, force: true });
+      }
+    } catch {
+      // Leave an unverifiable lock in place; manual inspection is safer than deleting another owner's lock.
+    }
+  }
+}
+
 async function writeDocument(projectPath: string, document: MemoryDocument): Promise<void> {
   const destination = memoryPath(projectPath);
   const directory = path.dirname(destination);
@@ -92,20 +122,22 @@ export async function addProjectMemory(
     throw new Error("Memory tags must be strings of at most 64 characters.");
   }
   const content = validateContent(input.content);
-  const document = await readDocument(projectPath);
-  if (document.entries.length >= MAX_ENTRIES) throw new Error(`Project memory is limited to ${MAX_ENTRIES} entries. Remove old entries first.`);
-  const now = new Date().toISOString();
-  const entry: ProjectMemoryEntry = {
-    id: "mem-" + randomUUID(),
-    kind: input.kind,
-    content,
-    tags: [...new Set((input.tags ?? []).map(tag => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 12),
-    createdAt: now,
-    updatedAt: now,
-  };
-  document.entries.push(entry);
-  await writeDocument(projectPath, document);
-  return entry;
+  return withMemoryWriteLock(projectPath, async () => {
+    const document = await readDocument(projectPath);
+    if (document.entries.length >= MAX_ENTRIES) throw new Error(`Project memory is limited to ${MAX_ENTRIES} entries. Remove old entries first.`);
+    const now = new Date().toISOString();
+    const entry: ProjectMemoryEntry = {
+      id: "mem-" + randomUUID(),
+      kind: input.kind,
+      content,
+      tags: [...new Set((input.tags ?? []).map(tag => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 12),
+      createdAt: now,
+      updatedAt: now,
+    };
+    document.entries.push(entry);
+    await writeDocument(projectPath, document);
+    return entry;
+  });
 }
 
 export async function listProjectMemory(projectPath: string): Promise<ProjectMemoryEntry[]> {
@@ -114,12 +146,14 @@ export async function listProjectMemory(projectPath: string): Promise<ProjectMem
 }
 
 export async function removeProjectMemory(projectPath: string, id: string): Promise<boolean> {
-  const document = await readDocument(projectPath);
-  const remaining = document.entries.filter(entry => entry.id !== id);
-  if (remaining.length === document.entries.length) return false;
-  document.entries = remaining;
-  await writeDocument(projectPath, document);
-  return true;
+  return withMemoryWriteLock(projectPath, async () => {
+    const document = await readDocument(projectPath);
+    const remaining = document.entries.filter(entry => entry.id !== id);
+    if (remaining.length === document.entries.length) return false;
+    document.entries = remaining;
+    await writeDocument(projectPath, document);
+    return true;
+  });
 }
 
 /** Select relevant notes with a conservative character budget (~4 chars/token). */
