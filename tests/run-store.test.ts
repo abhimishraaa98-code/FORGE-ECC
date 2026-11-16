@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -46,6 +46,53 @@ describe("local run history", () => {
   it("returns an empty list when no run history exists", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-store-"));
     await expect(listRuns(root)).resolves.toEqual([]);
+  });
+
+  it("rejects a symlinked run-history directory", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-symlink-"));
+    const outside = await mkdtemp(path.join(os.tmpdir(), "forge-run-outside-"));
+    await symlink(outside, path.join(root, ".forge"));
+    const run = createRun("Symlink check", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft" },
+    ]);
+    await expect(saveRun(root, run)).rejects.toThrow(/symbolic links/);
+    await rm(outside, { recursive: true, force: true });
+  });
+
+  it("rejects symlinked run files and malformed stored task records", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-file-"));
+    const run = createRun("File validation", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft" },
+    ]);
+    await saveRun(root, run);
+    const directory = path.join(root, ".forge", "runs");
+    const file = path.join(directory, run.id + ".json");
+    await rm(file);
+    const outside = path.join(root, "outside.json");
+    await writeFile(outside, JSON.stringify(run));
+    await symlink(outside, file);
+    await expect(loadRun(root, run.id)).rejects.toThrow();
+    await rm(file);
+    await writeFile(file, JSON.stringify({ ...run, tasks: [{ task: null, status: "pending" }] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/invalid task record/);
+  });
+
+  it("allows only one concurrent approval decision", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-race-"));
+    const run = createRun("Serialize approvals", [
+      { id: "review", agent: "reviewer", title: "Review", prompt: "Review", requiresApproval: true },
+    ]);
+    const held = { ...run, status: "awaiting_approval" as const, tasks: run.tasks.map(task => ({ ...task, status: "awaiting_approval" as const })) };
+    await saveRun(root, held);
+    const decisions = await Promise.allSettled([
+      decideTaskApproval(root, run.id, "review", "approved", "reviewer-a"),
+      decideTaskApproval(root, run.id, "review", "rejected", "reviewer-b"),
+    ]);
+    expect(decisions.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(decisions.filter(result => result.status === "rejected")).toHaveLength(1);
+    const saved = await loadRun(root, run.id);
+    expect(saved.tasks[0]?.approval?.decision).toBeDefined();
+    expect(saved.events.filter(event => event.type === "approved" || event.type === "rejected")).toHaveLength(1);
   });
 
   it("rejects path-like run identifiers", async () => {
