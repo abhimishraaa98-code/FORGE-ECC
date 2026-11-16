@@ -151,3 +151,22 @@ export function formatAgentConfigVersion(version: AgentConfigVersion): string {
     ...version.files.map(file => "  " + file.path + " · sha256 " + file.sha256.slice(0,16))
   ].join("\n");
 }
+
+/** Materialize a verified snapshot into a caller-owned empty temporary workspace. */
+export async function materializeAgentConfigVersion(projectPath: string, id: string, destination: string): Promise<AgentConfigVersion> {
+  const version = await loadAgentConfigVersion(projectPath, id);
+  const root = path.resolve(destination);
+  await mkdir(root, { recursive: false, mode: 0o700 });
+  try {
+    for (const file of version.files) {
+      if (!validateRelativePath(file.path) || file.sha256 !== digest(file.content)) throw new Error("Snapshot integrity check failed during materialization.");
+      const target = path.join(root, ".forge", file.path);
+      await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+      await writeFile(target, file.content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    }
+    return version;
+  } catch (error) {
+    await rm(root, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+}
