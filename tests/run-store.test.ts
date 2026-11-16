@@ -139,6 +139,8 @@ describe("local run history", () => {
 
     await (await import("node:fs/promises")).mkdir(lock);
     await expect(recoverInterruptedRun(root, run.id)).rejects.toThrow();
+    await expect(saveRun(root, { ...held, goal: "must not overwrite while locked" })).rejects.toThrow();
+    await expect(loadRun(root, run.id)).resolves.toMatchObject({ goal: "Serialize recovery and approval" });
     await rm(lock, { recursive: true, force: true });
 
     const running = {
