@@ -124,6 +124,23 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
+### Benchmark Configuration Provenance — available (early)
+
+Benchmark matrix candidates may pin a workspace agent/skill snapshot with `configVersionId`. FORGE loads the immutable snapshot, computes a deterministic SHA-256 fingerprint over sorted file paths and per-file hashes, and stores the fingerprint with the candidate's matrix provenance. Regression reports carry that provenance forward. Agent release preparation refuses to create a pending release unless the exact candidate snapshot fingerprint appears in the selected release-ready regression report.
+
+Example matrix candidate:
+
+```json
+{
+  "id": "candidate-with-config",
+  "provider": "openai",
+  "model": "gpt-4.1",
+  "configVersionId": "cfg-CANDIDATEID"
+}
+```
+
+This links benchmark evidence to the captured agent/skill Markdown snapshot. It does not fingerprint application source, provider-side model revisions, environment variables, or external tools; record and control those separately for strict reproducibility.
+
 ### Agent Configuration Release Pipeline — available (early)
 
 Connect a candidate configuration snapshot to benchmark regression history, create a pending release, and require a named human reviewer before promotion. The release gate currently requires a `release-ready` regression report for the selected matrix; warning, blocked, and insufficient-history reports are rejected. Approval updates the local approved-configuration pointer and marks the candidate snapshot approved. It does not copy snapshot contents into live `.forge/agents/` or `.forge/skills/` files; applying a configuration remains a separate, deliberate operation.
@@ -142,7 +159,7 @@ forge agent-release approve rel-RELEASEID --reviewer "maintainer" --path .
 forge agent-release reject rel-RELEASEID --reviewer "maintainer" --path .
 ```
 
-The gate uses the existing regression analyzer's thresholds and status. It does not yet prove that the selected benchmark matrix was executed using the exact candidate snapshot; verify that configuration-to-trial linkage manually before treating a release as production evidence. Release records and snapshots are local project data.
+The gate requires the selected regression report to carry a SHA-256 fingerprint matching the candidate snapshot. Add `"configVersionId": "cfg-CANDIDATEID"` to that candidate in the matrix JSON before executing it; FORGE resolves and fingerprints the snapshot when the matrix runs. Release preparation rejects missing or mismatched provenance. This proves which captured agent/skill Markdown snapshot was associated with the matrix candidate; it does not prove that every external runtime dependency or environment variable was identical. Release records and snapshots are local project data.
 
 ### Agent Configuration Versioning — available (early)
 
