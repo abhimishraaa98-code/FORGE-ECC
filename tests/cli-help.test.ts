@@ -41,9 +41,9 @@ describe("run-history CLI help", () => {
 
   it("limits text and JSON history to the newest runs", async () => {
     const directory = await createWorkspace();
-    const older = createRun("Older run", []);
+    const older = createRun("Older run", [{ id: "older-task", agent: "planner", title: "Older task", prompt: "Plan older run" }]);
     older.createdAt = "2026-01-01T00:00:00.000Z";
-    const newer = createRun("Newer run", []);
+    const newer = createRun("Newer run", [{ id: "newer-task", agent: "planner", title: "Newer task", prompt: "Plan newer run" }]);
     newer.createdAt = "2026-01-02T00:00:00.000Z";
     await saveRun(directory, older);
     await saveRun(directory, newer);
