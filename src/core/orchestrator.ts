@@ -136,6 +136,7 @@ export interface AdvanceRunOptions {
   /** Maximum number of independent agents to call at the same time. */
   maxConcurrency?: number;
   projectContext?: string;
+  projectContextForTask?: (task: AgentTask) => string;
   onUpdate?: (run: RunRecord) => void | Promise<void>;
   shouldCancel?: () => boolean | Promise<boolean>;
 }
@@ -222,7 +223,7 @@ export async function advanceRun(
             taskTitle: dependency.task.title,
             result: dependency.result?.content ?? "",
           })),
-          ...(options.projectContext ? { projectContext: options.projectContext } : {}),
+          ...([options.projectContext, options.projectContextForTask?.(record.task)].filter(Boolean).length ? { projectContext: [options.projectContext, options.projectContextForTask?.(record.task)].filter(Boolean).join("\n\n") } : {}),
         });
         return { record, result } as const;
       } catch (error) {
