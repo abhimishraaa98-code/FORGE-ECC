@@ -76,9 +76,9 @@ For controlled skill experiments, use `forge experiment-studio create` with `--p
 
 ## Run-history lock recovery
 
-FORGE serializes each saved run's writes with a lock directory at `.forge/runs/<run-id>.lock/`. Its `owner.json` records the process ID, host name and lock start time. If FORGE exits unexpectedly while holding a lock, later writes fail closed and identify the owner file; FORGE does not automatically reclaim locks because a process may still be active or a PID may have been reused.
+FORGE serializes each saved run's writes with a lock directory at `.forge/runs/<run-id>.lock/`. Its `owner.json` records the process ID, host name and lock start time. A separate execution lease at `.forge/runs/<run-id>.execution.lock/` prevents two `forge resume` processes from executing the same run concurrently; approval decisions also acquire this lease so they cannot race active execution. Both lock types fail closed when occupied and identify the owner metadata. FORGE does not automatically reclaim locks because a process may still be active or a PID may have been reused.
 
-Before manually removing a lock, inspect `owner.json` and confirm on the recorded host that the process is no longer an active FORGE process (check both PID and command line). If the host is unavailable or ownership is uncertain, do not remove the lock. Once confirmed stale, remove only that run's lock directory, then retry the intended command. This is an operator recovery step, not an automatic retry of provider work.
+Before manually removing a lock, inspect `owner.json` and confirm on the recorded host that the process is no longer an active FORGE process (check both PID and command line). If the host is unavailable or ownership is uncertain, do not remove the lock. Once confirmed stale, remove only the specific stale lock directory (`<run-id>.lock` or `<run-id>.execution.lock`) and retry the intended command. If an execution lease was stale after a crash, resuming a run still marked `running` invokes interrupted-run recovery: in-flight tasks are marked failed with unknown provider outcomes and are not automatically replayed. This is an operator recovery step, not an automatic retry of provider work.
 
 ## Development
 
