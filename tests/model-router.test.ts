@@ -358,3 +358,34 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.inputTokensEstimate).toBeGreaterThan(0);
   });
 });
+
+describe("concurrent cumulative token budgets", () => {
+  it("serializes budgeted provider calls so parallel outputs cannot overrun the run ceiling", async () => {
+    let providerCalls = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxEstimatedTokensPerRun: 11,
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          providerCalls += 1;
+          return { provider: model, content: "x".repeat(40) };
+        },
+      }),
+    });
+    const request = (id: string) => ({
+      task: { id, agent: "planner", title: id, prompt: "x" },
+      completedDependencies: [],
+    });
+
+    const outcomes = await Promise.allSettled([
+      router.complete(request("parallel-one")),
+      router.complete(request("parallel-two")),
+    ]);
+
+    expect(outcomes.filter(outcome => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter(outcome => outcome.status === "rejected")).toHaveLength(1);
+    expect(providerCalls).toBe(1);
+    expect(router.traces.map(trace => trace.provider)).toContain("not-started");
+  });
+});
