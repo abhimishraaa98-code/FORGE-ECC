@@ -3,7 +3,9 @@ import { lstat, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { installVerificationDependencies, runVerification, type DependencyInstallResult, type VerificationResult } from "./verification.js";
-import { copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
+import { applyUnifiedDiff, copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
+import { loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
+import { loadReview } from "./review-history.js";
 import { runContainerVerification } from "./container-sandbox.js";
 import { loadSandboxPolicy } from "./sandbox-policy.js";
 
@@ -48,6 +50,20 @@ export async function verifyStagedPatch(
   const manifestInfo = await lstat(manifestPath);
   if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("Stage manifest must be a regular file.");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
+  if (typeof manifest.approvalId !== "string" || typeof manifest.reviewId !== "string" || !Number.isSafeInteger(manifest.suggestionNumber) || manifest.suggestionNumber < 1) throw new Error("Stage manifest is not bound to a valid patch approval.");
+  const approval = await loadPatchApproval(project, manifest.approvalId);
+  const approvalStatus = await verifyPatchApproval(project, manifest.approvalId);
+  if (!approvalStatus.valid || approval.reviewId !== manifest.reviewId || approval.suggestionNumber !== manifest.suggestionNumber || approval.file !== manifest.file || approval.sourceSha256 !== manifest.sourceSha256) throw new Error("Staged workspace no longer matches its valid patch approval.");
+  const review = await loadReview(project, approval.reviewId);
+  const suggestion = review.ai?.suggestions[approval.suggestionNumber - 1];
+  if (!suggestion?.patch || suggestion.file !== approval.file) throw new Error("Approved patch proposal is missing or its target changed.");
+  const sourcePath = path.resolve(project, approval.file);
+  const sourceRelative = path.relative(project, sourcePath);
+  if (!sourceRelative || sourceRelative.startsWith("..") || path.isAbsolute(sourceRelative)) throw new Error("Approved patch target escapes the project.");
+  const sourceInfo = await lstat(sourcePath);
+  if (sourceInfo.isSymbolicLink() || !sourceInfo.isFile()) throw new Error("Approved patch source must be a regular file.");
+  const sourceContent = await readFile(sourcePath, "utf8");
+  if (digest(sourceContent) !== approval.sourceSha256) throw new Error("Original source changed after patch approval.");
   if (manifest.id !== stageId || typeof manifest.workspacePath !== "string" ||
       typeof manifest.workspaceSha256 !== "string" || typeof manifest.stagedSha256 !== "string" ||
       typeof manifest.file !== "string" || typeof manifest.stagedFile !== "string" ||
@@ -73,8 +89,10 @@ export async function verifyStagedPatch(
   if (!stagedRelative || stagedRelative.startsWith("..") || path.isAbsolute(stagedRelative)) throw new Error("Staged patch file escapes the workspace.");
   const stagedInfo = await lstat(stagedSource);
   if (stagedInfo.isSymbolicLink() || !stagedInfo.isFile()) throw new Error("Staged patch target must be a regular file.");
-  const stagedContent = await readFile(stagedSource);
+  const stagedContent = await readFile(stagedSource, "utf8");
   if (digest(stagedContent) !== manifest.stagedSha256) throw new Error("Staged patch changed while preparing verification.");
+  const expectedStagedContent = applyUnifiedDiff(sourceContent, suggestion.patch, approval.file);
+  if (stagedContent !== expectedStagedContent) throw new Error("Staged file does not equal the exact patch authorized by the approval.");
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "forge-staged-verify-"));
   const snapshot = path.join(temporaryRoot, "workspace");
   try {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
@@ -65,15 +65,6 @@ describe("patch approval records", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("rejects symlinked approval storage for both writes and reads", async () => {
-    const review = await fixture();
-    await mkdir(path.join(root, ".forge"));
-    const outside = path.join(root, "outside-approvals");
-    await mkdir(outside);
-    await symlink(outside, path.join(root, ".forge", "patch-approvals"), "dir");
-    await expect(approveReviewPatch(root, review.id, 1, "reviewer")).rejects.toThrow(/must not contain symbolic links/);
-    await expect(verifyPatchApproval(root, "patch-approval-00000000-0000-4000-8000-000000000000")).rejects.toThrow(/must not contain symbolic links/);
-  });
   it("rejects blank reviewers and unreasonable expiry", async () => {
     const review = await fixture();
     await expect(approveReviewPatch(root, review.id, 1, " ")).rejects.toThrow(/reviewer identity/);

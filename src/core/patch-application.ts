@@ -116,7 +116,7 @@ function parseHunks(patch: string, file: string) {
   }
   return hunks;
 }
-function applyUnifiedDiff(source: string, patch: string, file: string): string {
+export function applyUnifiedDiff(source: string, patch: string, file: string): string {
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
   const hadFinalNewline = source.endsWith("\n");
   const input = source.replace(/\r\n/g, "\n").split("\n");

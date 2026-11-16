@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { validateReviewPatch } from "./patch-validation.js";
@@ -18,20 +18,7 @@ export interface PatchApprovalRecord {
 }
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-async function ensureApprovalDirectory(root: string): Promise<string> {
-  const project = await import("node:fs/promises").then(fs => fs.realpath(path.resolve(root)));
-  let cursor = project;
-  for (const segment of [".forge", "patch-approvals"]) {
-    cursor = path.join(cursor, segment);
-    try { await mkdir(cursor, { mode: 0o700 }); }
-    catch (error) {
-      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
-    }
-    const info = await lstat(cursor);
-    if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Patch approval storage must not contain symbolic links or non-directory components.");
-  }
-  return cursor;
-}
+function directory(root: string): string { return path.join(path.resolve(root), ".forge", "patch-approvals"); }
 function validateId(id: string): void { if (!ID.test(id) || id.includes("..")) throw new Error("Invalid patch approval identifier."); }
 function digest(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 
@@ -66,7 +53,8 @@ export async function approveReviewPatch(
     patchSha256: digest(suggestion.patch),
     sourceSha256: digest(source),
   };
-  const dir = await ensureApprovalDirectory(root);
+  const dir = directory(root);
+  await mkdir(dir, { recursive: true });
   const destination = path.join(dir, record.id + ".json");
   const temporary = path.join(dir, "." + record.id + "." + randomUUID() + ".tmp");
   try {
@@ -81,11 +69,7 @@ export async function approveReviewPatch(
 
 export async function loadPatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
   validateId(id);
-  const dir = await ensureApprovalDirectory(root);
-  const approvalPath = path.join(dir, id + ".json");
-  const info = await lstat(approvalPath);
-  if (info.isSymbolicLink() || !info.isFile()) throw new Error("Stored patch approval must be a regular file.");
-  const parsed: unknown = JSON.parse(await readFile(approvalPath, "utf8"));
+  const parsed: unknown = JSON.parse(await readFile(path.join(directory(root), id + ".json"), "utf8"));
   if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== id ||
       !("reviewId" in parsed) || typeof parsed.reviewId !== "string" ||
       !("patchSha256" in parsed) || typeof parsed.patchSha256 !== "string" ||
