@@ -35,6 +35,14 @@ FORGE_AI_PROVIDER=ollama OLLAMA_HOST=http://localhost:11434 FORGE_AI_MODEL=llama
 FORGE_AI_PROVIDER=claude-code FORGE_AI_MODEL=sonnet forge run --goal "Plan a safe refactor" --path .
 ```
 
+## Dashboard connection diagnostics
+
+Run `forge dashboard` from the target workspace and open the local dashboard's **Provider readiness** section. Select **Test connection** beside OpenAI, Anthropic, Google or Ollama to make an explicit, read-only model-list request. The check has an 8-second timeout and reports connection status, latency and whether the configured model appears in the returned model list. It does not send a generation prompt or create a billable completion.
+
+The dashboard does not perform a Claude Code CLI diagnostic; CLI installation and account authentication must be checked locally. A successful model-list response also does not guarantee that the account has permission to generate with that model.
+
+Diagnostics send credentials only in provider authentication headers (Google's API-key header is used as well). The result omits keys, response bodies and endpoint query parameters. Remote custom endpoints must use HTTPS; HTTP is allowed only for local Ollama.
+
 ## Safety and billing notes
 
 - OpenAI, Anthropic and Google calls use their respective API credentials and may incur API charges under those providers' terms. A consumer chat subscription does not automatically include API credits.
