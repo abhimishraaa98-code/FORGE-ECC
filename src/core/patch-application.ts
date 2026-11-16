@@ -25,8 +25,8 @@ function sha(value: string): string { return createHash("sha256").update(value).
 const SNAPSHOT_MAX_FILES = 20_000;
 const SNAPSHOT_MAX_BYTES = 256 * 1024 * 1024;
 const SNAPSHOT_EXCLUDED_DIRS = new Set([".git", ".forge", ".next", ".turbo", "coverage", "node_modules", "dist", "build", ".cache", ".vercel"]);
-const SNAPSHOT_SECRET_FILE = /^(?:\\.env(?:\\..*)?|\\.npmrc|\\.pypirc|\\.netrc|id_rsa|id_ed25519|credentials(?:\\..*)?)$/i;
-const SNAPSHOT_SECRET_EXTENSION = /\\.(?:pem|key|p12|pfx)$/i;
+const SNAPSHOT_SECRET_FILE = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa|id_ed25519|credentials(?:\..*)?)$/i;
+const SNAPSHOT_SECRET_EXTENSION = /\.(?:pem|key|p12|pfx)$/i;
 
 function excludedSnapshotEntry(name: string): boolean {
   return SNAPSHOT_EXCLUDED_DIRS.has(name) || SNAPSHOT_SECRET_FILE.test(name) || SNAPSHOT_SECRET_EXTENSION.test(name);
