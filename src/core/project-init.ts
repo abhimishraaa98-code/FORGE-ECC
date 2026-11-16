@@ -176,7 +176,7 @@ export const starterFiles: StarterFile[] = [
     content: JSON.stringify([
       { id: "require-auth-review", event: "before-agent", action: "require-approval", match: { contains: ["authentication", "authorization", "permission"] }, message: "Security-sensitive identity or permission work requires human review." },
       { id: "security-guidance", event: "before-agent", action: "append-context", match: { agents: ["security-reviewer"] }, message: "Prioritize least privilege, trust boundaries, and secret handling." }
-    ], null, 2) + "\\n"
+    ], null, 2) + "\n"
   },
   {
     path: "memory/README.md",
