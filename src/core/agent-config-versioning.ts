@@ -70,6 +70,7 @@ async function writeAtomic(destination: string, content: string): Promise<void> 
 export async function captureAgentConfigVersion(projectPath: string, input: { createdBy?: string; note?: string } = {}): Promise<AgentConfigVersion> {
   const root = path.resolve(projectPath);
   const files: AgentConfigFile[] = [];
+  let agentMarkdownFileCount = 0;
   for (const directory of ["agents", "skills"]) {
     const forgeDirectory = path.join(root, ".forge");
     const absolute = path.join(forgeDirectory, directory);
@@ -91,6 +92,7 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
       const content = await readFile(path.join(absolute, entry.name), "utf8");
       if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) throw new Error("Configuration file exceeds 128 KiB: " + relative);
       files.push({ path: relative, sha256: digest(content), content });
+      agentMarkdownFileCount += 1;
       if (files.length > MAX_FILES) throw new Error("Agent configuration snapshot exceeds 100 files.");
     }
   }
@@ -123,7 +125,7 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
     } else throw error;
   }
   files.sort((a,b) => a.path.localeCompare(b.path));
-  if (!files.length) throw new Error("No workspace agent or skill Markdown files found under .forge/agents or .forge/skills.");
+  if (agentMarkdownFileCount === 0) throw new Error("No workspace agent or skill Markdown files found under .forge/agents or .forge/skills.");
   const version: AgentConfigVersion = {
     version: 1, id: "cfg-" + randomUUID().replace(/-/g, "").slice(0,12),
     createdAt: new Date().toISOString(), createdBy: (input.createdBy ?? "local-user").slice(0,80),
