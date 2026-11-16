@@ -39,6 +39,14 @@ describe("Benchmark Lab", () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
+  it("keeps model-judge scores separate from deterministic rubric scores", () => {
+    const judged = { ...report("forge-judged", 75), judge: { provider: "judge-api", model: "judge-model", evaluatedCases: 1, averageScore: 91, passed: true }, judgedCases: [] };
+    const trial = createBenchmarkTrial(judged, trace("forge-judged", "candidate-model", 1200));
+    expect(trial.score).toBe(75);
+    expect(trial.judgeScore).toBe(91);
+    expect(trial.judgeProvider).toBe("judge-api");
+  });
+
   it("replaces a duplicate run instead of inflating repeat counts", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-bench-dedupe-"));
     try {
