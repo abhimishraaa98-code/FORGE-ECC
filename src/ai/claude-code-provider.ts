@@ -47,7 +47,7 @@ export class ClaudeCodeProvider implements AIProvider {
   readonly name = "claude-code";
   private readonly command: string;
   private readonly cwd: string;
-  private readonly model?: string;
+  private readonly model: string | undefined;
   private readonly timeoutMs: number;
   private readonly maxBufferBytes: number;
 
