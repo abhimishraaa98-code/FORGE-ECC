@@ -55,7 +55,10 @@ export class HostedAgentProvider implements AgentProvider {
   readonly name: string;
   constructor(private readonly options: HostedProviderOptions) {
     if (!options.model.trim()) throw new Error("A model name is required for the configured provider.");
-    if (options.provider !== "ollama" && !options.apiKey?.trim()) throw new Error(options.provider + " requires an API key.");
+    if (options.provider !== "ollama" && !options.apiKey?.trim()) {
+      const credential = options.provider === "openai" ? "FORGE_API_KEY or OPENAI_API_KEY" : options.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "GOOGLE_API_KEY";
+      throw new Error(options.provider + " requires an API key (set " + credential + ").");
+    }
     this.name = options.provider;
     // Validate the configured origin at construction time, before a run starts.
     endpoint(options.baseUrl ?? defaultBase(options.provider), "");
