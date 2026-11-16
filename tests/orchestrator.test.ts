@@ -170,7 +170,7 @@ describe("FORGE orchestration engine", () => {
     ]);
     await advanceRun(run, contextProvider, new Set(), {
       projectContext: "Shared project memory",
-      projectContextForTask: task => "Skill for " + task.agent,
+      projectContextForTask: async task => "Skill for " + task.agent,
     });
     expect(received.get("security-reviewer")).toContain("Skill for security-reviewer");
     expect(received.get("documentation-writer")).toContain("Skill for documentation-writer");
