@@ -26,6 +26,9 @@ export interface ModelRouterOptions {
   retryAttempts?: number;
   retryDelayMs?: number;
   sleep?: (milliseconds: number) => Promise<void>;
+  maxInputTokensPerTask?: number;
+  maxOutputTokensPerTask?: number;
+  maxEstimatedTokensPerRun?: number;
 }
 
 export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouterOptions, "fastModel" | "balancedModel" | "reasoningModel">): ModelRoute {
@@ -49,9 +52,13 @@ function isRetryableProviderError(error: unknown): boolean {
 export class ModelRouter implements AgentProvider {
   readonly name = "forge-model-router";
   readonly traces: AgentTrace[] = [];
+  private estimatedTokensUsed = 0;
   constructor(private readonly options: ModelRouterOptions) {
     if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");
     if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
+    for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun })) {
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error(`${name} must be a positive safe integer.`);
+    }
     for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
       if (!model.trim()) throw new Error("Every model routing tier needs a model name.");
     }
@@ -62,6 +69,12 @@ export class ModelRouter implements AgentProvider {
     const startedAt = new Date().toISOString();
     const start = Date.now();
     const inputText = request.task.prompt + (request.projectContext ?? "") + request.completedDependencies.map(item => item.result).join("");
+    const inputTokensEstimate = Math.ceil(inputText.length / 4);
+    const maxInput = this.options.maxInputTokensPerTask;
+    if (maxInput !== undefined && inputTokensEstimate > maxInput) throw new Error(`FORGE budget exceeded: task input estimate ${inputTokensEstimate} exceeds per-task limit ${maxInput}.`);
+    const runLimit = this.options.maxEstimatedTokensPerRun;
+    if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
+    this.estimatedTokensUsed += inputTokensEstimate;
     const provider = this.options.createProvider(route.model);
     let retries = 0;
     let response: AgentResponse | undefined;
@@ -80,12 +93,26 @@ export class ModelRouter implements AgentProvider {
       }
     }
     if (response) {
+      const outputTokensEstimate = Math.ceil(response.content.length / 4);
+      const maxOutput = this.options.maxOutputTokensPerTask;
+      if (maxOutput !== undefined && outputTokensEstimate > maxOutput) {
+        const message = `FORGE budget exceeded: task output estimate ${outputTokensEstimate} exceeds per-task limit ${maxOutput}.`;
+        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        throw new Error(message);
+      }
+      if (runLimit !== undefined && this.estimatedTokensUsed + outputTokensEstimate > runLimit) {
+        const message = `FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after provider response.`;
+        this.estimatedTokensUsed += outputTokensEstimate;
+        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        throw new Error(message);
+      }
+      this.estimatedTokensUsed += outputTokensEstimate;
       const trace: AgentTrace = {
         taskId: request.task.id, agent: request.task.agent, tier: route.tier,
         model: response.model ?? route.model, provider: response.provider,
         startedAt, durationMs: Date.now() - start, outcome: "success", retries,
-        inputTokensEstimate: Math.ceil(inputText.length / 4),
-        outputTokensEstimate: Math.ceil(response.content.length / 4),
+        inputTokensEstimate,
+        outputTokensEstimate,
       };
       this.traces.push(trace); this.options.onTrace?.(trace);
       return response;
