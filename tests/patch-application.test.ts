@@ -1,0 +1,48 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { saveReview } from "../src/core/review-history.js";
+import { approveReviewPatch } from "../src/core/patch-approval.js";
+import { stageApprovedPatch } from "../src/core/patch-application.js";
+import type { CodeReviewReport } from "../src/core/code-review.js";
+import type { AIReviewResult } from "../src/core/ai-code-review.js";
+
+describe("isolated approved patch staging", () => {
+  let root = "";
+  afterEach(async () => { if (root) await rm(root, { recursive: true, force: true }); });
+  async function fixture() {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-patch-stage-"));
+    await mkdir(path.join(root, "src"));
+    await writeFile(path.join(root, "src/a.ts"), "const a = 1;\n");
+    const report = {
+      root, generatedAt: new Date().toISOString(), scope: "source-files" as const, base: "HEAD",
+      filesReviewed: ["src/a.ts"], findings: [], summary: { high: 0, medium: 0, low: 0 }, warnings: [],
+    } as CodeReviewReport;
+    const ai = {
+      provider: "mock",
+      suggestions: [{
+        file: "src/a.ts", line: 1, severity: "low" as const, title: "Change value",
+        explanation: "Update value", recommendation: "Change a", confidence: "high" as const,
+        patch: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;",
+      }],
+      warnings: [],
+    } as AIReviewResult;
+    const review = await saveReview(root, report, ai);
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    return approval;
+  }
+  it("stages the approved patch in a separate workspace without changing the project", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    expect(staged.approvalId).toBe(approval.id);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
+    expect(await readFile(path.join(root, staged.stagedFile), "utf8")).toBe("const a = 2;\n");
+    expect(staged.stagedFile).toContain(".forge/patch-workspaces/");
+  });
+  it("refuses staging when the source changed after approval", async () => {
+    const approval = await fixture();
+    await writeFile(path.join(root, "src/a.ts"), "const a = 3;\n");
+    await expect(stageApprovedPatch(root, approval.id)).rejects.toThrow(/changed after approval|no longer applicable/);
+  });
+});
