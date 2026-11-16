@@ -35,6 +35,15 @@ describe("skill registry", () => {
     expect(found?.triggers).toContain("openapi");
     expect(selectSkills(skills, "update openapi endpoint")).toContain(found);
   });
+  it("rejects registries that exceed the skill-file limit instead of silently truncating", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
+    const dir = path.join(root, ".forge", "skills");
+    await mkdir(dir, { recursive: true });
+    await Promise.all(Array.from({ length: 201 }, (_, index) =>
+      writeFile(path.join(dir, `skill-${String(index).padStart(3, "0")}.md`), `# Skill ${index}`)
+    ));
+    await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum of 200 files");
+  });
   it("ignores symlinked skill files", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
     const dir = path.join(root, ".forge", "skills");
