@@ -107,4 +107,58 @@ describe("OpenAI-compatible provider", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+
+  it("rejects malformed tool-call identifiers and names without a second provider request", async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "forge-agent-malformed-call-"));
+    try {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        choices: [{ message: { content: null, tool_calls: [
+          { id: "bad call id", type: "function", function: { name: "read-file", arguments: JSON.stringify({ relativePath: "src/hello.ts" }) } },
+        ] } }],
+      }), { status: 200, headers: { "content-type": "application/json" } }));
+      vi.stubGlobal("fetch", fetchMock);
+      const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file"] });
+      const provider = new OpenAICompatibleProvider({
+        apiKey: "test-secret", model: "test-model", workspacePath: workspace, permissionPolicy: policy,
+      });
+      await expect(provider.complete({
+        task: { id: "malformed", agent: "reviewer", title: "Malformed", prompt: "Inspect" },
+        completedDependencies: [],
+      })).rejects.toThrow("malformed tool call");
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unknown tool names through the broker and returns a bounded error to the model", async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "forge-agent-unknown-tool-"));
+    try {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          choices: [{ message: { content: null, tool_calls: [
+            { id: "call_unknown", type: "function", function: { name: "run-shell", arguments: "{}" } },
+          ] } }],
+        }), { status: 200, headers: { "content-type": "application/json" } }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({
+          choices: [{ message: { content: "The requested tool is unavailable; no command was executed." } }],
+        }), { status: 200, headers: { "content-type": "application/json" } }));
+      vi.stubGlobal("fetch", fetchMock);
+      const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file"] });
+      const provider = new OpenAICompatibleProvider({
+        apiKey: "test-secret", model: "test-model", workspacePath: workspace, permissionPolicy: policy,
+      });
+      await expect(provider.complete({
+        task: { id: "unknown-tool", agent: "reviewer", title: "Unknown tool", prompt: "Try run-shell" },
+        completedDependencies: [],
+      })).resolves.toMatchObject({ content: expect.stringContaining("unavailable") });
+      const secondBody = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body));
+      const toolMessage = secondBody.messages.find((message: { role: string }) => message.role === "tool");
+      expect(toolMessage.content).toContain("not allowed");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
 });
