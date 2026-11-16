@@ -67,7 +67,7 @@ export async function executeWorkspaceAgentTool(
       const relativePath = input.relativePath;
       if (typeof relativePath !== "string" || !relativePath.length || relativePath.length > 500) throw new Error("read-file requires a relativePath string up to 500 characters.");
       result = await readWorkspaceFile(projectPath, relativePath);
-      summary = "Read " + relativePath + " (" + (result as { size: number }).size + " bytes).";
+      summary = "Read one file (" + (result as { size: number }).size + " bytes).";
     } else {
       const query = input.query;
       if (typeof query !== "string" || query.trim().length < 2 || query.length > 120) throw new Error("search-code requires a query between 2 and 120 characters.");
@@ -80,7 +80,6 @@ export async function executeWorkspaceAgentTool(
     await record(options, { tool: tool.name, allowed: true, outcome: "success", at: new Date().toISOString(), durationMs: Date.now() - started, summary });
     return result;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Workspace tool failed.";
     await record(options, { tool: tool.name, allowed: true, outcome: "error", at: new Date().toISOString(), durationMs: Date.now() - started, summary: "Workspace tool operation failed." });
     throw error;
   }
