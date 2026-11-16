@@ -59,6 +59,16 @@ function isBlocked(name: string): boolean {
   return BLOCKED_NAME.test(name) || /\.(pem|key|p12|pfx|keystore)$/i.test(name);
 }
 
+const EXCLUDED_DIRECTORIES = new Set([...IGNORED_DIRECTORIES]);
+
+export function assertWorkspacePathAllowed(relativePath: string): void {
+  const segments = relativePath.replace(/\\\\/g, "/").split("/").filter(Boolean);
+  if (segments.some(isBlocked)) throw new Error("Sensitive workspace paths are not browsable.");
+  if (segments.some(segment => segment.startsWith(".") || EXCLUDED_DIRECTORIES.has(segment))) {
+    throw new Error("Hidden or excluded workspace paths are not browsable.");
+  }
+}
+
 export async function listWorkspaceDirectory(projectPath: string, relativePath = ""): Promise<WorkspaceDirectory> {
   const resolved = await resolveWorkspacePath(projectPath, relativePath);
   const info = await lstat(resolved.target);
