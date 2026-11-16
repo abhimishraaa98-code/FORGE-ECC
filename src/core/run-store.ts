@@ -150,3 +150,38 @@ export async function decideTaskApproval(
     await rm(lock, { recursive: true, force: true });
   }
 }
+
+
+/**
+ * Marks work interrupted by a process restart as failed and ambiguous.
+ * Provider calls are never replayed automatically: a remote provider may have
+ * completed the request before the local process stopped persisting its result.
+ */
+export async function recoverInterruptedRun(projectPath: string, runId: string): Promise<RunRecord> {
+  validateRunId(runId);
+  const directory = await safeRunsDirectory(projectPath);
+  const lock = path.join(directory, `${runId}.recovery.lock`);
+  await mkdir(lock, { mode: 0o700 });
+  try {
+    const run = await loadRun(projectPath, runId);
+    const interrupted = run.tasks.filter(record => record.status === "running");
+    if (interrupted.length === 0) return run;
+    const at = new Date().toISOString();
+    for (const record of interrupted) {
+      record.status = "failed";
+      record.error = "Execution was interrupted. Provider outcome is unknown; FORGE did not automatically retry this task.";
+      run.events.push({
+        at,
+        taskId: record.task.id,
+        type: "failed",
+        message: "Process interruption detected. Provider outcome may be unknown; explicit review is required before any retry.",
+      });
+    }
+    run.status = "failed";
+    run.updatedAt = at;
+    await saveRun(projectPath, run);
+    return run;
+  } finally {
+    await rm(lock, { recursive: true, force: true });
+  }
+}
