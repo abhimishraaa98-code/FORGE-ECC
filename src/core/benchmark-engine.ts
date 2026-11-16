@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import type { EvaluationReport } from "./evaluation-engine.js";
+import type { EvaluationReport, JudgedEvaluationReport } from "./evaluation-engine.js";
 import type { ExecutionTraceDocument } from "./execution-trace.js";
 
 export interface BenchmarkTrial {
@@ -10,6 +10,8 @@ export interface BenchmarkTrial {
   suiteId: string;
   suiteName: string;
   score: number;
+  judgeScore?: number;
+  judgeProvider?: string;
   passed: boolean;
   provider: string;
   models: string[];
@@ -27,6 +29,7 @@ export interface BenchmarkGroup {
   models: string[];
   trials: number;
   averageScore: number;
+  averageJudgeScore?: number;
   bestScore: number;
   worstScore: number;
   passRate: number;
@@ -55,10 +58,12 @@ function summarize(trials: BenchmarkTrial[]): BenchmarkGroup[] {
   }
   return [...buckets.entries()].map(([key, items]) => {
     const scores = items.map(item => item.score);
+    const judged = items.filter((item): item is BenchmarkTrial & { judgeScore: number } => item.judgeScore !== undefined);
     const average = scores.reduce((sum, value) => sum + value, 0) / scores.length;
     return {
       key, provider: items[0]!.provider, models: items[0]!.models, trials: items.length,
       averageScore: Math.round(average * 10) / 10,
+      ...(judged.length ? { averageJudgeScore: Math.round(judged.reduce((sum, item) => sum + item.judgeScore, 0) / judged.length * 10) / 10 } : {}),
       bestScore: Math.max(...scores), worstScore: Math.min(...scores),
       passRate: Math.round(items.filter(item => item.passed).length / items.length * 1000) / 10,
       scoreStdDev: Math.round(Math.sqrt(scores.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) / scores.length) * 10) / 10,
@@ -70,13 +75,13 @@ function summarize(trials: BenchmarkTrial[]): BenchmarkGroup[] {
   }).sort((a, b) => b.averageScore - a.averageScore || a.averageDurationMs - b.averageDurationMs);
 }
 
-export function createBenchmarkTrial(report: EvaluationReport, trace: ExecutionTraceDocument): BenchmarkTrial {
+export function createBenchmarkTrial(report: EvaluationReport | JudgedEvaluationReport, trace: ExecutionTraceDocument): BenchmarkTrial {
   if (report.runId !== trace.runId) throw new Error("Evaluation report and execution trace must belong to the same run.");
   const providers = [...new Set(trace.entries.map(entry => entry.provider))].sort();
   const models = [...new Set(trace.entries.map(entry => entry.model))].sort();
   return {
     runId: report.runId, recordedAt: new Date().toISOString(), suiteId: report.suiteId, suiteName: report.suiteName,
-    score: report.score, passed: report.passed, provider: providers.join(", ") || "unknown", models,
+    score: report.score, ...("judge" in report ? { judgeScore: report.judge.averageScore, judgeProvider: report.judge.provider } : {}), passed: report.passed, provider: providers.join(", ") || "unknown", models,
     tasks: trace.totals.tasks, failures: trace.totals.failures, fallbacks: trace.totals.fallbacks,
     retries: trace.entries.reduce((sum, entry) => sum + (entry.retries ?? 0), 0),
     estimatedInputTokens: trace.totals.estimatedInputTokens, estimatedOutputTokens: trace.totals.estimatedOutputTokens,
@@ -131,10 +136,10 @@ export async function listBenchmarks(projectPath: string): Promise<BenchmarkDocu
 }
 
 export function formatBenchmark(document: BenchmarkDocument): string {
-  const lines = ["FORGE Benchmark Lab · " + document.suiteName, "Trials: " + document.trials.length, "", "Provider / model | Trials | Avg score | Pass rate | Variance | Avg time | Avg tokens"];
-  for (const group of document.groups) lines.push([group.key, group.trials, group.averageScore + "/100", group.passRate + "%", "σ " + group.scoreStdDev, group.averageDurationMs + " ms", group.averageEstimatedTokens].join(" | "));
+  const lines = ["FORGE Benchmark Lab · " + document.suiteName, "Trials: " + document.trials.length, "", "Provider / model | Trials | Avg rubric | Avg judge | Pass rate | Variance | Avg time | Avg tokens"];
+  for (const group of document.groups) lines.push([group.key, group.trials, group.averageScore + "/100", group.averageJudgeScore === undefined ? "—" : group.averageJudgeScore + "/100", group.passRate + "%", "σ " + group.scoreStdDev, group.averageDurationMs + " ms", group.averageEstimatedTokens].join(" | "));
   lines.push("", "Recent trials:");
-  for (const trial of document.trials.slice(-10).reverse()) lines.push("  " + trial.runId + " · " + trial.provider + " / " + (trial.models.join(", ") || "unknown") + " · " + trial.score + "/100 · " + (trial.passed ? "PASS" : "REVIEW"));
+  for (const trial of document.trials.slice(-10).reverse()) lines.push("  " + trial.runId + " · " + trial.provider + " / " + (trial.models.join(", ") || "unknown") + " · " + trial.score + "/100 rubric" + (trial.judgeScore === undefined ? "" : " · " + trial.judgeScore + "/100 judge") + " · " + (trial.passed ? "PASS" : "REVIEW"));
   lines.push("", "Token counts are estimates, not provider-billed usage. Benchmarks compare recorded runs; they do not automatically rerun tasks.");
   return lines.join("\n");
 }
