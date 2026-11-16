@@ -35,6 +35,7 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
+import { evaluateRun, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport } from "./core/evaluation-engine.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -73,6 +74,7 @@ Usage:
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
+  evaluate RUNID  Score a saved run against a local deterministic evaluation suite
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -94,7 +96,8 @@ Commands:
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
-  runs [path]      List locally saved run history\n  trace RUNID      Show per-agent execution telemetry
+  runs [path]      List locally saved run history\n  evals [path]     List local agent evaluation suites
+  trace RUNID      Show per-agent execution telemetry
   replay RUNID     Create a new run from retryable failed tasks
   resume RUNID     Continue pending or approved tasks in a saved run
   approve RUNID TASK_ID  Approve a task awaiting human review
@@ -146,6 +149,32 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE could not initialize this project: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "evals": {
+      const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
+      try {
+        const suites = await loadEvaluationSuites(target);
+        process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
+      } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "evaluate": {
+      const runId = rest.find(arg => !arg.startsWith("--"));
+      const pathIndex = rest.indexOf("--path"), suiteIndex = rest.indexOf("--suite");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
+      if (!runId) { process.stderr.write("Usage: forge evaluate RUNID [--suite SUITE_ID] [--path PROJECT]\n"); process.exitCode = 1; return; }
+      try {
+        const suites = await loadEvaluationSuites(target);
+        const suite = suiteId ? suites.find(item => item.id === suiteId) : suites[0];
+        if (!suite) throw new Error(suiteId ? "Evaluation suite not found: " + suiteId : "No evaluation suite found. Add one under .forge/evals/.");
+        const run = await loadRun(target, runId);
+        const report = evaluateRun(run, suite);
+        const reportPath = await saveEvaluationReport(target, report);
+        process.stdout.write(formatEvaluationReport(report) + "\nSaved: " + reportPath + "\n");
+        if (!report.passed) process.exitCode = 2;
+      } catch (error) { process.stderr.write("FORGE evaluation failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
     case "agents": {
