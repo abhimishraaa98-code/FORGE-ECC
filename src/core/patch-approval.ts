@@ -110,7 +110,7 @@ export async function revokePatchApproval(root: string, id: string): Promise<Pat
   const destination = path.join(dir, id + ".json");
   const temporary = path.join(dir, "." + id + "." + randomUUID() + ".tmp");
   try {
-    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);
