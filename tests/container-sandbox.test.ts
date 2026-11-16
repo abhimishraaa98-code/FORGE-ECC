@@ -129,6 +129,7 @@ describe("container timeout cleanup", () => {
       const runtime = path.join(root, "mock-runtime-timeout.cjs");
       const stoppedPath = path.join(root, "container-stopped.txt");
       const startedPath = path.join(root, "container-started.txt");
+      const removedPath = path.join(root, "container-removed.txt");
       await import("node:fs/promises").then(fs => fs.mkdir(project));
       await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "sleep" } }), "utf8");
       const source = [
@@ -137,7 +138,8 @@ describe("container timeout cleanup", () => {
         "const args = process.argv.slice(2);",
         "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
         "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
-        "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", JSON.stringify(args.slice(1))); process.exit(0); }",
+        "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", JSON.stringify(args.slice(1))); process.exit(1); }",
+        "if (args[0] === 'rm') { fs.writeFileSync(" + JSON.stringify(removedPath) + ", JSON.stringify(args.slice(1))); process.exit(0); }",
         "if (args[0] === 'run') { const i = args.indexOf('--name'); fs.writeFileSync(" + JSON.stringify(startedPath) + ", args[i + 1]); setInterval(() => {}, 1000); }",
         "if (args[0] !== 'run') process.exit(2);",
       ].join("\n");
@@ -151,6 +153,9 @@ describe("container timeout cleanup", () => {
       const stopArgs = JSON.parse(await readFile(stoppedPath, "utf8")) as string[];
       expect(startedName).toMatch(/^forge-verify-/);
       expect(stopArgs).toEqual(["--time", "2", startedName]);
+      const removeArgs = JSON.parse(await readFile(removedPath, "utf8")) as string[];
+      expect(removeArgs).toEqual(["--force", startedName]);
+      expect(result.output).not.toContain("cleanup warning");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
