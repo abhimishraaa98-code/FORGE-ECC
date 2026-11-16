@@ -503,7 +503,13 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(regression));
         return;
       }
-      if (requestUrl.pathname === "/api/agent-optimization") {\n        const matrices = await listBenchmarkMatrices(projectPath);\n        const plan = buildAgentOptimizationPlan(matrices);\n        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(plan));\n        return;\n      }\n      if (requestUrl.pathname === "/api/agent-performance") {
+      if (requestUrl.pathname === "/api/agent-optimization") {
+        const matrices = await listBenchmarkMatrices(projectPath);
+        const plan = buildAgentOptimizationPlan(matrices);
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(plan));
+        return;
+      }
+      if (requestUrl.pathname === "/api/agent-performance") {
         const matrices = await listBenchmarkMatrices(projectPath);
         const latest = matrices.at(-1);
         const leaderboard = (latest?.agentSummary ?? []).slice().sort((a, b) => b.averageScore - a.averageScore || b.passRate - a.passRate);
