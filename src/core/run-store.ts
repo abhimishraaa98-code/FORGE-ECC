@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import os from "node:os";
 import path from "node:path";
 import type { RunRecord } from "./orchestrator.js";
 
@@ -47,16 +48,44 @@ async function writeRunUnlocked(projectPath: string, run: RunRecord): Promise<st
   return destination;
 }
 
-export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
-  validateRunId(run.id);
+async function withRunLock<T>(projectPath: string, runId: string, action: () => Promise<T>): Promise<T> {
+  validateRunId(runId);
   const directory = await safeRunsDirectory(projectPath);
-  const lock = path.join(directory, `${run.id}.lock`);
-  await mkdir(lock, { mode: 0o700 });
+  const lock = path.join(directory, `${runId}.lock`);
+  const ownerFile = path.join(lock, "owner.json");
+  const token = randomUUID();
   try {
-    return await writeRunUnlocked(projectPath, run);
-  } finally {
-    await rm(lock, { recursive: true, force: true });
+    await mkdir(lock, { mode: 0o700 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      throw new Error(`Run ${runId} is locked by another or interrupted FORGE process. Inspect ${lock}/owner.json; do not remove the lock until you have confirmed its owner is no longer active.`);
+    }
+    throw error;
   }
+
+  try {
+    await writeFile(ownerFile, JSON.stringify({
+      token,
+      pid: process.pid,
+      host: os.hostname(),
+      startedAt: new Date().toISOString(),
+    }) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return await action();
+  } finally {
+    try {
+      const owner: unknown = JSON.parse(await readFile(ownerFile, "utf8"));
+      if (owner && typeof owner === "object" && "token" in owner && owner.token === token) {
+        await rm(lock, { recursive: true, force: true });
+      }
+    } catch {
+      // If ownership cannot be verified, leave the lock in place rather than
+      // risk deleting a lock that may have been replaced by another process.
+    }
+  }
+}
+
+export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
+  return withRunLock(projectPath, run.id, () => writeRunUnlocked(projectPath, run));
 }
 
 export async function loadRun(projectPath: string, runId: string): Promise<RunRecord> {
@@ -127,42 +156,35 @@ export async function decideTaskApproval(
   reviewer: string,
   reason?: string,
 ): Promise<RunRecord> {
-  validateRunId(runId);
-  const directory = await safeRunsDirectory(projectPath);
-  const lock = path.join(directory, `${runId}.lock`);
-  await mkdir(lock, { mode: 0o700 });
-  try {
-  const run = await loadRun(projectPath, runId);
-  const record = run.tasks.find(item => item.task.id === taskId);
-  if (!record) throw new Error("Task not found in this run.");
-  if (record.approval) throw new Error("This task already has an approval decision.");
-  if (record.status !== "awaiting_approval") throw new Error("Only tasks awaiting approval can receive a decision.");
-  const at = new Date().toISOString();
-  const safeReviewer = reviewer.trim().slice(0, 80) || "local-user";
-  const safeReason = reason?.trim().slice(0, 1000);
-  record.approval = { decision, reviewer: safeReviewer, ...(safeReason ? { reason: safeReason } : {}), at };
-  if (decision === "approved") {
-    record.status = "pending";
-    run.status = "pending";
-  } else {
-    record.status = "failed";
-    record.error = safeReason || "Task rejected during human review.";
-    run.status = "failed";
-  }
-  run.updatedAt = at;
-  run.events.push({
-    at, taskId, type: decision,
-    message: decision === "approved"
-      ? `Approved by ${safeReviewer}. Task is ready for an explicit subsequent run.`
-      : `Rejected by ${safeReviewer}.${safeReason ? ` Reason: ${safeReason}` : ""}`,
+  return withRunLock(projectPath, runId, async () => {
+    const run = await loadRun(projectPath, runId);
+    const record = run.tasks.find(item => item.task.id === taskId);
+    if (!record) throw new Error("Task not found in this run.");
+    if (record.approval) throw new Error("This task already has an approval decision.");
+    if (record.status !== "awaiting_approval") throw new Error("Only tasks awaiting approval can receive a decision.");
+    const at = new Date().toISOString();
+    const safeReviewer = reviewer.trim().slice(0, 80) || "local-user";
+    const safeReason = reason?.trim().slice(0, 1000);
+    record.approval = { decision, reviewer: safeReviewer, ...(safeReason ? { reason: safeReason } : {}), at };
+    if (decision === "approved") {
+      record.status = "pending";
+      run.status = "pending";
+    } else {
+      record.status = "failed";
+      record.error = safeReason || "Task rejected during human review.";
+      run.status = "failed";
+    }
+    run.updatedAt = at;
+    run.events.push({
+      at, taskId, type: decision,
+      message: decision === "approved"
+        ? `Approved by ${safeReviewer}. Task is ready for an explicit subsequent run.`
+        : `Rejected by ${safeReviewer}.${safeReason ? ` Reason: ${safeReason}` : ""}`,
+    });
+    await writeRunUnlocked(projectPath, run);
+    return run;
   });
-  await writeRunUnlocked(projectPath, run);
-  return run;
-  } finally {
-    await rm(lock, { recursive: true, force: true });
-  }
 }
-
 
 /**
  * Marks work interrupted by a process restart as failed and ambiguous.
@@ -170,11 +192,7 @@ export async function decideTaskApproval(
  * completed the request before the local process stopped persisting its result.
  */
 export async function recoverInterruptedRun(projectPath: string, runId: string): Promise<RunRecord> {
-  validateRunId(runId);
-  const directory = await safeRunsDirectory(projectPath);
-  const lock = path.join(directory, `${runId}.lock`);
-  await mkdir(lock, { mode: 0o700 });
-  try {
+  return withRunLock(projectPath, runId, async () => {
     const run = await loadRun(projectPath, runId);
     const interrupted = run.tasks.filter(record => record.status === "running");
     if (interrupted.length === 0) return run;
@@ -193,7 +211,5 @@ export async function recoverInterruptedRun(projectPath: string, runId: string):
     run.updatedAt = at;
     await writeRunUnlocked(projectPath, run);
     return run;
-  } finally {
-    await rm(lock, { recursive: true, force: true });
-  }
+  });
 }
