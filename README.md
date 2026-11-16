@@ -149,6 +149,20 @@ forge patch-verify PATCH_STAGE_ID test --install-dependencies --path .
 
 FORGE requires a regular `package-lock.json` and runs `npm ci --ignore-scripts --no-audit --no-fund` inside the temporary workspace before the selected check. This can access the network, is capped at ten minutes with bounded output, and does not run package lifecycle scripts. FORGE uses empty temporary npm user/global config files and a temporary HOME rather than reusing the developer's npm configuration or registry credentials. Private registries requiring credentials are therefore not configured automatically. It is opt-in because package retrieval is an external side effect. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
 
+### Container-isolated staged verification (opt-in)
+
+On a machine with Docker Engine available, you can ask FORGE to run the staged check in a pre-pulled, digest-pinned container:
+
+```bash
+forge patch-verify PATCH_STAGE_ID test --sandbox-image node:22-alpine@sha256:YOUR_VERIFIED_DIGEST --install-dependencies --path .
+```
+
+Replace the example image reference with an image you have independently reviewed and pulled. FORGE requires the exact `@sha256:` digest, checks that the image is already present locally, and never pulls an image automatically. The image must provide Node.js and npm. Dependency preparation, when explicitly requested, occurs in the temporary workspace before container execution using `npm ci --ignore-scripts`; this preparation can access the network on the host. The actual test container runs with networking disabled.
+
+The container profile uses a read-only root filesystem, drops Linux capabilities, enables `no-new-privileges`, uses the runtime's default seccomp policy, applies PID/memory/CPU limits, and mounts only the temporary staged workspace as writable. `/tmp` is a bounded tmpfs. The container is run as the invoking UID/GID where available. It is removed after execution, and timeout handling asks the runtime to stop it.
+
+This is an opt-in container isolation layer, not a claim of VM-grade isolation. It trusts the container runtime, its daemon, the host kernel, the image contents, and the host's container configuration. Use a rootless Docker-compatible runtime where possible. The mounted temporary workspace is writable by the test process; the original project is not mounted into the container. Container mode is separate from ordinary local-host `patch-verify`.
+
 ### Verification runner safety
 
 `forge verify SCRIPT --path PROJECT` executes only the explicitly selected npm script, with npm lifecycle hooks disabled and bounded output/time. The runner passes a minimal environment rather than inheriting arbitrary process variables, so provider/API credentials and custom environment variables are not forwarded. On POSIX systems, timeout handling targets the spawned process group. This is still execution of project-controlled script code on the local host—not a sandbox. Only run scripts from projects you trust; OS-level isolation and staged-workspace verification remain separate work.
