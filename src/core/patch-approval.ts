@@ -66,8 +66,7 @@ export async function approveReviewPatch(
     patchSha256: digest(suggestion.patch),
     sourceSha256: digest(source),
   };
-  const dir = directory(root);
-  await mkdir(dir, { recursive: true });
+  const dir = await safeApprovalDirectory(root);
   const destination = path.join(dir, record.id + ".json");
   const temporary = path.join(dir, "." + record.id + "." + randomUUID() + ".tmp");
   try {
