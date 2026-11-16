@@ -29,6 +29,10 @@ export interface ModelRouterOptions {
   maxInputTokensPerTask?: number;
   maxOutputTokensPerTask?: number;
   maxEstimatedTokensPerRun?: number;
+  /** Wall-clock ceiling; providers without abort support may continue after FORGE stops waiting. */
+  maxTaskDurationMs?: number;
+  /** Optional stricter duration ceilings keyed by agent ID. */
+  maxTaskDurationMsByAgent?: Readonly<Record<string, number>>;
 }
 
 export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouterOptions, "fastModel" | "balancedModel" | "reasoningModel">): ModelRoute {
@@ -56,8 +60,11 @@ export class ModelRouter implements AgentProvider {
   constructor(private readonly options: ModelRouterOptions) {
     if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");
     if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
-    for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun })) {
+    for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun, maxTaskDurationMs: options.maxTaskDurationMs })) {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error(`${name} must be a positive safe integer.`);
+    }
+    for (const [agent, limit] of Object.entries(options.maxTaskDurationMsByAgent ?? {})) {
+      if (!agent.trim() || !Number.isSafeInteger(limit) || limit < 1) throw new Error(`Duration budget for agent ${agent || "<empty>"} must be a positive safe integer.`);
     }
     for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
       if (!model.trim()) throw new Error("Every model routing tier needs a model name.");
@@ -77,13 +84,24 @@ export class ModelRouter implements AgentProvider {
     if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
     this.estimatedTokensUsed += inputTokensEstimate;
     const provider = this.options.createProvider(route.model);
+    const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
+    const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
+      if (durationLimit === undefined) return target.complete(request);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          target.complete(request),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`FORGE budget exceeded: task duration exceeded ${durationLimit} ms for agent ${request.task.agent}. The provider request may still be running.`)), durationLimit); }),
+        ]);
+      } finally { if (timer !== undefined) clearTimeout(timer); }
+    };
     let retries = 0;
     let response: AgentResponse | undefined;
     let primaryError: unknown;
     const maxRetries = this.options.retryAttempts ?? 2;
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       try {
-        response = await provider.complete(request);
+        response = await completeWithinBudget(provider);
         break;
       } catch (error) {
         primaryError = error;
@@ -120,14 +138,15 @@ export class ModelRouter implements AgentProvider {
     try {
       throw primaryError;
     } catch (primaryError) {
-      if (!this.options.fallbackModel || this.options.fallbackModel === route.model) {
-        const message = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      if (primaryMessage.startsWith("FORGE budget exceeded:") || !this.options.fallbackModel || this.options.fallbackModel === route.model) {
+        const message = primaryMessage;
         this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw primaryError;
       }
       try {
         const fallback = this.options.createProvider(this.options.fallbackModel);
-        const response = await fallback.complete(request);
+        const response = await completeWithinBudget(fallback);
         const fallbackOutputEstimate = Math.ceil(response.content.length / 4);
         if (maxOutput !== undefined && fallbackOutputEstimate > maxOutput) throw new Error(`FORGE budget exceeded: fallback output estimate ${fallbackOutputEstimate} exceeds per-task limit ${maxOutput}.`);
         if (runLimit !== undefined && this.estimatedTokensUsed + fallbackOutputEstimate > runLimit) {
