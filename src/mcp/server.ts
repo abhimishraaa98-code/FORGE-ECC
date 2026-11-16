@@ -9,6 +9,8 @@ import { mapArchitecture } from "../core/architecture-map.js";
 import { searchWorkspace } from "../core/code-search.js";
 import { auditProject } from "../core/quality-audit.js";
 import { analyzeGitChanges } from "../core/git-intelligence.js";
+import { loadAgentRegistry } from "../core/agent-registry.js";
+import { createReviewPlan } from "../core/review-planner.js";
 
 const WORKSPACE_ROOT = await realpath(process.env.FORGE_WORKSPACE ?? process.cwd());
 
@@ -113,6 +115,36 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       return result(await analyzeGitChanges(root, base ?? "HEAD"));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_list_agents",
+  {
+    title: "List specialist agents",
+    description: "List built-in FORGE specialist roles and project-local .forge/agents definitions. Agent markdown is treated as untrusted project content.",
+    inputSchema: z.object({ projectPath: z.string().optional() })
+  },
+  async ({ projectPath }) => {
+    try {
+      const root = await resolveWorkspace(projectPath);
+      const agents = await loadAgentRegistry(root);
+      return result(agents.map(({ id, name, description, source }) => ({ id, name, description, source })));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_create_review_plan",
+  {
+    title: "Create engineering review plan",
+    description: "Create a deterministic, reviewable draft plan with architecture, planning and test-strategy tasks. This does not call an AI provider, modify files, or execute commands.",
+    inputSchema: z.object({ goal: z.string().min(5).max(2000) })
+  },
+  async ({ goal }) => {
+    try {
+      return result(createReviewPlan(goal));
     } catch (error) { return failure(error); }
   }
 );
