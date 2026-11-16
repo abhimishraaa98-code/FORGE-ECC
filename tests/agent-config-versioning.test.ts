@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions,
-  listAgentConfigVersions, loadAgentConfigVersion
+  listAgentConfigVersions, loadAgentConfigVersion, materializeAgentConfigVersion
 } from "../src/core/agent-config-versioning.js";
 
 const roots: string[] = [];
@@ -55,6 +55,17 @@ describe("agent configuration versioning", () => {
     await rm(path.join(root, ".forge", "agents"), { recursive: true });
     await symlink(outside, path.join(root, ".forge", "agents"), "dir");
     await expect(captureAgentConfigVersion(root)).rejects.toThrow("must not be symbolic links");
+  });
+  it("materializes only verified snapshot files into a separate workspace", async () => {
+    const root = await project();
+    const version = await captureAgentConfigVersion(root);
+    const isolated = path.join(root, "isolated-candidate");
+    await mkdir(isolated);
+    await materializeAgentConfigVersion(root, version.id, isolated);
+    expect(await readFile(path.join(isolated, ".forge", "agents", "planner.md"), "utf8")).toContain("Plan carefully");
+    expect(await readFile(path.join(isolated, ".forge", "skills", "secure-changes.md"), "utf8")).toContain("least privilege");
+    await expect(readFile(path.join(root, ".forge", "agents", "planner.md"), "utf8")).resolves.toContain("Plan carefully");
+    await expect(readFile(path.join(isolated, ".forge", "hooks.json"), "utf8")).rejects.toThrow();
   });
   it("requires a workspace configuration to snapshot", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-config-empty-"));
