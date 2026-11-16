@@ -2,6 +2,46 @@
 
 FORGE is a local-first AI engineering workbench for planning, coordinating, reviewing and evaluating software changes. It combines specialized agents, controlled workflows, project memory, skills, policy hooks, provider routing, execution traces and reproducible benchmark experiments.
 
+## Install from GitHub
+
+Install the CLI directly from this repository (Node.js 22 or newer):
+
+```bash
+npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#main
+forge --version
+forge init ./my-project
+forge dashboard ./my-project
+```
+
+For a reproducible install, replace `main` with a published version tag or a full commit SHA. The package build runs during Git-based installation. The npm package name is also available for registry-based installation when published to npm.
+
+## Use FORGE in GitHub Actions
+
+This repository includes a reusable composite action. Add it to a workflow in the repository you want to inspect:
+
+```yaml
+name: FORGE engineering checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  forge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run FORGE
+        uses: ansh44233/FORGE-ECC@main
+        with:
+          version: main
+          project-path: .
+          operation: inspect
+```
+
+Supported action operations are `inspect`, `quality`, `health`, and `review`. Pin both the action ref and its `version` input to a reviewed release tag or commit SHA for repeatable CI. FORGE's current MCP tools are read-only, and the GitHub Action runs on the GitHub-hosted runner; it does not install a persistent GitHub App or grant repository write permissions.
+
 ## Quick start
 
 Requirements: Node.js 22 or newer. From a terminal:
