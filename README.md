@@ -486,7 +486,7 @@ The CLI can select a model tier per task. Configure `FORGE_MODEL_FAST`, `FORGE_M
 
 Transient provider failures (HTTP 408/409/425/429/5xx, timeouts, and common network errors) are retried before fallback. Defaults are two retries with exponential backoff starting at 500 ms. Tune with `FORGE_MODEL_RETRY_ATTEMPTS` (0–5) and `FORGE_MODEL_RETRY_DELAY_MS` (0–10000). Authentication and other non-transient errors are not retried. Set `FORGE_FALLBACK_MODEL` to enable one fallback attempt after the primary retries are exhausted; fallback uses the same configured provider and credentials. Retries are bounded and do not bypass provider rate limits.
 
-Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, and approximate token counts estimated from character length (not provider-billed usage). Trace files are local and excluded from Git.
+Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, retry counts, and approximate token counts estimated from character length (not provider-billed usage). They also aggregate provider health for the run: request counts, successes, fallbacks, failures, retries, and cumulative duration. Inspect both views with `forge trace RUNID --path .`. Trace files are local and excluded from Git.
 
 Example:
 ```bash
