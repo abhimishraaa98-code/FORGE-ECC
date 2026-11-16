@@ -50,6 +50,17 @@ export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouter
 }
 
 
+function validateProviderResponse(value: unknown): AgentResponse {
+  if (!value || typeof value !== "object") throw new Error("Provider returned an invalid agent proposal.");
+  const response = value as Partial<AgentResponse>;
+  if (typeof response.content !== "string" || !response.content.trim() ||
+      typeof response.provider !== "string" || !response.provider.trim() ||
+      (response.model !== undefined && typeof response.model !== "string")) {
+    throw new Error("Provider returned an invalid or empty agent proposal.");
+  }
+  return response as AgentResponse;
+}
+
 function isRetryableProviderError(error: unknown): boolean {
   // Retry only an explicit rate-limit response. A timeout, connection loss, or
   // server error can happen after the provider accepted and billed the request;
@@ -126,11 +137,12 @@ export class ModelRouter implements AgentProvider {
     }
     const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
     const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
-      if (durationLimit === undefined) return target.complete(request);
+      const complete = async (): Promise<AgentResponse> => validateProviderResponse(await target.complete(request));
+      if (durationLimit === undefined) return complete();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         return await Promise.race([
-          target.complete(request),
+          complete(),
           new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`FORGE budget exceeded: task duration exceeded ${durationLimit} ms for agent ${request.task.agent}. The provider request may still be running.`)), durationLimit); }),
         ]);
       } finally { if (timer !== undefined) clearTimeout(timer); }
