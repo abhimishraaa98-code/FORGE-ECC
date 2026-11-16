@@ -124,6 +124,26 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
+### Agent Configuration Release Pipeline — available (early)
+
+Connect a candidate configuration snapshot to benchmark regression history, create a pending release, and require a named human reviewer before promotion. The release gate currently requires a `release-ready` regression report for the selected matrix; warning, blocked, and insufficient-history reports are rejected. Approval updates the local approved-configuration pointer and marks the candidate snapshot approved. It does not copy snapshot contents into live `.forge/agents/` or `.forge/skills/` files; applying a configuration remains a separate, deliberate operation.
+
+```bash
+# Prepare using a candidate snapshot, approved baseline, and comparable matrix history
+forge agent-release prepare cfg-CANDIDATEID cfg-BASELINEID --matrix MATRIX_ID --path .
+
+# Review pending releases
+forge agent-release list --path .
+forge agent-release show rel-RELEASEID --path .
+
+# Explicit human decision
+forge agent-release approve rel-RELEASEID --reviewer "maintainer" --path .
+# Or reject
+forge agent-release reject rel-RELEASEID --reviewer "maintainer" --path .
+```
+
+The gate uses the existing regression analyzer's thresholds and status. It does not yet prove that the selected benchmark matrix was executed using the exact candidate snapshot; verify that configuration-to-trial linkage manually before treating a release as production evidence. Release records and snapshots are local project data.
+
 ### Agent Configuration Versioning — available (early)
 
 Capture reviewable snapshots of workspace agent and skill instructions under `.forge/agents/` and `.forge/skills/`. Each snapshot stores the Markdown content, SHA-256 digest, author, timestamp and note under `.forge/config-versions/`. Compare snapshots, inspect their contents, and explicitly approve a candidate. Approval updates a local pointer in `.forge/config-versions/approved.json`; it does **not** silently rewrite active agent or skill files, deploy a configuration, or prove that a candidate performs better. Run controlled benchmark experiments before promoting a change operationally.
