@@ -9,6 +9,7 @@ export interface RunHistoryJsonItem {
   taskCount: number;
   pendingTaskCount: number;
   awaitingApprovalTaskCount: number;
+  runningTaskCount: number;
   completedTaskCount: number;
   failedTaskCount: number;
   blockedTaskCount: number;
@@ -33,6 +34,7 @@ export function formatRunHistoryJson(runs: readonly RunRecord[]): string {
       taskCount: run.tasks.length,
       pendingTaskCount: run.tasks.filter((task) => task.status === "pending").length,
       awaitingApprovalTaskCount: run.tasks.filter((task) => task.status === "awaiting_approval").length,
+      runningTaskCount: run.tasks.filter((task) => task.status === "running").length,
       completedTaskCount: run.tasks.filter((task) => task.status === "completed").length,
       failedTaskCount: run.tasks.filter((task) => task.status === "failed").length,
       blockedTaskCount: run.tasks.filter((task) => task.status === "blocked").length,
