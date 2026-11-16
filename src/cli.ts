@@ -261,7 +261,7 @@ async function main(args: string[]): Promise<void> {
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
         let persistedTraceEntries = 0;
-        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, onUpdate: async snapshot => {
+        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
           await saveRun(target, snapshot);
           const newEntries = router.traces.slice(persistedTraceEntries);
           if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
