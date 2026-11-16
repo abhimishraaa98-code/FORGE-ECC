@@ -126,15 +126,15 @@ export function formatEvaluationReport(report: EvaluationReport): string {
   return lines.join("\n");
 }
 
-export async function listEvaluationReports(projectPath: string): Promise<EvaluationReport[]> {
+export async function listEvaluationReports(projectPath: string): Promise<Array<EvaluationReport | JudgedEvaluationReport>> {
   const directory = path.join(path.resolve(projectPath), ".forge", "evaluations");
   let files: string[];
   try { files = (await readdir(directory)).filter(file => file.endsWith(".json")).sort().reverse(); }
   catch (error) { if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return []; throw error; }
-  const reports: EvaluationReport[] = [];
+  const reports: Array<EvaluationReport | JudgedEvaluationReport> = [];
   for (const file of files.slice(0, 100)) {
     const value: unknown = JSON.parse(await readFile(path.join(directory, file), "utf8"));
-    if (value && typeof value === "object" && (value as EvaluationReport).version === 1 && Array.isArray((value as EvaluationReport).cases)) reports.push(value as EvaluationReport);
+    if (value && typeof value === "object" && (value as EvaluationReport).version === 1 && Array.isArray((value as EvaluationReport).cases)) reports.push(("judge" in value ? value as JudgedEvaluationReport : value as EvaluationReport));
   }
   return reports;
 }
