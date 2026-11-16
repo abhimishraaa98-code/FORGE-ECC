@@ -84,7 +84,7 @@ describe("mocked container runtime policy execution", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-mock-runtime-"));
     try {
       const project = path.join(root, "project");
-      const runtime = path.join(root, "mock-runtime.mjs");
+      const runtime = path.join(root, "mock-runtime.cjs");
       const argsPath = path.join(root, "runtime-args.json");
       await import("node:fs/promises").then(fs => fs.mkdir(project));
       await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }), "utf8");
