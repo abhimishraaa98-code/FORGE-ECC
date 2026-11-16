@@ -81,7 +81,7 @@ export async function executeWorkspaceAgentTool(
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Workspace tool failed.";
-    await record(options, { tool: tool.name, allowed: true, outcome: "error", at: new Date().toISOString(), durationMs: Date.now() - started, summary: message.slice(0, 240) });
+    await record(options, { tool: tool.name, allowed: true, outcome: "error", at: new Date().toISOString(), durationMs: Date.now() - started, summary: "Workspace tool operation failed." });
     throw error;
   }
 }
