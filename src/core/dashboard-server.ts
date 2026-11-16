@@ -29,6 +29,11 @@ import { buildExperimentHistory } from "./experiment-history.js";
 import { createReplayRun, createTaskRetryRun } from "./run-replay.js";
 import { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
 
+function safeProviderOrigin(value: string): string {
+  try { return new URL(value).origin; }
+  catch { return "configured endpoint (invalid URL)"; }
+}
+
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
 <head>
@@ -584,7 +589,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           { id: "openai", configured: Boolean(process.env.FORGE_API_KEY || process.env.OPENAI_API_KEY), model: process.env.FORGE_AI_MODEL || process.env.FORGE_MODEL || "gpt-4.1-mini", detail: "API credential presence only; connectivity is not tested." },
           { id: "anthropic", configured: Boolean(process.env.ANTHROPIC_API_KEY), model: process.env.FORGE_AI_MODEL || "claude-sonnet-4-5", detail: "API credential presence only; connectivity is not tested." },
           { id: "google", configured: Boolean(process.env.GOOGLE_API_KEY), model: process.env.FORGE_AI_MODEL || "gemini-2.5-flash", detail: "API credential presence only; connectivity is not tested." },
-          { id: "ollama", configured: true, model: process.env.FORGE_AI_MODEL || "llama3.2", detail: "Endpoint: " + (process.env.FORGE_BASE_URL || process.env.OLLAMA_HOST || "http://localhost:11434") + "; connectivity is not tested." },
+          { id: "ollama", configured: true, model: process.env.FORGE_AI_MODEL || "llama3.2", detail: "Endpoint origin: " + safeProviderOrigin(process.env.FORGE_BASE_URL || process.env.OLLAMA_HOST || "http://localhost:11434") + "; connectivity is not tested." },
           { id: "claude-code", configured: false, model: process.env.FORGE_AI_MODEL || "sonnet", detail: "Local CLI installation and account authentication are not checked by the dashboard." }
         ].map(item => ({ ...item, selected: selected === item.id, status: item.id === "claude-code" ? "not-checked" : item.configured ? "configured" : "needs-credentials" }));
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(rows));
