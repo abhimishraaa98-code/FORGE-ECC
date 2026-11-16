@@ -490,6 +490,7 @@ Optional token guardrails are available for both `forge run` and `forge resume`:
 - `FORGE_MAX_INPUT_TOKENS_PER_TASK` — reject a task before sending it when its estimated input exceeds this limit.
 - `FORGE_MAX_OUTPUT_TOKENS_PER_TASK` — reject a provider response whose estimated output exceeds this limit.
 - `FORGE_MAX_ESTIMATED_TOKENS_PER_RUN` — cap estimated input plus output across the run.
+- `FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT` — JSON map of cumulative estimated input + output token ceilings per agent, e.g. `{"planner":12000,"security-reviewer":20000}`.
 - `FORGE_MAX_TASK_DURATION_MS` — maximum wall-clock time FORGE waits for one provider task.
 - `FORGE_MAX_TASK_DURATION_MS_BY_AGENT` — optional JSON map of stricter agent-specific limits, e.g. `{"security-reviewer":90000,"planner":60000}`. Per-agent values override the default.
 
