@@ -39,6 +39,7 @@ async function resolveWorkspacePath(rootPath: string, relativePath: string): Pro
     throw new Error("Workspace path must stay inside the project.");
   }
   const segments = normalized.split("/").filter(part => part && part !== ".");
+  if (segments.some(isBlocked)) throw new Error("Sensitive workspace paths are not browsable.");
   let cursor = root;
   for (const segment of segments) {
     cursor = path.join(cursor, segment);
