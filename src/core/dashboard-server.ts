@@ -15,6 +15,7 @@ import { analyzeEngineeringRisk } from "./engineering-risk.js";
 import { analyzeChangeIntelligence } from "./change-intelligence.js";
 import { compareLatestIntelligence, listIntelligenceSnapshots } from "./intelligence-timeline.js";
 import { analyzeDependencies } from "./dependency-intelligence.js";
+import { loadExecutionTrace } from "./execution-trace.js";
 
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -258,6 +259,20 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         }))));
         return;
       }
+      const traceRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/trace$/);
+      if (traceRoute) {
+        try {
+          const trace = await loadExecutionTrace(projectPath, decodeURIComponent(traceRoute[1]!));
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(trace));
+        } catch (error) {
+          if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+            response.writeHead(404, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ error: "No execution trace has been saved for this run." }));
+            return;
+          }
+          throw error;
+        }
+        return;
+      }
       if (requestUrl.pathname.startsWith("/api/runs/")) {
         const runId = decodeURIComponent(requestUrl.pathname.slice("/api/runs/".length));
         const run = await loadRun(projectPath, runId);
@@ -265,6 +280,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           id: run.id, goal: run.goal, status: run.status, createdAt: run.createdAt, updatedAt: run.updatedAt,
           tasks: run.tasks.map(record => ({
             id: record.task.id, title: record.task.title, agent: record.task.agent, status: record.status,
+            dependsOn: record.task.dependsOn ?? [],
             result: record.result ? { provider: record.result.provider, model: record.result.model, content: record.result.content } : undefined,
             error: record.error,
             approval: record.approval,
