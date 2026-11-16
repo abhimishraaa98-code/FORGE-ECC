@@ -173,7 +173,7 @@ export async function runContainerVerification(
     await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
   const finishedAt = new Date();
-  result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=" + profile.network + ", readOnlyRoot=" + String(profile.readOnlyRoot) + ", capDrop=" + (profile.dropAllCapabilities ? "ALL" : "NONE") + ", noNewPrivileges=" + String(profile.noNewPrivileges) + ", memory=" + profile.maxMemory + ", cpus=" + String(profile.maxCpus) + ", pids=" + String(profile.maxProcesses) + "\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
+  result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=" + profile.network + ", readOnlyRoot=" + String(profile.readOnlyRoot) + ", capDrop=" + (profile.dropAllCapabilities ? "ALL" : "NONE") + ", noNewPrivileges=" + String(profile.noNewPrivileges) + ", memory=" + (policy?.maxMemory ?? profile.maxMemory) + ", cpus=" + String(policy?.maxCpus ?? profile.maxCpus) + ", pids=" + String(policy?.maxProcesses ?? profile.maxProcesses) + "\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
   return {
     id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
