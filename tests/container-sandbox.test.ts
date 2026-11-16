@@ -121,6 +121,38 @@ describe("mocked container runtime policy execution", () => {
   });
 });
 
+describe("container timeout cleanup", () => {
+  it("stops the named container and reports a timeout", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-timeout-cleanup-"));
+    try {
+      const project = path.join(root, "project");
+      const runtime = path.join(root, "mock-runtime-timeout.cjs");
+      const stoppedPath = path.join(root, "container-stopped.txt");
+      await import("node:fs/promises").then(fs => fs.mkdir(project));
+      await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "sleep" } }), "utf8");
+      const source = [
+        "#!/usr/bin/env node",
+        "const fs = require('node:fs');",
+        "const args = process.argv.slice(2);",
+        "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
+        "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
+        "if (args[0] === 'stop') { fs.writeFileSync(" + JSON.stringify(stoppedPath) + ", args.slice(3).join(' ')); process.exit(0); }",
+        "if (args[0] === 'run') { setInterval(() => {}, 1000); }",
+        "process.exit(2);",
+      ].join("\\n");
+      await writeFile(runtime, source, "utf8");
+      await chmod(runtime, 0o755);
+      const result = await runContainerVerification(project, "test", image, {
+        runtimePath: runtime, timeoutMs: 1000,
+      });
+      expect(result.status).toBe("timed_out");
+      expect(await readFile(stoppedPath, "utf8")).toMatch(/^forge-verify-/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("container runtime fail-closed behavior", () => {
   async function makeRuntime(root: string, behavior: "rootful" | "missing-image" | "spawn-error"): Promise<string> {
     const runtime = path.join(root, "mock-runtime-" + behavior + ".cjs");
