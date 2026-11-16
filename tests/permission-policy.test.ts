@@ -51,6 +51,13 @@ describe("FORGE permission policy", () => {
     }
   });
 
+  it("rejects oversized permission policy files before parsing", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-permissions-"));
+    await mkdir(path.join(root, ".forge"));
+    await writeFile(path.join(root, ".forge", "permissions.json"), " ".repeat(16 * 1024 + 1));
+    await expect(loadPermissionPolicy(root)).rejects.toThrow(/16 KiB limit/);
+  });
+
   it("fails closed when a policy file is malformed", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-permissions-"));
     await mkdir(path.join(root, ".forge"));
