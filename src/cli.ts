@@ -511,7 +511,10 @@ async function main(args: string[]): Promise<void> {
           const configWorkspace = await mkdtemp(path.join(os.tmpdir(), "forge-candidate-config-"));
           try {
             const snapshotId = candidate.configVersionId;
-            if (snapshotId) await materializeAgentConfigVersion(target, snapshotId, configWorkspace);
+            const snapshot = snapshotId ? await materializeAgentConfigVersion(target, snapshotId, configWorkspace) : undefined;
+            if (snapshotId && !snapshot?.files.some(file => file.path === "hooks.json")) {
+              throw new Error("Configuration snapshot " + snapshotId + " predates policy-hook isolation. Capture a new snapshot before benchmarking this candidate.");
+            }
             const configRoot = snapshotId ? configWorkspace : target;
             const run = createReviewPlan(goal);
             const skillRegistry = await loadSkillRegistry(configRoot);
