@@ -25,7 +25,7 @@ describe("verification engine",()=>{
   expect(result.output).toContain("FORGE_CHECK_OK");
   expect(formatVerificationResult(result)).toContain("PASSED");
  });
- it("records a failing script as failed",async()=>{
+ it("does not forward arbitrary environment secrets to project scripts",async()=>{\n  await setup({verify:"node -e \\\"console.log(process.env.FORGE_TEST_SECRET || \\\"\\\"NOT_FORWARDED\\\")\\\""});\n  process.env.FORGE_TEST_SECRET="test-secret-value";\n  try {\n   const result=await runVerification(root,"verify");\n   expect(result.output).toContain("NOT_FORWARDED");\n   expect(result.output).not.toContain("test-secret-value");\n  } finally { delete process.env.FORGE_TEST_SECRET; }\n });\n it("records a failing script as failed",async()=>{
   await setup({verify:"node -e \"process.exit(7)\""});
   const result=await runVerification(root,"verify");
   expect(result.status).toBe("failed");
