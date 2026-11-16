@@ -125,12 +125,9 @@ export async function loadAgentConfigVersion(projectPath: string, id: string): P
   if (!SAFE_ID.test(id)) throw new Error("Invalid configuration version ID.");
   return validateVersion(JSON.parse(await readFile(path.join(rootDir(projectPath), id + ".json"), "utf8")));
 }
-export async function approveAgentConfigVersion(projectPath: string, id: string, reviewer: string): Promise<AgentConfigVersion> {
-  const current = await loadAgentConfigVersion(projectPath, id);
-  const approved = { ...current, status: "approved" as const, approvedBy: reviewer.slice(0,80) };
-  await writeAtomic(path.join(rootDir(projectPath), id + ".json"), JSON.stringify(approved, null, 2) + "\n");
-  await writeAtomic(path.join(rootDir(projectPath), "approved.json"), JSON.stringify({ version: 1, activeApprovedVersionId: id, updatedAt: new Date().toISOString() }, null, 2) + "\n");
-  return approved;
+/** @deprecated Configuration approval must flow through a benchmark-gated release. */
+export async function approveAgentConfigVersion(_projectPath: string, _id: string, _reviewer: string): Promise<AgentConfigVersion> {
+  throw new Error("Direct configuration approval is disabled. Use a release-ready benchmark and the agent-release approval workflow.");
 }
 export function compareAgentConfigVersions(before: AgentConfigVersion, after: AgentConfigVersion): AgentConfigDiff {
   const a = new Map(before.files.map(file => [file.path, file.sha256]));
