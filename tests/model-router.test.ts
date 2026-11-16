@@ -52,6 +52,19 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.retries).toBe(0);
   });
 
+  it("records provider factory failures before any provider call", async () => {
+    const observed: string[] = [];
+    const router = new ModelRouter({
+      ...models,
+      onTrace(trace) { observed.push(trace.outcome); },
+      createProvider() { throw new Error("provider configuration unavailable"); },
+    });
+    await expect(router.complete({ task: { id: "factory", agent: "planner", title: "Factory", prompt: "Try" }, completedDependencies: [] })).rejects.toThrow("provider configuration unavailable");
+    expect(router.traces).toHaveLength(1);
+    expect(router.traces[0]).toMatchObject({ taskId: "factory", outcome: "failed", provider: "unavailable", outputTokensEstimate: 0 });
+    expect(observed).toEqual(["failed"]);
+  });
+
   it("keeps a successful provider result when the trace observer throws", async () => {
     const router = new ModelRouter({
       ...models,
