@@ -457,7 +457,7 @@ async function main(args: string[]): Promise<void> {
           
           const createProvider = (selectedModel: string) => candidate.provider === "claude-code"
             ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
-            : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: candidate.provider, ...(apiKey ? { FORGE_API_KEY: apiKey } : {}), FORGE_BASE_URL: baseUrl }, selectedModel);
+            : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: candidate.provider, ...(apiKey ? { FORGE_API_KEY: apiKey } : {}), ...(process.env.FORGE_BASE_URL ? { FORGE_BASE_URL: process.env.FORGE_BASE_URL } : {}) }, selectedModel);
           const router = new ModelRouter({
             fastModel: candidate.model, balancedModel: candidate.model, reasoningModel: candidate.model,
             retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2),
