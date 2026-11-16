@@ -153,7 +153,7 @@ export interface EvaluationJudge {
   complete(request: { task: { id: string; agent: string; title: string; prompt: string }; completedDependencies: ReadonlyArray<{ id: string; result: string }> }): Promise<{ content: string; provider: string; model?: string }>;
 }
 export interface JudgedEvaluationReport extends EvaluationReport {
-  judge: { provider: string; model?: string; evaluatedCases: number };
+  judge: { provider: string; model?: string; evaluatedCases: number; averageScore: number; passed: boolean };
   judgedCases: Array<{ caseId: string; taskId: string; agent: string; result: JudgeResult }>;
 }
 function parseJudgeResponse(content: string, output: string): Omit<JudgeResult, "provider" | "model"> {
@@ -190,5 +190,5 @@ export async function evaluateRunWithJudge(run: RunRecord, suite: EvaluationSuit
   }
   const provider = [...new Set(judgedCases.map(item => item.result.provider))].join(", ") || judge.name;
   const model = [...new Set(judgedCases.map(item => item.result.model).filter((item): item is string => Boolean(item)))].join(", ");
-  return { ...base, judge: { provider, ...(model ? { model } : {}), evaluatedCases: judgedCases.length }, judgedCases };
+  const averageScore = judgedCases.length ? Math.round(judgedCases.reduce((sum, item) => sum + item.result.score, 0) / judgedCases.length) : 0;\n  return { ...base, judge: { provider, ...(model ? { model } : {}), evaluatedCases: judgedCases.length, averageScore, passed: judgedCases.length === suite.cases.length && averageScore >= 80 }, judgedCases };
 }
