@@ -895,8 +895,11 @@ async function main(args: string[]): Promise<void> {
               createdAt: run.createdAt,
               updatedAt: run.updatedAt,
               taskCount: run.tasks.length,
+              pendingTaskCount: run.tasks.filter(task => task.status === "pending").length,
+              awaitingApprovalTaskCount: run.tasks.filter(task => task.status === "awaiting_approval").length,
               completedTaskCount: run.tasks.filter(task => task.status === "completed").length,
               failedTaskCount: run.tasks.filter(task => task.status === "failed").length,
+              blockedTaskCount: run.tasks.filter(task => task.status === "blocked").length,
               eventCount: run.events.length,
             })),
           };
