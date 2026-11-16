@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 describe.skipIf(!image)("real Docker sandbox integration", () => {
-  it("runs the selected script and excludes credential files and symlinks from the snapshot", async () => {
+  it("isolates host environment variables and excludes credential files and symlinks", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-real-docker-"));
     const project = path.join(root, "project");
     await mkdir(path.join(project, "src"), { recursive: true });
@@ -23,7 +23,7 @@ describe.skipIf(!image)("real Docker sandbox integration", () => {
       name: "forge-docker-integration",
       version: "1.0.0",
       scripts: {
-        test: "node -e \"const fs=require('node:fs');const checks={env:fs.existsSync('.env'),secret:fs.existsSync('src/private-token.txt'),link:fs.existsSync('src/external-link.txt')};console.log(JSON.stringify(checks));if(Object.values(checks).some(Boolean))process.exit(9)\""
+        test: "node -e \"const fs=require('node:fs');const checks={envFile:fs.existsSync('.env'),secretFile:fs.existsSync('src/private-token.txt'),symlink:fs.existsSync('src/external-link.txt'),hostEnv:process.env.FORGE_HOST_SECRET_SENTINEL!==undefined,uid:typeof process.getuid==='function'?process.getuid():0};console.log(JSON.stringify(checks));if(checks.envFile||checks.secretFile||checks.symlink||checks.hostEnv||checks.uid===0)process.exit(9)\""
       }
     }));
     await writeFile(path.join(project, ".env"), "FORGE_TEST_SECRET=do-not-copy");
@@ -36,9 +36,11 @@ describe.skipIf(!image)("real Docker sandbox integration", () => {
     });
 
     expect(result.status, result.output).toBe("passed");
-    expect(result.output).toContain('"env":false');
-    expect(result.output).toContain('"secret":false');
-    expect(result.output).toContain('"link":false');
+    expect(result.output).toContain('"envFile":false');
+    expect(result.output).toContain('"secretFile":false');
+    expect(result.output).toContain('"symlink":false');
+    expect(result.output).toContain('"hostEnv":false');
+    expect(result.output).not.toContain('"uid":0');
     expect(result.output).toContain("network=none");
     expect(result.output).toContain("readOnlyRoot=true");
     expect(result.output).toContain("capDrop=ALL");
