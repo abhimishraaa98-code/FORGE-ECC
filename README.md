@@ -16,7 +16,7 @@ forge inspect ./my-project
 To use the latest source without a global install, clone this repository and run:
 
 ```bash
-npm install
+npm ci
 npm run build
 node dist/cli.js --help
 node dist/cli.js init ./my-project
@@ -77,7 +77,7 @@ For controlled skill experiments, use `forge experiment-studio create` with `--p
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run build
