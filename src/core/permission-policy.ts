@@ -1,4 +1,4 @@
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface ForgePermissionPolicy {
@@ -33,19 +33,28 @@ export function validatePermissionPolicy(value: unknown): ForgePermissionPolicy 
   return { version: 1, mode: item.mode, allowedTools: [...new Set(item.allowedTools as string[])] };
 }
 
-/** Loads declarative policy. Missing files resolve to the safe proposal-only default. */
+function isMissing(error: unknown): boolean {\n  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");\n}\n\n/** Loads declarative policy. Missing files resolve to the safe proposal-only default. */
 export async function loadPermissionPolicy(projectPath: string): Promise<ForgePermissionPolicy> {
-  const file = path.join(path.resolve(projectPath), ".forge", "permissions.json");
+  const root = await realpath(path.resolve(projectPath));
+  const directory = path.join(root, ".forge");
+  const file = path.join(directory, "permissions.json");
   try {
+    const directoryInfo = await lstat(directory);
+    if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) {
+      throw new Error("The .forge policy directory must be a real directory inside the project.");
+    }
     const info = await lstat(file);
     if (info.isSymbolicLink() || !info.isFile()) {
       throw new Error("The .forge/permissions.json policy file must be a regular file, not a symbolic link.");
     }
-    return validatePermissionPolicy(JSON.parse(await readFile(file, "utf8")));
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return { ...DEFAULT_PERMISSION_POLICY, allowedTools: [] };
+    const actualFile = await realpath(file);
+    const relative = path.relative(root, actualFile);
+    if (relative.startsWith(".." + path.sep) || relative === ".." || path.isAbsolute(relative)) {
+      throw new Error("The permission policy file must stay inside the project.");
     }
+    return validatePermissionPolicy(JSON.parse(await readFile(actualFile, "utf8")));
+  } catch (error) {
+    if (isMissing(error)) return { ...DEFAULT_PERMISSION_POLICY, allowedTools: [] };
     throw error;
   }
 }
