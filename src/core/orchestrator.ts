@@ -31,6 +31,7 @@ export interface AgentResponse {
 export interface AgentRequest {
   task: AgentTask;
   completedDependencies: ReadonlyArray<{ id: string; result: string }>;
+  projectContext?: string;
 }
 
 export interface AgentProvider {
@@ -134,6 +135,7 @@ export function createRun(goal: string, tasks: readonly AgentTask[]): RunRecord 
 export interface AdvanceRunOptions {
   /** Maximum number of independent agents to call at the same time. */
   maxConcurrency?: number;
+  projectContext?: string;
 }
 
 /**
@@ -209,6 +211,7 @@ export async function advanceRun(
             id: dependency.task.id,
             result: dependency.result?.content ?? "",
           })),
+          ...(options.projectContext ? { projectContext: options.projectContext } : {}),
         });
         return { record, result } as const;
       } catch (error) {
