@@ -37,8 +37,9 @@ import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.j
 import { createReplayRun } from "./core/run-replay.js";
 import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, loadEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
 import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkTrial } from "./core/benchmark-engine.js";
-import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
+import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, listBenchmarkMatrices, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
+import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -162,6 +163,20 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "optimize-agents": {
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      try {
+        const matrices = await listBenchmarkMatrices(target);
+        const plan = buildAgentOptimizationPlan(matrices);
+        process.stdout.write(formatAgentOptimizationPlan(plan) + "\\n");
+        if (plan.status === "insufficient-history") process.exitCode = 2;
+      } catch (error) {
+        process.stderr.write("FORGE adaptive agent optimization failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
       return;
     }
     case "benchmark-regression": {
