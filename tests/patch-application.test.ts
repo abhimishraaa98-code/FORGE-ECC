@@ -79,7 +79,7 @@ describe("isolated approved patch staging", () => {
     expect(result.file).toBe("src/a.ts");
     expect(result.stagedSha256).toBe(staged.stagedSha256);
     expect(result.snapshotFileCount).toBeGreaterThanOrEqual(2);
-    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\\n");
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
   });;
 
 });
