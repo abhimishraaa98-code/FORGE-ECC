@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -49,6 +49,15 @@ describe("agent configuration versioning", () => {
     parsed.files[0].content = "tampered";
     await writeFile(file, JSON.stringify(parsed));
     await expect(loadAgentConfigVersion(root, version.id)).rejects.toThrow("invalid file");
+  });
+  it("rejects symlinked agent configuration directories", async () => {
+    const root = await project();
+    const outside = path.join(root, "outside-agent-configs");
+    await mkdir(outside);
+    await writeFile(path.join(outside, "external.md"), "# External\\n");
+    await rm(path.join(root, ".forge", "agents"), { recursive: true });
+    await symlink(outside, path.join(root, ".forge", "agents"), "dir");
+    await expect(captureAgentConfigVersion(root)).rejects.toThrow("must not be symbolic links");
   });
   it("requires a workspace configuration to snapshot", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-config-empty-"));
