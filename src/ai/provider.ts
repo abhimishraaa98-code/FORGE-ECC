@@ -1,10 +1,11 @@
+import { ClaudeCodeProvider } from "./claude-code-provider.js";
 /**
  * Provider-neutral AI contract for FORGE.
  *
  * Core repository intelligence and MCP tools do not depend on an AI provider.
  * Real provider adapters can implement this interface without changing agents.
  */
-export type AIProviderId = "mock" | "anthropic" | "openai" | "google" | "ollama";
+export type AIProviderId = "mock" | "claude-code" | "anthropic" | "openai" | "google" | "ollama";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -53,12 +54,12 @@ const PROVIDER_ENV: Record<Exclude<AIProviderId, "mock">, {
 
 export function readAIProviderConfig(env: NodeJS.ProcessEnv = process.env): AIProviderConfig {
   const raw = (env.FORGE_AI_PROVIDER ?? "mock").trim().toLowerCase();
-  if (!["mock", "anthropic", "openai", "google", "ollama"].includes(raw)) {
-    throw new Error(`Unsupported FORGE_AI_PROVIDER "${raw}". Choose mock, anthropic, openai, google, or ollama.`);
+  if (!["mock", "claude-code", "anthropic", "openai", "google", "ollama"].includes(raw)) {
+    throw new Error(`Unsupported FORGE_AI_PROVIDER "${raw}". Choose mock, claude-code, anthropic, openai, google, or ollama.`);
   }
 
   const provider = raw as AIProviderId;
-  if (provider === "mock") return { provider };
+  if (provider === "mock" || provider === "claude-code") return { provider, ...(env.FORGE_AI_MODEL ? { model: env.FORGE_AI_MODEL } : {}) };
 
   const defaults = PROVIDER_ENV[provider];
   const apiKey = provider === "ollama" ? undefined : env[defaults.key];
@@ -101,6 +102,7 @@ export class MockAIProvider implements AIProvider {
  */
 export function createAIProvider(config: AIProviderConfig): AIProvider {
   if (config.provider === "mock") return new MockAIProvider();
+  if (config.provider === "claude-code") return new ClaudeCodeProvider({ ...(config.model ? { } : {}) });
   throw new Error(
     `The ${config.provider} provider adapter is not installed yet. FORGE core and MCP work without it; use FORGE_AI_PROVIDER=mock until an adapter is configured.`,
   );
