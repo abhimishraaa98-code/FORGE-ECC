@@ -40,4 +40,13 @@ describe("workspace browser", () => {
     await expect(readWorkspaceFile(root, "linked.ts")).rejects.toThrow();
     await expect(readWorkspaceFile(root, "large.ts")).rejects.toThrow("128 KiB");
   });
+
+  it("blocks sensitive path segments even when the leaf filename looks harmless", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-workspace-"));
+    await mkdir(path.join(root, "credentials"));
+    await writeFile(path.join(root, "credentials", "notes.txt"), "private material");
+    await expect(listWorkspaceDirectory(root, "credentials")).rejects.toThrow(/Sensitive workspace paths/);
+    await expect(readWorkspaceFile(root, "credentials/notes.txt")).rejects.toThrow(/Sensitive workspace paths/);
+  });
+
 });
