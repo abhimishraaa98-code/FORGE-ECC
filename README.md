@@ -627,6 +627,18 @@ The report compares matching provider/model candidates against the most recent e
 The local dashboard exposes the same analysis in Regression Intelligence. These thresholds are configurable in source for now. The report is a signal, not a release guarantee: use identical code snapshots, prompts, suite definitions, model versions and runtime conditions. Token comparisons are estimated, not billed usage.
 
 
+### Adaptive Agent Optimization
+
+After two comparable benchmark matrices have been recorded, generate an advisory improvement plan:
+
+```bash
+forge optimize-agents --path .
+```
+
+FORGE examines the latest comparable suite/goal pair, per-agent score changes, and repeated failed rubric criteria retained in benchmark results. It can recommend reviewing task prompts, adding a focused skill/checklist, or strengthening evaluation coverage. The local dashboard exposes the same output under **Adaptive Agent Recommendations**.
+
+This is deliberately recommendation-first. FORGE does not edit agent prompts, skill files, or configuration automatically, and it does not promote a change. Review the underlying outputs, make a deliberate change, then run a controlled benchmark with the same suite, goal, provider and model. Recommendations are limited by the rubric evidence available in the evaluation suite; they are not a semantic root-cause diagnosis.
+
 ### Controlled Skill Experiments
 
 Use an automated benchmark matrix to compare the same provider/model with a skill disabled versus enabled. Set the baseline candidate's `skillIds` to an empty array and the treatment candidate's `skillIds` to exactly the skill IDs listed in `skillExperiment`:
