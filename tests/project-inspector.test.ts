@@ -35,6 +35,20 @@ describe("inspectProject", () => {
     expect(report.importantFiles).toContain("README.md");
   });
 
+
+  it("does not traverse private configuration directories", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-private-scan-"));
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
+    await mkdir(path.join(root, ".ssh"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.ts"), "export {};");
+    await writeFile(path.join(root, ".forge", "agents", "private.ts"), "export {};");
+    await writeFile(path.join(root, ".ssh", "helper.ts"), "export {};");
+    const report = await inspectProject(root);
+    expect(report.summary.filesScanned).toBe(1);
+    expect(report.topLevel).toEqual(["src"]);
+  });
+
   it("formats a readable report", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-test-"));
     await writeFile(path.join(root, "main.py"), "print('hello')");
