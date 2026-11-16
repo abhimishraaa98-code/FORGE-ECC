@@ -890,6 +890,7 @@ async function main(args: string[]): Promise<void> {
           process.stdout.write(formatRunHistoryJson(runs));
         } else {
           process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not list run history: ${message}\n`);
