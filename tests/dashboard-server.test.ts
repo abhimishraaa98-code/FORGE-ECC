@@ -65,6 +65,31 @@ describe("local dashboard server", () => {
 
   });
 
+  it("runs an explicit provider diagnostic without requiring a credential to be echoed", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-provider-diagnostic-route-"));
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const names = ["FORGE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"] as const;
+    const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+    for (const name of names) delete process.env[name];
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/providers/openai/diagnose`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+      });
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result).toMatchObject({ provider: "openai", status: "needs-credentials", modelAvailable: null });
+      expect(JSON.stringify(result)).not.toContain("sk-");
+    } finally {
+      for (const name of names) {
+        const value = previous[name];
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
   it("lists, reads and safely saves workspace agent and skill Markdown", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-config-studio-"));
     await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
