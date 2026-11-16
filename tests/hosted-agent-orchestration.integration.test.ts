@@ -46,6 +46,7 @@ describe("hosted provider + multi-agent orchestration integration", () => {
     const run = createRun("Coordinate a small engineering review", [
       { id: "architecture", agent: "architect", title: "Map architecture", prompt: "Identify the main modules." },
       { id: "review", agent: "reviewer", title: "Review architecture", prompt: "Review the architecture proposal.", dependsOn: ["architecture"] },
+      { id: "docs", agent: "documentation-writer", title: "Summarize modules", prompt: "Summarize the modules independently." },
       { id: "security", agent: "security-reviewer", title: "Review security", prompt: "Check the security boundaries.", requiresApproval: true },
     ]);
 
@@ -54,10 +55,10 @@ describe("hosted provider + multi-agent orchestration integration", () => {
     expect(held.tasks.find(task => task.task.id === "architecture")?.status).toBe("completed");
     expect(held.tasks.find(task => task.task.id === "review")?.status).toBe("completed");
     expect(held.tasks.find(task => task.task.id === "security")?.status).toBe("awaiting_approval");
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(3);
     expect(requests.every(request => request.url === "http://localhost:43129/v1/messages")).toBe(true);
     expect(requests.every(request => (request.headers as Record<string, string>)["x-api-key"] === "test-key")).toBe(true);
-    expect(peak).toBe(1); // The dependent review starts only after the architecture result is available.
+    expect(peak).toBe(2); // Independent work overlaps; the dependent review waits for architecture.
 
     const reviewRequest = requests.find(request => {
       const messages = request.body.messages as Array<{ content: string }>;
@@ -78,7 +79,7 @@ describe("hosted provider + multi-agent orchestration integration", () => {
     const completed = await advanceRun(held, provider, new Set(["security"]), { maxConcurrency: 2 });
     expect(completed.status).toBe("completed");
     expect(completed.tasks.every(task => task.status === "completed")).toBe(true);
-    expect(requests).toHaveLength(3);
+    expect(requests).toHaveLength(4);
     expect(requests.some(request => {
       const messages = request.body.messages as Array<{ content: string }>;
       return JSON.parse(messages[0]?.content ?? "{}").agent === "security-reviewer";
