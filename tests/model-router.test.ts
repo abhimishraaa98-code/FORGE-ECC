@@ -96,6 +96,15 @@ describe("task-aware model routing", () => {
   });
 
 
+
+  it("enforces a cumulative estimated token budget per agent", async () => {
+    let calls = 0;
+    const router = new ModelRouter({ ...models, maxEstimatedTokensPerAgent: { planner: 8 }, createProvider: model => ({ name: model, async complete() { calls += 1; return { provider: model, content: "tiny" }; } }) });
+    const request = { task: { id: "first", agent: "planner", title: "First", prompt: "Short" }, completedDependencies: [] };
+    await router.complete(request);
+    await expect(router.complete({ ...request, task: { ...request.task, id: "second" } })).rejects.toThrow(/agent planner estimate would exceed/);
+    expect(calls).toBe(1);
+  });
   it("stops waiting when a task exceeds its duration budget and skips fallback", async () => {
     let primaryCalls = 0; let fallbackCalls = 0;
     const router = new ModelRouter({ ...models, maxTaskDurationMs: 5, fallbackModel: "backup-model", createProvider: model => ({ name: model, async complete() { if (model === "backup-model") fallbackCalls += 1; else primaryCalls += 1; await new Promise(resolve => setTimeout(resolve, 30)); return { provider: model, content: "late response" }; } }) });
