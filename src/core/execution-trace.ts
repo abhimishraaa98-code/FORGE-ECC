@@ -12,6 +12,23 @@ export interface ExecutionTraceDocument {
   providers: Array<{ name: string; requests: number; successes: number; fallbacks: number; failures: number; retries: number; durationMs: number }>;
 }
 
+function isValidTraceEntry(value: unknown): value is AgentTrace {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Record<string, unknown>;
+  return typeof entry.taskId === "string" && entry.taskId.length > 0 && entry.taskId.length <= 160 &&
+    typeof entry.agent === "string" && entry.agent.length > 0 && entry.agent.length <= 120 &&
+    (entry.tier === "fast" || entry.tier === "balanced" || entry.tier === "reasoning") &&
+    typeof entry.model === "string" && entry.model.length > 0 && entry.model.length <= 200 &&
+    typeof entry.provider === "string" && entry.provider.length > 0 && entry.provider.length <= 120 &&
+    typeof entry.startedAt === "string" && Number.isFinite(Date.parse(entry.startedAt)) &&
+    typeof entry.durationMs === "number" && Number.isFinite(entry.durationMs) && entry.durationMs >= 0 &&
+    (entry.outcome === "success" || entry.outcome === "fallback" || entry.outcome === "failed") &&
+    typeof entry.inputTokensEstimate === "number" && Number.isSafeInteger(entry.inputTokensEstimate) && entry.inputTokensEstimate >= 0 &&
+    typeof entry.outputTokensEstimate === "number" && Number.isSafeInteger(entry.outputTokensEstimate) && entry.outputTokensEstimate >= 0 &&
+    (entry.error === undefined || typeof entry.error === "string") &&
+    (entry.retries === undefined || (Number.isSafeInteger(entry.retries) && (entry.retries as number) >= 0));
+}
+
 function summarizeProviders(entries: readonly AgentTrace[]): ExecutionTraceDocument["providers"] {
   const providers = new Map<string, ExecutionTraceDocument["providers"][number]>();
   for (const entry of entries) {
@@ -58,6 +75,9 @@ async function withTraceWriteLock<T>(directory: string, runId: string, action: (
 export async function saveExecutionTrace(projectPath: string, runId: string, entries: readonly AgentTrace[]): Promise<string> {
   if (!/^forge-[a-z0-9-]{1,80}$/.test(runId) || runId.includes("..")) throw new Error("Invalid FORGE run identifier.");
   const directory = path.join(path.resolve(projectPath), ".forge", "traces");
+  if (!Array.isArray(entries) || entries.some(entry => !isValidTraceEntry(entry))) {
+    throw new Error("Execution trace contains an invalid agent entry.");
+  }
   await mkdir(directory, { recursive: true });
   return withTraceWriteLock(directory, runId, async () => {
   const totals = {
@@ -75,7 +95,8 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
   let createdAt = document.createdAt;
   try {
     const previous = JSON.parse(await readFile(destination, "utf8")) as Partial<ExecutionTraceDocument>;
-    if (previous.version !== 1 || previous.runId !== runId || !Array.isArray(previous.entries)) throw new Error("Existing execution trace has an invalid format.");
+    if (previous.version !== 1 || previous.runId !== runId || !Array.isArray(previous.entries) ||
+        previous.entries.some(entry => !isValidTraceEntry(entry))) throw new Error("Existing execution trace has an invalid format.");
     priorEntries = previous.entries;
     if (typeof previous.createdAt === "string") createdAt = previous.createdAt;
   } catch (error) {
@@ -108,6 +129,12 @@ export async function loadExecutionTrace(projectPath: string, runId: string): Pr
   if (!/^forge-[a-z0-9-]{1,80}$/.test(runId) || runId.includes("..")) throw new Error("Invalid FORGE run identifier.");
   const file = path.join(path.resolve(projectPath), ".forge", "traces", runId + ".json");
   const parsed: unknown = JSON.parse(await readFile(file, "utf8"));
-  if (!parsed || typeof parsed !== "object" || !("runId" in parsed) || parsed.runId !== runId || !("entries" in parsed) || !Array.isArray(parsed.entries)) throw new Error("Stored execution trace has an invalid format.");
+  if (!parsed || typeof parsed !== "object" || !("version" in parsed) || parsed.version !== 1 ||
+      !("runId" in parsed) || parsed.runId !== runId || !("createdAt" in parsed) ||
+      typeof parsed.createdAt !== "string" || !Number.isFinite(Date.parse(parsed.createdAt)) ||
+      !("entries" in parsed) || !Array.isArray(parsed.entries) ||
+      parsed.entries.some(entry => !isValidTraceEntry(entry))) {
+    throw new Error("Stored execution trace has an invalid format.");
+  }
   return parsed as ExecutionTraceDocument;
 }
