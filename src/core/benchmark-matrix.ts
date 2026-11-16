@@ -105,6 +105,7 @@ export async function executeBenchmarkMatrix(
   config: BenchmarkMatrixConfig,
   execute: (candidate: BenchmarkCandidate, repeat: number) => Promise<Omit<BenchmarkMatrixResult, "candidateId" | "provider" | "model" | "repeat" | "status">>,
 ): Promise<BenchmarkMatrixReport> {
+  config = validateBenchmarkMatrix(config);
   const results: BenchmarkMatrixResult[] = [];
   for (const candidate of config.candidates) {
     for (let repeat = 1; repeat <= config.repeats; repeat += 1) {
