@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { listWorkspaceDirectory, readWorkspaceFile } from "../src/core/workspace-browser.js";
+import { assertWorkspacePathAllowed, listWorkspaceDirectory, readWorkspaceFile } from "../src/core/workspace-browser.js";
 
 let root = "";
 afterEach(async () => { if (root) await rm(root, { recursive: true, force: true }); root = ""; });
@@ -45,6 +45,14 @@ describe("workspace browser", () => {
     await expect(readWorkspaceFile(root, "linked.ts")).rejects.toThrow();
     await expect(listWorkspaceDirectory(root, "linked-dir")).rejects.toThrow();
     await expect(readWorkspaceFile(root, "large.ts")).rejects.toThrow("128 KiB");
+  });
+
+  it("applies the same visibility rules to selected project roots", () => {
+    for (const relativePath of [".forge", ".git", "node_modules", "dist", ".turbo"]) {
+      expect(() => assertWorkspacePathAllowed(relativePath)).toThrow(/Hidden or excluded/);
+    }
+    expect(() => assertWorkspacePathAllowed("src")).not.toThrow();
+    expect(() => assertWorkspacePathAllowed("credentials")).toThrow(/Sensitive workspace paths/);
   });
 
   it("rejects direct browsing of hidden and excluded directories", async () => {
