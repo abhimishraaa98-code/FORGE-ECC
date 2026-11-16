@@ -14,6 +14,7 @@ export interface AgentConfigVersion {
   createdBy: string;
   note: string;
   status: "candidate" | "approved";
+  approvedBy?: string;
   files: AgentConfigFile[];
 }
 export interface AgentConfigDiff {
@@ -41,6 +42,7 @@ function validateVersion(value: unknown): AgentConfigVersion {
   if (item.version !== 1 || !SAFE_ID.test(item.id) || typeof item.createdAt !== "string" ||
       typeof item.createdBy !== "string" || typeof item.note !== "string" ||
       (item.status !== "candidate" && item.status !== "approved") ||
+      (item.approvedBy !== undefined && (typeof item.approvedBy !== "string" || item.approvedBy.length > 80)) ||
       !Array.isArray(item.files) || item.files.length > MAX_FILES) {
     throw new Error("Unsupported or malformed agent configuration version.");
   }
@@ -119,7 +121,7 @@ export async function loadAgentConfigVersion(projectPath: string, id: string): P
 }
 export async function approveAgentConfigVersion(projectPath: string, id: string, reviewer: string): Promise<AgentConfigVersion> {
   const current = await loadAgentConfigVersion(projectPath, id);
-  const approved = { ...current, status: "approved" as const, createdBy: current.createdBy + " · approved by " + reviewer.slice(0,80) };
+  const approved = { ...current, status: "approved" as const, approvedBy: reviewer.slice(0,80) };
   await writeAtomic(path.join(rootDir(projectPath), id + ".json"), JSON.stringify(approved, null, 2) + "\n");
   await writeAtomic(path.join(rootDir(projectPath), "approved.json"), JSON.stringify({ version: 1, activeApprovedVersionId: id, updatedAt: new Date().toISOString() }, null, 2) + "\n");
   return approved;
@@ -138,7 +140,7 @@ export function formatAgentConfigVersion(version: AgentConfigVersion): string {
     "FORGE Agent Configuration Version",
     "ID: " + version.id,
     "Created: " + version.createdAt,
-    "Author: " + version.createdBy,
+    "Author: " + version.createdBy,\n    "Approved by: " + (version.approvedBy ?? "not approved"),
     "Status: " + version.status.toUpperCase(),
     "Note: " + (version.note || "none"),
     "Files: " + version.files.length,
