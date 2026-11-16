@@ -26,6 +26,7 @@ import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
+import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
 import { analyzeDependencyImpact, formatDependencyImpact } from "./core/dependency-impact.js";
 import { analyzeEngineeringRisk, formatEngineeringRisk } from "./core/engineering-risk.js";
 import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/change-intelligence.js";
@@ -536,7 +537,7 @@ async function main(args: string[]): Promise<void> {
             const memory = await buildProjectMemoryContext(target, goal);
             const projectContext = memory.text;
             const started = Date.now();
-            const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => [agentGuidanceForTask(task), formatSkillContext(selectedSkillsForTask(task))].filter(Boolean).join("\n\n") });
+            const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: async task => [agentGuidanceForTask(task), formatSkillContext(selectedSkillsForTask(task)), await buildAgentWorkspaceContext(target, task)].filter(Boolean).join("\n\n") });
             const durationMs = Date.now() - started;
             await saveRun(target, completed);
             await saveExecutionTrace(target, completed.id, router.traces);
@@ -764,7 +765,7 @@ async function main(args: string[]): Promise<void> {
           ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}), createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
         let persistedTraceEntries = 0;
-        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
+        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, projectContextForTask: task => buildAgentWorkspaceContext(target, task), shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
           await saveRun(target, snapshot);
           const newEntries = router.traces.slice(persistedTraceEntries);
           if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
@@ -868,7 +869,7 @@ async function main(args: string[]): Promise<void> {
         if (hooks.length) process.stdout.write("Loaded policy hooks: " + hooks.length + "\n");
         const memory = await buildProjectMemoryContext(target, goal);
         const projectContext = [memory.text, skillContext].filter(Boolean).join("\n\n");
-        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext });
+        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => buildAgentWorkspaceContext(target, task) });
         const saved = await saveRun(target, completed);
         const tracePath = await saveExecutionTrace(target, completed.id, router.traces);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\nExecution trace: ${path.relative(target, tracePath)}\n`);
