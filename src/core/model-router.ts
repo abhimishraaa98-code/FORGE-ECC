@@ -111,7 +111,19 @@ export class ModelRouter implements AgentProvider {
     if (agentLimit !== undefined && agentUsed + inputTokensEstimate > agentLimit) rejectBeforeProvider(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before provider call.`);
     this.estimatedTokensUsed += inputTokensEstimate;
     this.estimatedTokensByAgent.set(request.task.agent, agentUsed + inputTokensEstimate);
-    const provider = this.options.createProvider(route.model);
+    let provider: AgentProvider;
+    try {
+      provider = this.options.createProvider(route.model);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.recordTrace({
+        taskId: request.task.id, agent: request.task.agent, tier: route.tier,
+        model: route.model, provider: "unavailable", startedAt,
+        durationMs: Date.now() - start, outcome: "failed", retries: 0,
+        inputTokensEstimate, outputTokensEstimate: 0, error: message,
+      });
+      throw error;
+    }
     const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
     const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
       if (durationLimit === undefined) return target.complete(request);
