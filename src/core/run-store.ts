@@ -189,7 +189,7 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
         typeof event.message !== "string") {
       throw new Error("Stored run file contains an invalid event record.");
     }
-    if (event.taskId && !taskIds.has(event.taskId)) {
+    if (event.taskId && event.taskId !== "*" && !taskIds.has(event.taskId)) {
       throw new Error("Stored run file contains an event for an unknown task.");
     }
   }
