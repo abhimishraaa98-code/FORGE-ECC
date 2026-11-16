@@ -3,6 +3,7 @@ import { buildContainerRunArgs, detectDockerRootless } from "../src/core/contain
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { createSandboxComplianceReport, formatSandboxComplianceReport } from "../src/core/sandbox-compliance.js";
+import { validateSandboxPolicy } from "../src/core/sandbox-policy.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -176,5 +177,30 @@ describe("sandbox compliance reporting", () => {
     });
     expect(report.status).toBe("non-compliant");
     expect(report.checks.some(check => check.id === "rootless" && check.status === "fail")).toBe(true);
+  });
+});
+
+describe("fail-closed sandbox policy validation", () => {
+  const validPolicy = {
+    version: 1, profile: "balanced", network: "none", readOnlyRoot: true,
+    dropAllCapabilities: true, noNewPrivileges: true, maxMemory: "512m",
+    maxCpus: 1, maxProcesses: 64, requireRootless: false, requireImageDigest: true,
+  };
+  it("accepts a valid restrictive policy", () => {
+    expect(validateSandboxPolicy(validPolicy).valid).toBe(true);
+  });
+  it("rejects attempts to enable network or writable root", () => {
+    const result = validateSandboxPolicy({ ...validPolicy, network: "bridge", readOnlyRoot: false });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join(" ")).toMatch(/network must remain none/);
+  });
+  it("rejects unknown fields and relaxed limits", () => {
+    const result = validateSandboxPolicy({ ...validPolicy, maxCpus: 8, extra: true });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join(" ")).toMatch(/Unknown policy field/);
+  });
+  it("requires rootless for hardened policy", () => {
+    const result = validateSandboxPolicy({ ...validPolicy, profile: "hardened" });
+    expect(result.valid).toBe(false);
   });
 });
