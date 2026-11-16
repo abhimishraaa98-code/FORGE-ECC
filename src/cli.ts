@@ -45,7 +45,7 @@ import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/bench
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } from "./core/agent-evaluation-intelligence.js";
 import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
-import { createSkillExperimentMatrix, formatSkillExperimentMatrix } from "./core/agent-experiment-studio.js";
+import { createSkillExperimentMatrix, formatSkillExperimentMatrix, createModelComparisonMatrix, formatModelComparisonMatrix } from "./core/agent-experiment-studio.js";
 import { buildExperimentHistory, formatExperimentHistory } from "./core/experiment-history.js";
 import { captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
@@ -93,7 +93,7 @@ Commands:
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
   agent-intelligence [--suite ID] [--candidate ID] [--limit N] [--path PROJECT]  Score agent effectiveness across benchmark history
   agent-evolution MATRIX_ID [--path PROJECT]  Evaluate a controlled baseline/treatment experiment
-  experiment-studio create [options]  Scaffold a controlled baseline/treatment skill experiment
+  experiment-studio <create|compare> [options]  Scaffold a skill or multi-model experiment
   experiment-history [--suite ID] [--candidate ID] [--limit N] [--json] [--path PROJECT]  Rank historical benchmark candidates
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
@@ -271,13 +271,43 @@ async function main(args: string[]): Promise<void> {
     case "experiment-studio": {
       const action = rest[0] ?? "create";
       const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
-      if (action !== "create") {
-        process.stderr.write("Usage: forge experiment-studio create --id ID --name NAME --provider openai|claude-code --model MODEL --skills skill-a,skill-b [--repeats 2] [--path PROJECT]\\n");
+      if (action !== "create" && action !== "compare") {
+        process.stderr.write("Usage: forge experiment-studio compare --id ID --name NAME --candidates id:provider:model,id:provider:model [--repeats 2] [--path PROJECT]\\n");
+        process.stderr.write("   or: forge experiment-studio create --id ID --name NAME --provider PROVIDER --model MODEL --skills skill-a,skill-b [--repeats 2] [--path PROJECT]\\n");
         process.exitCode = 1;
         return;
       }
       const id = option("--id");
       const name = option("--name");
+      if (action === "compare") {
+        const rawCandidates = option("--candidates");
+        const repeats = Number(option("--repeats") ?? "2");
+        const pathIndex = rest.indexOf("--path");
+        const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+        if (!id || !name || !rawCandidates) {
+          process.stderr.write("Usage: forge experiment-studio compare --id ID --name NAME --candidates id:provider:model,id:provider:model [--repeats 2] [--path PROJECT]\\n");
+          process.exitCode = 1; return;
+        }
+        try {
+          const candidates = rawCandidates.split(",").map(item => {
+            const [candidateId, candidateProvider, ...modelParts] = item.split(":");
+            const model = modelParts.join(":");
+            if (!candidateId || !candidateProvider || !model) throw new Error("Each candidate must use id:provider:model format.");
+            if (!["openai", "claude-code", "anthropic", "google", "ollama"].includes(candidateProvider)) throw new Error("Unsupported candidate provider: " + candidateProvider);
+            return { id: candidateId, provider: candidateProvider as "openai" | "claude-code" | "anthropic" | "google" | "ollama", model };
+          });
+          const matrix = createModelComparisonMatrix({ id, name, repeats, candidates });
+          const destination = path.join(target, ".forge", "experiments", id + ".json");
+          const { mkdir, writeFile } = await import("node:fs/promises");
+          await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+          await writeFile(destination, JSON.stringify(matrix, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+          process.stdout.write(formatModelComparisonMatrix(matrix) + "\\nSaved: " + path.relative(target, destination) + "\\n");
+        } catch (error) {
+          process.stderr.write("FORGE model comparison failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+          process.exitCode = 1;
+        }
+        return;
+      }
       const provider = option("--provider") ?? "openai";
       const model = option("--model");
       const skills = option("--skills");
