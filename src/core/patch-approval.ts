@@ -18,7 +18,6 @@ export interface PatchApprovalRecord {
 }
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-function directory(root: string): string { return path.join(path.resolve(root), ".forge", "patch-approvals"); }
 async function ensureApprovalDirectory(root: string): Promise<string> {
   const project = await import("node:fs/promises").then(fs => fs.realpath(path.resolve(root)));
   let cursor = project;
@@ -67,8 +66,7 @@ export async function approveReviewPatch(
     patchSha256: digest(suggestion.patch),
     sourceSha256: digest(source),
   };
-  const dir = directory(root);
-  await mkdir(dir, { recursive: true });
+  const dir = await ensureApprovalDirectory(root);
   const destination = path.join(dir, record.id + ".json");
   const temporary = path.join(dir, "." + record.id + "." + randomUUID() + ".tmp");
   try {
