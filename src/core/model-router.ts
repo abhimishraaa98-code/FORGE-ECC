@@ -136,14 +136,32 @@ export class ModelRouter implements AgentProvider {
       throw error;
     }
     const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
+    const durationError = (): Error => new Error(`FORGE budget exceeded: task duration exceeded ${durationLimit} ms for agent ${request.task.agent}. The provider request may still be running.`);
+    const remainingDuration = (): number | undefined => durationLimit === undefined ? undefined : durationLimit - (Date.now() - start);
+    const waitWithinBudget = async (milliseconds: number): Promise<void> => {
+      const remaining = remainingDuration();
+      if (remaining === undefined) { await (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds); return; }
+      if (remaining <= 0 || milliseconds >= remaining) {
+        if (remaining > 0) {
+          await Promise.race([
+            (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds),
+            new Promise<never>((_, reject) => setTimeout(() => reject(durationError()), remaining)),
+          ]);
+        }
+        throw durationError();
+      }
+      await (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds);
+    };
     const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
       const complete = async (): Promise<AgentResponse> => validateProviderResponse(await target.complete(request));
-      if (durationLimit === undefined) return complete();
+      const remaining = remainingDuration();
+      if (remaining === undefined) return complete();
+      if (remaining <= 0) throw durationError();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         return await Promise.race([
           complete(),
-          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`FORGE budget exceeded: task duration exceeded ${durationLimit} ms for agent ${request.task.agent}. The provider request may still be running.`)), durationLimit); }),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(durationError()), remaining); }),
         ]);
       } finally { if (timer !== undefined) clearTimeout(timer); }
     };
@@ -160,7 +178,7 @@ export class ModelRouter implements AgentProvider {
         if (attempt >= maxRetries || !isRetryableProviderError(error)) break;
         retries += 1;
         const delay = (this.options.retryDelayMs ?? 500) * Math.pow(2, attempt);
-        await (this.options.sleep ?? (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))))(delay);
+        await waitWithinBudget(delay);
       }
     }
     if (response) {
