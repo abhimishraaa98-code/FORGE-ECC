@@ -128,7 +128,32 @@ describe("local dashboard server", () => {
     const forbidden = await fetch(base + "/api/overview", { method: "POST" });
     expect(forbidden.status).toBe(405);
 
-    const pendingRun = await advanceRun(createRun("Review a release", [
+    const workflowResponse = await fetch(base + "/api/workflows", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "dashboard-flow", name: "Dashboard flow", description: "Test pipeline",
+        tasks: [
+          { id: "plan", agent: "planner", title: "Plan", prompt: "Create a plan." },
+          { id: "review", agent: "code-reviewer", title: "Review", prompt: "Review the plan.", dependsOn: ["plan"], requiresApproval: true }
+        ]
+      })
+    });
+    expect(workflowResponse.status).toBe(201);
+    const savedWorkflow = await workflowResponse.json();
+    expect(savedWorkflow.id).toBe("dashboard-flow");
+    const workflowListResponse = await fetch(base + "/api/workflows");
+    expect((await workflowListResponse.json()).some((item: { id: string }) => item.id === "dashboard-flow")).toBe(true);
+    const workflowRunResponse = await fetch(base + "/api/workflows/dashboard-flow/run", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+    });
+    expect(workflowRunResponse.status).toBe(201);
+    const workflowRun = await workflowRunResponse.json();
+    expect(workflowRun.taskCount).toBe(2);
+    const createdDraft = await fetch(base + "/api/runs/" + workflowRun.id);
+    const createdDraftJson = await createdDraft.json();
+    expect(createdDraftJson.status).toBe("pending");
+    expect(createdDraftJson.tasks[1].dependsOn).toEqual(["plan"]);
+\n    const pendingRun = await advanceRun(createRun("Review a release", [
       { id: "review", agent: "reviewer", title: "Review release", prompt: "Review the proposed release", requiresApproval: true },
     ]), new DemoAgentProvider());
     await saveRun(root, pendingRun);
