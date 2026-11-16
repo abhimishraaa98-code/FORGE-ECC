@@ -3,7 +3,7 @@ import path from "node:path";
 
 const MAX_ENTRIES = 200;
 const MAX_PREVIEW_BYTES = 128 * 1024;
-const IGNORED_DIRECTORIES = new Set([".git", "node_modules", ".forge", "dist", "build", "coverage", ".next"]);
+const IGNORED_DIRECTORIES = new Set([".git", "node_modules", ".forge", "dist", "build", "coverage", ".next", ".turbo"]);
 const BLOCKED_NAME = /(^|[. _-])(env|secret|secrets|credential|credentials|private|token|password)([. _-]|$)/i;
 const PREVIEW_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx", ".txt",
@@ -40,6 +40,9 @@ async function resolveWorkspacePath(rootPath: string, relativePath: string): Pro
   }
   const segments = normalized.split("/").filter(part => part && part !== ".");
   if (segments.some(isBlocked)) throw new Error("Sensitive workspace paths are not browsable.");
+  if (segments.some(segment => segment.startsWith(".") || IGNORED_DIRECTORIES.has(segment))) {
+    throw new Error("Hidden or excluded workspace paths are not browsable.");
+  }
   let cursor = root;
   for (const segment of segments) {
     cursor = path.join(cursor, segment);
