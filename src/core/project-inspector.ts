@@ -4,6 +4,7 @@ import path from "node:path";
 const IGNORED_DIRECTORIES = new Set([
   ".git", ".next", ".nuxt", ".output", ".turbo", ".vercel",
   "coverage", "dist", "build", "out", "node_modules", "vendor",
+  ".forge", ".ssh", ".aws", ".azure", ".kube", ".docker", ".gnupg", ".npm", ".config",
   ".venv", "venv", "__pycache__", ".idea", ".vscode"
 ]);
 
