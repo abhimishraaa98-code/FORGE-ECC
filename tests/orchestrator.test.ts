@@ -98,6 +98,28 @@ describe("FORGE orchestration engine", () => {
     expect(result.tasks.every(task => task.status === "completed")).toBe(true);
   });
 
+  it("stops scheduling pending tasks when a provider reports budget exhaustion", async () => {
+    const started: string[] = [];
+    const budgetProvider: AgentProvider = {
+      name: "budget-test",
+      async complete(request) {
+        started.push(request.task.id);
+        if (request.task.id === "first") throw new Error("FORGE budget exceeded: run token limit reached.");
+        return { provider: "budget-test", content: "done" };
+      },
+    };
+    const run = createRun("Budget stop", [
+      { id: "first", agent: "planner", title: "First", prompt: "First" },
+      { id: "second", agent: "reviewer", title: "Second", prompt: "Second" },
+      { id: "third", agent: "tester", title: "Third", prompt: "Third" },
+    ]);
+    const result = await advanceRun(run, budgetProvider, new Set(), { maxConcurrency: 1 });
+    expect(started).toEqual(["first"]);
+    expect(result.status).toBe("failed");
+    expect(result.tasks[1]?.status).toBe("blocked");
+    expect(result.events.some(event => event.type === "budget_exceeded")).toBe(true);
+  });
+
   it("does not start dependent tasks before their prerequisites finish", async () => {
     const started: string[] = [];
     const trackingProvider: AgentProvider = {
