@@ -87,9 +87,17 @@ describe("FORGE MCP stdio protocol integration", () => {
     expect(listing.error).toBeUndefined();
     expect(listing.result?.isError).not.toBe(true);
     const listingText = listing.result.content.find((part: { type: string }) => part.type === "text")?.text ?? "";
-    expect(listingText).toContain("src/index.ts");
+    expect(listingText).toContain('"name": "src"');
     expect(listingText).not.toContain(".env");
     expect(listingText).not.toContain("MCP_SENTINEL");
+
+    const sourceListing = await request("tools/call", {
+      name: "forge_list_files",
+      arguments: { relativePath: "src" }
+    });
+    expect(sourceListing.result?.isError).not.toBe(true);
+    const sourceListingText = sourceListing.result.content.find((part: { type: string }) => part.type === "text")?.text ?? "";
+    expect(sourceListingText).toContain("src/index.ts");
 
     const denied = await request("tools/call", {
       name: "forge_list_files",
