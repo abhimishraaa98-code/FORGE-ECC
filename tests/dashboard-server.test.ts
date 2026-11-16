@@ -38,6 +38,34 @@ describe("local dashboard server", () => {
     expect(data.agents[0].skillsObserved).toContain("secure-changes");
   });
 
+  it("lists, reads and safely saves workspace agent and skill Markdown", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-config-studio-"));
+    await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
+    await mkdir(path.join(root, ".forge", "skills"), { recursive: true });
+    await writeFile(path.join(root, ".forge", "agents", "planner.md"), "# Planner\\nPlan safely.\\n");
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const base = `http://127.0.0.1:${address.port}`;
+    const inventory = await fetch(base + "/api/config-files");
+    expect(inventory.status).toBe(200);
+    expect(await inventory.json()).toEqual([{ category: "agents", id: "planner", bytes: 24 }]);
+    const read = await fetch(base + "/api/config-files?category=agents&id=planner");
+    expect((await read.json()).content).toContain("Plan safely");
+    const saved = await fetch(base + "/api/config-files", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ category: "skills", id: "api-safety", content: "# API safety\\nValidate every boundary.\\n" })
+    });
+    expect(saved.status).toBe(200);
+    expect((await saved.json()).id).toBe("api-safety");
+    const invalid = await fetch(base + "/api/config-files", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ category: "agents", id: "../escape", content: "# Nope" })
+    });
+    expect(invalid.status).toBe(500);
+    expect(await readFile(path.join(root, ".forge", "skills", "api-safety.md"), "utf8")).toContain("Validate every boundary");
+  });
+
   it("serves the dashboard and read-only project APIs on loopback", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-dashboard-"));
     dashboard = await startDashboard({ projectPath: root, port: 0 });
