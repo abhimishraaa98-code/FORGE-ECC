@@ -5,6 +5,7 @@ import path from "node:path";
 import { installVerificationDependencies, runVerification, type DependencyInstallResult, type VerificationResult } from "./verification.js";
 import { copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
 import { runContainerVerification } from "./container-sandbox.js";
+import { loadSandboxPolicy } from "./sandbox-policy.js";
 
 export interface StagedVerificationResult {
   id: string;
@@ -31,9 +32,14 @@ export async function verifyStagedPatch(
   projectPath: string,
   stageId: string,
   script: string,
-  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number; sandboxImage?: string; runtimePath?: string; requireRootless?: boolean; securityProfile?: "balanced" | "hardened" | "rootless-required" } = {},
+  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number; sandboxImage?: string; runtimePath?: string; requireRootless?: boolean; securityProfile?: "balanced" | "hardened" | "rootless-required"; sandboxPolicyPath?: string } = {},
 ): Promise<StagedVerificationResult> {
   const project = await realpath(path.resolve(projectPath));
+  if (options.sandboxPolicyPath && !options.sandboxImage) throw new Error("--policy requires --sandbox-image container execution.");
+  const policyResult = options.sandboxPolicyPath ? await loadSandboxPolicy(options.sandboxPolicyPath) : undefined;
+  if (policyResult && !policyResult.valid) throw new Error("Invalid sandbox policy: " + policyResult.errors.join(" "));
+  const sandboxPolicy = policyResult?.valid ? policyResult.policy : undefined;
+  if (sandboxPolicy && options.securityProfile && sandboxPolicy.profile !== options.securityProfile) throw new Error("The --profile value must match the profile declared in --policy.");
   if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
   const stageRoot = path.join(project, ".forge", "patch-workspaces", stageId);
   const stageReal = await realpath(stageRoot);
@@ -87,6 +93,7 @@ export async function verifyStagedPatch(
           ...(options.runtimePath === undefined ? {} : { runtimePath: options.runtimePath }),
           ...(options.requireRootless === undefined ? {} : { requireRootless: options.requireRootless }),
           ...(options.securityProfile === undefined ? {} : { securityProfile: options.securityProfile }),
+          ...(sandboxPolicy === undefined ? {} : { sandboxPolicy }),
         })
       : await runVerification(snapshot, script, options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs });
     const id = "patch-verify-" + verification.id.slice("verify-".length);
