@@ -25,6 +25,27 @@ describe("local run history", () => {
     expect(history[0]?.goal).toBe("Track a plan");
   });
 
+  it("persists cumulative token usage with the run record", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-token-usage-"));
+    const run = createRun("Preserve budget across resume", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft a plan" },
+    ]);
+    await saveRun(root, { ...run, tokenUsage: { estimatedTokensUsed: 42, estimatedTokensByAgent: { planner: 42 } } });
+    await expect(loadRun(root, run.id)).resolves.toMatchObject({
+      tokenUsage: { estimatedTokensUsed: 42, estimatedTokensByAgent: { planner: 42 } },
+    });
+  });
+
+  it("rejects malformed persisted token usage", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-invalid-token-usage-"));
+    const run = createRun("Reject corrupt budget", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft a plan" },
+    ]);
+    await saveRun(root, run);
+    const file = path.join(root, ".forge", "runs", run.id + ".json");
+    await writeFile(file, JSON.stringify({ ...run, tokenUsage: { estimatedTokensUsed: -1, estimatedTokensByAgent: { planner: 3 } } }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/invalid token usage/);
+  });
   it("records one-time approval and rejection decisions with audit events", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-approval-"));
     const run = createRun("Gate sensitive tasks", [
