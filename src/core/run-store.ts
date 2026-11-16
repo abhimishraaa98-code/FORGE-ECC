@@ -118,6 +118,15 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
       !("updatedAt" in parsed) || typeof parsed.updatedAt !== "string") {
     throw new Error("Stored run file has an invalid format.");
   }
+  if ("tokenUsage" in parsed) {
+    const usage = parsed.tokenUsage;
+    if (!usage || typeof usage !== "object" ||
+        !("estimatedTokensUsed" in usage) || !Number.isSafeInteger(usage.estimatedTokensUsed) || usage.estimatedTokensUsed < 0 ||
+        !("estimatedTokensByAgent" in usage) || !usage.estimatedTokensByAgent || typeof usage.estimatedTokensByAgent !== "object" || Array.isArray(usage.estimatedTokensByAgent) ||
+        Object.entries(usage.estimatedTokensByAgent).some(([agent, value]) => !agent.trim() || !Number.isSafeInteger(value) || (value as number) < 0)) {
+      throw new Error("Stored run file contains invalid token usage.");
+    }
+  }
   for (const task of parsed.tasks) {
     if (!task || typeof task !== "object" || !("task" in task) ||
         !("status" in task) || typeof task.status !== "string" ||
