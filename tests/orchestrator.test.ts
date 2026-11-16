@@ -10,6 +10,27 @@ import {
 const provider = new DemoAgentProvider();
 
 describe("FORGE orchestration engine", () => {
+  it("rejects empty and malformed provider responses", async () => {
+    const invalidResponses = [
+      { provider: "test", content: "   " },
+      { provider: "", content: "proposal" },
+      { provider: "test", content: 42 },
+      { provider: "test", content: "proposal", model: 42 },
+    ];
+    for (const response of invalidResponses) {
+      const invalidProvider: AgentProvider = {
+        name: "invalid-response-test",
+        async complete() { return response as never; },
+      };
+      const run = createRun("Validate provider output", [
+        { id: "one", agent: "planner", title: "One", prompt: "One" },
+      ]);
+      const result = await advanceRun(run, invalidProvider);
+      expect(result.status).toBe("failed");
+      expect(result.tasks[0]?.error).toContain("invalid or empty agent proposal");
+    }
+  });
+
   it("rejects invalid concurrency limits instead of stalling", async () => {
     const run = createRun("Invalid concurrency", [
       { id: "one", agent: "planner", title: "One", prompt: "One" },
