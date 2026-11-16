@@ -162,7 +162,7 @@ Commands:
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
-  runs [path]      List locally saved run history\n  evals [path]     List local agent evaluation suites
+  runs [path]      List locally saved run history (add --json for versioned JSON)\n  evals [path]     List local agent evaluation suites
   trace RUNID      Show per-agent execution telemetry
   replay RUNID     Create a new run from retryable failed tasks
   resume RUNID     Continue pending or approved tasks in a saved run
@@ -883,6 +883,10 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     case "runs": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge runs [path] [--json]\nLists valid saved run records. Use --json for the versioned machine-readable summary.\n");
+        return;
+      }
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const runs = await listRuns(path.resolve(target));
@@ -899,6 +903,10 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     case "show-run": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge show-run RUN_ID [--path PROJECT]\nDisplays one validated saved run record.\n");
+        return;
+      }
       const id = rest.find(arg => !arg.startsWith("--")) ?? "";
       const pathIndex = rest.indexOf("--path");
       const target = pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".";
