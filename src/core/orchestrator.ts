@@ -241,6 +241,21 @@ export async function advanceRun(
         appendEvent(outcome.record.task.id, "failed", outcome.error);
       }
     }
+    const budgetExceeded = batchResults.some(outcome => "error" in outcome && outcome.error.startsWith("FORGE budget exceeded:"));
+    if (budgetExceeded) {
+      for (const record of next.tasks) {
+        if (record.status === "pending" || record.status === "awaiting_approval") {
+          record.status = "blocked";
+          record.error = "Not started because the run budget was exceeded.";
+          appendEvent(record.task.id, "blocked", record.error);
+        }
+      }
+      next.status = "failed";
+      next.updatedAt = timestamp();
+      appendEvent("*", "budget_exceeded", "A configured token budget was exceeded; no additional tasks will be started.");
+      await options.onUpdate?.(next);
+      break;
+    }
     if (await options.shouldCancel?.()) {
       next.status = "cancelled"; next.updatedAt = timestamp();
       appendEvent("*", "blocked", "Cancellation requested; the active batch has finished and no further tasks will be started.");
