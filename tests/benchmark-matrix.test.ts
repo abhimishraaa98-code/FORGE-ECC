@@ -27,13 +27,16 @@ describe("automated benchmark matrix", () => {
     const report = await executeBenchmarkMatrix(config, async (candidate, repeat) => {
       calls.push(candidate.id + ":" + repeat);
       if (candidate.id === "model-b" && repeat === 1) throw new Error("temporary provider error");
-      return { runId: candidate.id + "-" + repeat, score: candidate.id === "model-a" ? 80 + repeat : 90, passed: true, durationMs: 1000, estimatedTokens: 300 };
+      return { runId: candidate.id + "-" + repeat, score: candidate.id === "model-a" ? 80 + repeat : 90, passed: true, durationMs: 1000, estimatedTokens: 300, agentScores: [{ agent: "security-reviewer", caseId: "security", score: candidate.id === "model-a" ? 80 + repeat : 90, passed: true, skillIds: ["secure-changes"] }] };
     });
     expect(calls).toEqual(["model-a:1", "model-a:2", "model-b:1", "model-b:2"]);
     expect(report.results).toHaveLength(4);
     expect(report.results[2]?.status).toBe("failed");
     expect(report.summary.find(item => item.candidateId === "model-a")?.averageScore).toBe(81.5);
     expect(report.summary.find(item => item.candidateId === "model-b")?.completed).toBe(1);
+    expect(report.agentSummary.find(item => item.agent === "security-reviewer" && item.candidateId === "model-a")?.averageScore).toBe(81.5);
+    expect(report.agentSummary.find(item => item.agent === "security-reviewer")?.skillsObserved).toContain("secure-changes");
+    expect(formatBenchmarkMatrix(report)).toContain("Per-agent scorecards:");
     expect(formatBenchmarkMatrix(report)).toContain("temporary provider error");
   });
 
