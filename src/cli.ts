@@ -1011,7 +1011,7 @@ async function main(args: string[]): Promise<void> {
       const installDependencies = rest.includes("--install-dependencies");
       const sandboxImageIndex = rest.indexOf("--sandbox-image");
       const sandboxImage = sandboxImageIndex >= 0 ? rest[sandboxImageIndex + 1] : undefined;
-      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1 && arg !== "--install-dependencies" && arg !== "--sandbox-image" && index !== sandboxImageIndex + 1);
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && !(pathIndex >= 0 && index === pathIndex + 1) && arg !== "--install-dependencies" && arg !== "--sandbox-image" && !(sandboxImageIndex >= 0 && index === sandboxImageIndex + 1));
       const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
       const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
       try {
