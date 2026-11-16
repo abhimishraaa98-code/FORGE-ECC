@@ -193,13 +193,11 @@ describe("isolated approved patch staging", () => {
     const staged = await stageApprovedPatch(root, approval.id);
     const promoted = await promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256);
     const backupDir = path.dirname(path.join(root, promoted.backupPath));
-    const originalParent = path.join(backupDir, "src-original");
+    const originalParent = path.join(path.dirname(backupDir), "src-original");
     const outside = await mkdtemp(path.join(os.tmpdir(), "forge-outside-backup-"));
     await afterEachCleanup.push(outside);
-    await rename(path.join(backupDir, "a.ts"), path.join(backupDir, "a-original.ts"));
     await mkdir(path.join(outside, "src"));
     await writeFile(path.join(outside, "src/a.ts"), "forged backup\\n");
-    await rm(path.join(backupDir, "a-original.ts"));
     await rename(backupDir, originalParent);
     await symlink(path.join(outside, "src"), backupDir);
     await expect(rollbackStagedPatch(root, staged.id, "reviewer")).rejects.toThrow(/resolves outside/);
