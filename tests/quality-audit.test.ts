@@ -19,6 +19,22 @@ describe("auditProject", () => {
     expect(report.score).toBeLessThanOrEqual(100);
     expect(formatQualityAudit(report)).toContain("# FORGE Quality Report");
   });
+
+  it("excludes private configuration directories from audit metrics", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-quality-private-"));
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
+    await mkdir(path.join(root, ".ssh"), { recursive: true });
+    await writeFile(path.join(root, "src", "main.ts"), "export {};");
+    await writeFile(path.join(root, ".forge", "agents", "private.ts"), "export {};");
+    await writeFile(path.join(root, ".ssh", "helper.ts"), "export {};");
+    const report = await auditProject(root);
+    expect(report.metrics.sourceFiles).toBe(1);
+    expect(report.metrics.testFiles).toBe(0);
+    expect(JSON.stringify(report)).not.toContain(".ssh");
+    expect(JSON.stringify(report)).not.toContain(".forge/agents");
+  });
+
   it("detects test, CI, strict TypeScript, and never reads env contents", async () => {
     root=await mkdtemp(path.join(os.tmpdir(),"forge-quality-"));
     await mkdir(path.join(root,"tests"));
