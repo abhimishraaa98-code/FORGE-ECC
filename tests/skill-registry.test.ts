@@ -44,6 +44,13 @@ describe("skill registry", () => {
     ));
     await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum of 200 files");
   });
+  it("rejects oversized skill files instead of silently skipping them", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
+    const dir = path.join(root, ".forge", "skills");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "too-large.md"), "x".repeat(128 * 1024 + 1));
+    await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum size of 131072 bytes");
+  });
   it("bounds directory traversal even when entries are ignored", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
     const dir = path.join(root, ".forge", "skills");
