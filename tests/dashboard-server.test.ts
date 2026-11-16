@@ -138,6 +138,9 @@ describe("local dashboard server", () => {
     const benchmarkMatrices = await fetch(base + "/api/benchmark-matrices");
     expect(benchmarkMatrices.status).toBe(200);
     expect(await benchmarkMatrices.json()).toEqual([]);
+    const benchmarkRegression = await fetch(base + "/api/benchmark-regression");
+    expect(benchmarkRegression.status).toBe(200);
+    expect((await benchmarkRegression.json()).status).toBe("insufficient-history");
 
     const observability = await fetch(base + "/api/observability");
     expect(observability.status).toBe(200);
