@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRun } from "../src/core/orchestrator.js";
-import { decideTaskApproval, listRuns, loadRun, saveRun } from "../src/core/run-store.js";
+import { decideTaskApproval, listRuns, loadRun, recoverInterruptedRun, saveRun } from "../src/core/run-store.js";
 
 let root = "";
 afterEach(async () => {
@@ -41,6 +41,34 @@ describe("local run history", () => {
     expect(rejected.tasks[1]?.status).toBe("failed");
     expect(rejected.tasks[1]?.approval?.reason).toBe("Needs changes");
     expect(rejected.events.map(event => event.type)).toContain("rejected");
+  });
+
+  it("recovers interrupted provider work without replaying it", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-recovery-"));
+    const run = createRun("Recover after restart", [
+      { id: "finished", agent: "planner", title: "Finished", prompt: "Done" },
+      { id: "interrupted", agent: "reviewer", title: "Interrupted", prompt: "May have reached provider" },
+      { id: "not-started", agent: "tester", title: "Not started", prompt: "Wait" },
+    ]);
+    const interrupted = {
+      ...run,
+      status: "running" as const,
+      tasks: run.tasks.map(task => ({
+        ...task,
+        status: task.task.id === "finished" ? "completed" as const
+          : task.task.id === "interrupted" ? "running" as const : "pending" as const,
+        ...(task.task.id === "finished" ? { result: { provider: "test", content: "done" } } : {}),
+      })),
+    };
+    await saveRun(root, interrupted);
+    const recovered = await recoverInterruptedRun(root, run.id);
+    expect(recovered.status).toBe("failed");
+    expect(recovered.tasks.find(task => task.task.id === "finished")?.status).toBe("completed");
+    expect(recovered.tasks.find(task => task.task.id === "interrupted")?.status).toBe("failed");
+    expect(recovered.tasks.find(task => task.task.id === "interrupted")?.error).toContain("did not automatically retry");
+    expect(recovered.tasks.find(task => task.task.id === "not-started")?.status).toBe("pending");
+    expect(recovered.events.some(event => event.message.includes("outcome may be unknown"))).toBe(true);
+    await expect(recoverInterruptedRun(root, run.id)).resolves.toMatchObject({ status: "failed" });
   });
 
   it("returns an empty list when no run history exists", async () => {
