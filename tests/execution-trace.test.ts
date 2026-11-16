@@ -11,9 +11,11 @@ describe("execution trace persistence", () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-trace-"));
     const entries = [{ taskId: "a", agent: "planner", tier: "balanced" as const, model: "model-x", provider: "test", startedAt: new Date().toISOString(), durationMs: 125, outcome: "success" as const, inputTokensEstimate: 100, outputTokensEstimate: 40 }];
     const file = await saveExecutionTrace(root, "forge-test-run", entries);
+    await saveExecutionTrace(root, "forge-test-run", [{ ...entries[0]!, taskId: "b", agent: "reviewer", inputTokensEstimate: 50, outputTokensEstimate: 20 }]);
     const stored = await loadExecutionTrace(root, "forge-test-run");
-    expect(stored.totals.estimatedInputTokens).toBe(100);
-    expect(stored.totals.estimatedOutputTokens).toBe(40);
+    expect(stored.totals.estimatedInputTokens).toBe(150);
+    expect(stored.totals.estimatedOutputTokens).toBe(60);
+    expect(stored.entries).toHaveLength(2);
     expect(stored.entries[0]?.durationMs).toBe(125);
     expect(file).toContain(path.join(".forge", "traces"));
   });
