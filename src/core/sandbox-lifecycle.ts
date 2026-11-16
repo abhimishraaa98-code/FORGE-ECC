@@ -9,7 +9,7 @@ export function parseManagedContainers(output: string): ManagedContainer[] {
   for (const line of output.split(/\r?\n/)) {
     if (!line.trim()) continue;
     const [id, status, name, ...extra] = line.split("\t");
-    if (extra.length || !/^[a-f0-9]{12,64}$/i.test(id ?? "") || !status?.trim() || !name?.trim()) {
+    if (extra.length || !id || !/^[a-f0-9]{12,64}$/i.test(id) || !status?.trim() || !name?.trim()) {
       throw new Error("Container runtime returned an invalid managed-container record.");
     }
     result.push({ id, status: status.trim(), name: name.trim() });
