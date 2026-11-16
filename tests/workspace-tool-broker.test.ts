@@ -56,6 +56,19 @@ describe("workspace tool broker", () => {
     expect(JSON.stringify(audit)).not.toContain(root);
   });
 
+  it("does not include filenames in successful read audit summaries", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-audit-filename-"));
+    await mkdir(path.join(root, "src"));
+    await writeFile(path.join(root, "src", "private-component-name.ts"), "export const value = 1;");
+    const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file"] });
+    const audit: WorkspaceToolAuditEvent[] = [];
+    await executeWorkspaceAgentTool(root, policy, "read-file", { relativePath: "src/private-component-name.ts" }, { onAudit: event => { audit.push(event); } });
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.summary).toMatch(/^Read one file \\(\\d+ bytes\\)\\.$/);
+    expect(JSON.stringify(audit)).not.toContain("private-component-name");
+    expect(JSON.stringify(audit)).not.toContain(root);
+  });
+
   it("blocks direct reads through sensitive directory names", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-tool-broker-"));
     await mkdir(path.join(root, "credentials"), { recursive: true });
