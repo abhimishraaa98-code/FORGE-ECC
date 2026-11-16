@@ -19,6 +19,8 @@ interface MemoryDocument {
 }
 
 const MAX_ENTRIES = 500;
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const MEMORY_KINDS = new Set<ProjectMemoryKind>(["decision", "architecture", "constraint", "preference", "fact"]);
 const MAX_CONTENT_LENGTH = 4000;
 const SECRET_PATTERN = /(?:api[_-]?key|secret|password|access[_-]?token)\s*[:=]\s*\S+/i;
 
@@ -28,9 +30,27 @@ function memoryPath(projectPath: string): string {
 
 async function readDocument(projectPath: string): Promise<MemoryDocument> {
   try {
-    const parsed: unknown = JSON.parse(await readFile(memoryPath(projectPath), "utf8"));
+    const raw = await readFile(memoryPath(projectPath));
+    if (raw.byteLength > MAX_FILE_BYTES) throw new Error("Project memory file exceeds the 2 MiB safety limit.");
+    const parsed: unknown = JSON.parse(raw.toString("utf8"));
     if (!parsed || typeof parsed !== "object" || !("version" in parsed) || parsed.version !== 1 || !("entries" in parsed) || !Array.isArray(parsed.entries)) {
       throw new Error("Project memory file has an unsupported format.");
+    }
+    if (parsed.entries.length > MAX_ENTRIES) throw new Error("Project memory file exceeds the entry limit.");
+    const ids = new Set<string>();
+    for (const value of parsed.entries) {
+      if (!value || typeof value !== "object") throw new Error("Project memory contains an invalid entry.");
+      const entry = value as Record<string, unknown>;
+      if (typeof entry.id !== "string" || !/^mem-[a-z0-9-]{1,80}$/.test(entry.id) || ids.has(entry.id) ||
+          typeof entry.kind !== "string" || !MEMORY_KINDS.has(entry.kind as ProjectMemoryKind) ||
+          typeof entry.content !== "string" || !entry.content.trim() || entry.content.length > MAX_CONTENT_LENGTH ||
+          !Array.isArray(entry.tags) || entry.tags.length > 12 ||
+          !entry.tags.every(tag => typeof tag === "string" && tag.length > 0 && tag.length <= 64) ||
+          typeof entry.createdAt !== "string" || !Number.isFinite(Date.parse(entry.createdAt)) ||
+          typeof entry.updatedAt !== "string" || !Number.isFinite(Date.parse(entry.updatedAt))) {
+        throw new Error("Project memory contains an invalid entry.");
+      }
+      ids.add(entry.id);
     }
     return parsed as MemoryDocument;
   } catch (error) {
@@ -67,6 +87,10 @@ export async function addProjectMemory(
   projectPath: string,
   input: { kind: ProjectMemoryKind; content: string; tags?: string[] },
 ): Promise<ProjectMemoryEntry> {
+  if (!input || !MEMORY_KINDS.has(input.kind)) throw new Error("Memory kind is not supported.");
+  if (input.tags !== undefined && (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== "string" || tag.trim().length > 64))) {
+    throw new Error("Memory tags must be strings of at most 64 characters.");
+  }
   const content = validateContent(input.content);
   const document = await readDocument(projectPath);
   if (document.entries.length >= MAX_ENTRIES) throw new Error(`Project memory is limited to ${MAX_ENTRIES} entries. Remove old entries first.`);
