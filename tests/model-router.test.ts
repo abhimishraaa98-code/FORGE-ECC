@@ -156,6 +156,27 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.outcome).toBe("failed");
   });
 
+  it("counts provider output even when the per-task output limit rejects it", async () => {
+    let calls = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxOutputTokensPerTask: 2,
+      maxEstimatedTokensPerRun: 15,
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          calls += 1;
+          return { provider: model, content: "This output is too large for the configured limit." };
+        },
+      }),
+    });
+    const request = { task: { id: "large-output", agent: "planner", title: "Large output", prompt: "Small prompt" }, completedDependencies: [] };
+    await expect(router.complete(request)).rejects.toThrow("output estimate");
+    await expect(router.complete({ ...request, task: { ...request.task, id: "next" } })).rejects.toThrow("run estimate");
+    expect(calls).toBe(1);
+    expect(router.traces.map(trace => trace.outcome)).toEqual(["failed", "failed"]);
+  });
+
   it("enforces a run-wide estimated token budget across tasks", async () => {
     let calls = 0;
     const router = new ModelRouter({
