@@ -14,6 +14,7 @@ export interface AgentTrace {
   inputTokensEstimate: number;
   outputTokensEstimate: number;
   error?: string;
+  retries?: number;
 }
 export interface ModelRouterOptions {
   fastModel: string;
@@ -22,6 +23,9 @@ export interface ModelRouterOptions {
   fallbackModel?: string;
   createProvider: (model: string) => AgentProvider;
   onTrace?: (trace: AgentTrace) => void;
+  retryAttempts?: number;
+  retryDelayMs?: number;
+  sleep?: (milliseconds: number) => Promise<void>;
 }
 
 export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouterOptions, "fastModel" | "balancedModel" | "reasoningModel">): ModelRoute {
@@ -36,11 +40,17 @@ export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouter
   return { tier: "balanced", model: models.balancedModel, reason: "General engineering task." };
 }
 
+
+function isRetryableProviderError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /HTTP (408|409|425|429|5\\d\\d)\\b|timed? ?out|timeout|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|network error/i.test(message);
+}
+
 export class ModelRouter implements AgentProvider {
   readonly name = "forge-model-router";
   readonly traces: AgentTrace[] = [];
   constructor(private readonly options: ModelRouterOptions) {
-    for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
+    if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");\n    if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");\n    for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
       if (!model.trim()) throw new Error("Every model routing tier needs a model name.");
     }
   }
@@ -51,21 +61,39 @@ export class ModelRouter implements AgentProvider {
     const start = Date.now();
     const inputText = request.task.prompt + (request.projectContext ?? "") + request.completedDependencies.map(item => item.result).join("");
     const provider = this.options.createProvider(route.model);
-    try {
-      const response = await provider.complete(request);
+    let retries = 0;
+    let response: AgentResponse | undefined;
+    let primaryError: unknown;
+    const maxRetries = this.options.retryAttempts ?? 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      try {
+        response = await provider.complete(request);
+        break;
+      } catch (error) {
+        primaryError = error;
+        if (attempt >= maxRetries || !isRetryableProviderError(error)) break;
+        retries += 1;
+        const delay = (this.options.retryDelayMs ?? 500) * Math.pow(2, attempt);
+        await (this.options.sleep ?? (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))))(delay);
+      }
+    }
+    if (response) {
       const trace: AgentTrace = {
         taskId: request.task.id, agent: request.task.agent, tier: route.tier,
         model: response.model ?? route.model, provider: response.provider,
-        startedAt, durationMs: Date.now() - start, outcome: "success",
+        startedAt, durationMs: Date.now() - start, outcome: "success", retries,
         inputTokensEstimate: Math.ceil(inputText.length / 4),
         outputTokensEstimate: Math.ceil(response.content.length / 4),
       };
       this.traces.push(trace); this.options.onTrace?.(trace);
       return response;
+    }
+    try {
+      throw primaryError;
     } catch (primaryError) {
       if (!this.options.fallbackModel || this.options.fallbackModel === route.model) {
         const message = primaryError instanceof Error ? primaryError.message : String(primaryError);
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
+        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw primaryError;
       }
       try {
@@ -74,7 +102,7 @@ export class ModelRouter implements AgentProvider {
         const trace: AgentTrace = {
           taskId: request.task.id, agent: request.task.agent, tier: route.tier,
           model: response.model ?? this.options.fallbackModel, provider: response.provider,
-          startedAt, durationMs: Date.now() - start, outcome: "fallback",
+          startedAt, durationMs: Date.now() - start, outcome: "fallback", retries,
           inputTokensEstimate: Math.ceil(inputText.length / 4),
           outputTokensEstimate: Math.ceil(response.content.length / 4),
           error: "Primary model failed; configured fallback was used.",
@@ -83,7 +111,7 @@ export class ModelRouter implements AgentProvider {
         return response;
       } catch (fallbackError) {
         const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: "fallback", startedAt, durationMs: Date.now() - start, outcome: "failed", inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
+        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: "fallback", startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw fallbackError;
       }
     }
