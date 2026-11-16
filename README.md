@@ -143,7 +143,8 @@ Run `forge deep [path]` to parse JavaScript/TypeScript source with the TypeScrip
 
 ### Engineering Intelligence Dashboard — available (early)
 
-Start a local, read-only engineering control center with `forge dashboard .` (or `forge dashboard ./project --port 4173`). The responsive dashboard brings together:
+Start a local, read-only engineering control center with `forge dashboard .` (or `forge dashboard ./project --port 4173`). Workflows are saved locally in `.forge/workflows/`; use the dashboard editor to compose, save, and create draft runs. The responsive dashboard brings together:
+- Visual workflow editor for composing specialist tasks, connecting dependencies, adding approval gates, saving reusable pipelines under `.forge/workflows/`, and creating reviewable draft runs without automatically calling agents
 
 - Project structure, detected stack, language composition, and specialist agent registry
 - Saved orchestration runs, task activity, run inspection, and explicit human approval controls
