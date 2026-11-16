@@ -84,7 +84,7 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       const policy = await loadPermissionPolicy(root);
-      return result(await executeWorkspaceAgentTool(root, policy, "search-code", { query, limit: Math.min(limit ?? 10, 20) }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
+      return result(await executeWorkspaceAgentTool(root, policy, "search-code", { query, limit: Math.min(limit ?? 10, 20) }, { onAudit: event => { process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + String.fromCharCode(10)); } }));
     } catch (error) { return failure(error); }
   }
 );
@@ -103,7 +103,7 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       const policy = await loadPermissionPolicy(root);
-      return result(await executeWorkspaceAgentTool(root, policy, "list-files", { relativePath: relativePath ?? "" }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
+      return result(await executeWorkspaceAgentTool(root, policy, "list-files", { relativePath: relativePath ?? "" }, { onAudit: event => { process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + String.fromCharCode(10)); } }));
     } catch (error) { return failure(error); }
   }
 );
@@ -122,7 +122,7 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       const policy = await loadPermissionPolicy(root);
-      return result(await executeWorkspaceAgentTool(root, policy, "read-file", { relativePath }, { onAudit: event => process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + "\\n") }));
+      return result(await executeWorkspaceAgentTool(root, policy, "read-file", { relativePath }, { onAudit: event => { process.stderr.write(JSON.stringify({ type: "forge-tool-audit", ...event }) + String.fromCharCode(10)); } }));
     } catch (error) { return failure(error); }
   }
 );
