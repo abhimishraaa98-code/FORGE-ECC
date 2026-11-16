@@ -107,3 +107,14 @@ forge patch-approval-check PATCH_APPROVAL_ID --path .
 ```
 
 Approval records are stored under `.forge/patch-approvals/` with restrictive file permissions. They include SHA-256 digests for the proposed patch and source file, reviewer identity, timestamp and expiry (24 hours by default). Expiry can be configured through the library API, between one minute and seven days. Verification fails if the patch or source file changes, the approval expires, or the patch no longer validates. Approval does not apply a patch or grant permission to modify files; isolated application and rollback are separate future capabilities.
+
+
+### Isolated patch staging
+
+After a patch has a current approval record, FORGE can materialize the approved change in a separate local staging workspace:
+
+```bash
+forge patch-stage PATCH_APPROVAL_ID --path .
+```
+
+The staged copy is written under `.forge/patch-workspaces/<stage-id>/` and includes a stage manifest with the approval ID and source/staged SHA-256 digests. The original project file is not modified. Staging does not run tests, shell commands, or provider calls; it is not yet a sandboxed execution environment. Review the staged diff before any later integration step.
