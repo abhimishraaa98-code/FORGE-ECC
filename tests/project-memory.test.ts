@@ -34,4 +34,26 @@ describe("local project memory", () => {
       .rejects.toThrow("appears to contain a credential");
     await expect(readFile(path.join(root, ".forge", "memory.json"), "utf8")).rejects.toThrow();
   });
+
+  it("rejects malformed memory entries instead of trusting parsed JSON", async () => {
+    const root = await workspace();
+    const directory = path.join(root, ".forge");
+    const file = path.join(directory, "memory.json");
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    await mkdir(directory, { recursive: true });
+    await writeFile(file, JSON.stringify({ version: 1, entries: [{ id: "mem-duplicate", kind: "unknown", content: "bad", tags: [], createdAt: "not-a-date", updatedAt: "not-a-date" }] }));
+    await expect(listProjectMemory(root)).rejects.toThrow("invalid entry");
+  });
+
+  it("rejects duplicate memory IDs and malformed tags", async () => {
+    const root = await workspace();
+    const directory = path.join(root, ".forge");
+    const file = path.join(directory, "memory.json");
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    await mkdir(directory, { recursive: true });
+    const entry = { id: "mem-duplicate", kind: "fact", content: "A valid note", tags: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    await writeFile(file, JSON.stringify({ version: 1, entries: [entry, entry] }));
+    await expect(listProjectMemory(root)).rejects.toThrow("invalid entry");
+    await expect(addProjectMemory(root, { kind: "fact", content: "Another note", tags: [42 as unknown as string] })).rejects.toThrow("tags");
+  });
 });
