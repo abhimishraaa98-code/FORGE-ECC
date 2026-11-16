@@ -521,7 +521,7 @@ async function main(args: string[]): Promise<void> {
             if (unknownSkills.length) throw new Error("Candidate " + candidate.id + " references unknown skill(s): " + unknownSkills.join(", "));
             const selectedSkillsForTask = (task: { agent: string; title: string; prompt: string }) => requestedSkillIds === undefined ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : skillRegistry.filter(skill => requestedSkillIds.includes(skill.id));
             const agentGuidanceForTask = (task: { agent: string }) => agentRegistry.find(agent => agent.id === task.agent)?.instructions ?? "";
-            const hooks = await loadHooks(target);
+            const hooks = await loadHooks(configRoot);
             for (const record of run.tasks) {
               const applied = applyBeforeAgentHooks(record.task, hooks);
               record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\n\nHook guidance:\n" + applied.context.join("\n") : applied.task.prompt };
