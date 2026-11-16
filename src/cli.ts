@@ -267,7 +267,7 @@ async function main(args: string[]): Promise<void> {
           if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
         } });
         const saved = await saveRun(target, completed);
-        const tracePath = await saveExecutionTrace(target, completed.id, router.traces);
+        const tracePath = await saveExecutionTrace(target, completed.id, router.traces.slice(persistedTraceEntries));
         process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
         process.stdout.write("Saved: " + path.relative(target, saved) + "\nTrace: " + path.relative(target, tracePath) + "\n");
       } catch (error) { process.stderr.write("Could not resume run: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
