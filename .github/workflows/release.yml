@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to create (for example v1.0.0)"
+        required: true
+        default: "v1.0.0"
+      target_ref:
+        description: "Verified branch or commit to release"
+        required: true
+        default: "main"
 
 permissions:
   contents: write
@@ -13,8 +23,10 @@ jobs:
     name: Verify package and publish GitHub release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout tagged source
+      - name: Checkout release source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.ref }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -34,7 +46,9 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: FORGE ${{ github.ref_name }}
+          name: FORGE ${{ inputs.release_tag || github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ inputs.target_ref || github.sha }}
           body_path: CHANGELOG.md
           files: release-assets/*.tgz
           generate_release_notes: true
