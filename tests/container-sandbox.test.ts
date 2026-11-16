@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildContainerRunArgs } from "../src/core/container-sandbox.js";
+import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
 
 const image = "node:22-alpine@sha256:" + "a".repeat(64);
 
@@ -37,5 +37,18 @@ describe("container sandbox arguments", () => {
   it("rejects comma-containing mount paths to avoid mount option injection", () => {
     expect(() => buildContainerRunArgs("/tmp/proj,ect", image, "test", "forge-test"))
       .toThrow(/cannot contain commas/);
+  });
+});
+
+describe("container runtime security detection", () => {
+  it("recognizes rootless Docker security options", () => {
+    expect(detectDockerRootless('["name=seccomp,profile=builtin","name=rootless"]')).toBe(true);
+  });
+  it("recognizes a reported rootful runtime", () => {
+    expect(detectDockerRootless('["name=seccomp,profile=builtin"]')).toBe(false);
+  });
+  it("fails closed when runtime security options are unknown", () => {
+    expect(detectDockerRootless("not-json")).toBeNull();
+    expect(detectDockerRootless("[]")).toBeNull();
   });
 });
