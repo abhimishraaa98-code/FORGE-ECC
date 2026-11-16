@@ -39,6 +39,21 @@ describe("reusable workflow store", () => {
     })).rejects.toThrow();
   });
 
+  it("persists graph coordinates and rejects invalid node positions", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-workflows-"));
+    const saved = await saveWorkflow(root, {
+      id: "position-flow", name: "Position flow", description: "",
+      tasks: [{ id: "one", agent: "planner", title: "One", prompt: "Do one" }],
+      positions: { one: { x: 320, y: 180 } }
+    });
+    expect((await loadWorkflow(root, saved.id)).positions?.one).toEqual({ x: 320, y: 180 });
+    await expect(saveWorkflow(root, {
+      id: "bad-position", name: "Bad position", description: "",
+      tasks: [{ id: "one", agent: "planner", title: "One", prompt: "Do one" }],
+      positions: { missing: { x: 10, y: 10 } }
+    })).rejects.toThrow();
+  });
+
   it("rejects excessive task counts and invalid identifiers", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-workflows-"));
     await expect(saveWorkflow(root, { id: "../escape", name: "Bad", description: "", tasks: [{ id: "x", agent: "planner", title: "X", prompt: "X" }] })).rejects.toThrow();
