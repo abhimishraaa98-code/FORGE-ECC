@@ -3,7 +3,7 @@ import { cp, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile }
 import os from "node:os";
 import path from "node:path";
 import { runVerification, type VerificationResult } from "./verification.js";
-import { reviewStagedPatch, type PatchStageRecord } from "./patch-application.js";
+import { fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
 
 const MAX_FILES = 20_000;
 const MAX_BYTES = 256 * 1024 * 1024;
@@ -68,29 +68,46 @@ export async function verifyStagedPatch(
   options: { timeoutMs?: number } = {},
 ): Promise<StagedVerificationResult> {
   const project = await realpath(path.resolve(projectPath));
-  const stageReview = await reviewStagedPatch(project, stageId);
+  if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
   const stageRoot = path.join(project, ".forge", "patch-workspaces", stageId);
-  const manifest = JSON.parse(await readFile(path.join(stageRoot, "stage.json"), "utf8")) as PatchStageRecord;
+  const stageReal = await realpath(stageRoot);
+  if (!stageReal.startsWith(project + path.sep)) throw new Error("Patch stage resolves outside the project.");
+  const manifestPath = path.join(stageReal, "stage.json");
+  const manifestInfo = await lstat(manifestPath);
+  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("Stage manifest must be a regular file.");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
+  if (manifest.id !== stageId || typeof manifest.workspacePath !== "string" ||
+      typeof manifest.workspaceSha256 !== "string" || typeof manifest.stagedSha256 !== "string" ||
+      typeof manifest.file !== "string") throw new Error("Stage manifest does not contain a verified workspace snapshot.");
+  const workspacePath = path.resolve(project, manifest.workspacePath);
+  const workspaceRelative = path.relative(stageReal, workspacePath);
+  if (!workspaceRelative || workspaceRelative.startsWith("..") || path.isAbsolute(workspaceRelative)) throw new Error("Staged workspace path escapes its stage directory.");
+  const workspaceReal = await realpath(workspacePath);
+  if (!workspaceReal.startsWith(stageReal + path.sep)) throw new Error("Staged workspace resolves outside its stage directory.");
+  const snapshotFingerprint = await fingerprintStagedWorkspace(workspaceReal);
+  if (snapshotFingerprint.sha256 !== manifest.workspaceSha256 ||
+      snapshotFingerprint.files !== manifest.snapshotFiles) {
+    throw new Error("Staged workspace changed after staging; refusing verification.");
+  }
+  const stagedSource = path.resolve(project, manifest.stagedFile);
+  const stagedRelative = path.relative(workspaceReal, stagedSource);
+  if (!stagedRelative || stagedRelative.startsWith("..") || path.isAbsolute(stagedRelative)) throw new Error("Staged patch file escapes the workspace.");
+  const stagedInfo = await lstat(stagedSource);
+  if (stagedInfo.isSymbolicLink() || !stagedInfo.isFile()) throw new Error("Staged patch target must be a regular file.");
+  const stagedContent = await readFile(stagedSource);
+  if (digest(stagedContent) !== manifest.stagedSha256) throw new Error("Staged patch changed while preparing verification.");
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "forge-staged-verify-"));
   const snapshot = path.join(temporaryRoot, "workspace");
   try {
-    const counts = await copySnapshot(project, snapshot);
-    const stagedSource = path.resolve(project, manifest.stagedFile);
-    const stagedInfo = await lstat(stagedSource);
-    if (stagedInfo.isSymbolicLink() || !stagedInfo.isFile()) throw new Error("Staged patch target must be a regular file.");
-    const overlay = path.resolve(snapshot, manifest.file);
-    const relative = path.relative(snapshot, overlay);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Staged patch target escapes the verification snapshot.");
-    await mkdir(path.dirname(overlay), { recursive: true });
-    const stagedContent = await readFile(stagedSource);
-    if (digest(stagedContent) !== stageReview.stagedSha256) throw new Error("Staged patch changed while preparing verification.");
-    await writeFile(overlay, stagedContent, { flag: "w", mode: 0o600 });
+    const counts = await copySnapshot(workspaceReal, snapshot);
+    const copiedFingerprint = await fingerprintStagedWorkspace(snapshot);
+    if (copiedFingerprint.sha256 !== manifest.workspaceSha256) throw new Error("Temporary verification copy does not match the approved staged snapshot.");
     const verification = await runVerification(snapshot, script, options);
     const id = "patch-verify-" + verification.id.slice("verify-".length);
     return {
       id, stageId, file: manifest.file,
-      sourceSha256: stageReview.sourceSha256,
-      stagedSha256: stageReview.stagedSha256,
+      sourceSha256: manifest.sourceSha256,
+      stagedSha256: manifest.stagedSha256,
       snapshotFileCount: counts.files,
       snapshotBytes: counts.bytes,
       verification,
