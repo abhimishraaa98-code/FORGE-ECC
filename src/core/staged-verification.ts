@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { installVerificationDependencies, runVerification, type DependencyInstallResult, type VerificationResult } from "./verification.js";
 import { copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
+import { runContainerVerification } from "./container-sandbox.js";
 
 export interface StagedVerificationResult {
   id: string;
@@ -30,7 +31,7 @@ export async function verifyStagedPatch(
   projectPath: string,
   stageId: string,
   script: string,
-  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number } = {},
+  options: { timeoutMs?: number; installDependencies?: boolean; installTimeoutMs?: number; sandboxImage?: string; runtimePath?: string } = {},
 ): Promise<StagedVerificationResult> {
   const project = await realpath(path.resolve(projectPath));
   if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
@@ -80,7 +81,12 @@ export async function verifyStagedPatch(
         throw new Error("Dependency preparation " + dependencyInstall.status + " (exit code " + dependencyInstall.exitCode + "). " + dependencyInstall.output);
       }
     }
-    const verification = await runVerification(snapshot, script, options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs });
+    const verification = options.sandboxImage
+      ? await runContainerVerification(snapshot, script, options.sandboxImage, {
+          ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+          ...(options.runtimePath === undefined ? {} : { runtimePath: options.runtimePath }),
+        })
+      : await runVerification(snapshot, script, options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs });
     const id = "patch-verify-" + verification.id.slice("verify-".length);
     return {
       id, stageId, file: manifest.file,
