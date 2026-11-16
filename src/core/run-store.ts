@@ -30,7 +30,7 @@ async function safeRunsDirectory(projectPath: string): Promise<string> {
   return current;
 }
 
-export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
+async function writeRunUnlocked(projectPath: string, run: RunRecord): Promise<string> {
   validateRunId(run.id);
   const directory = await safeRunsDirectory(projectPath);
   const destination = path.join(directory, `${run.id}.json`);
@@ -45,6 +45,18 @@ export async function saveRun(projectPath: string, run: RunRecord): Promise<stri
     throw error;
   }
   return destination;
+}
+
+export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
+  validateRunId(run.id);
+  const directory = await safeRunsDirectory(projectPath);
+  const lock = path.join(directory, `${run.id}.lock`);
+  await mkdir(lock, { mode: 0o700 });
+  try {
+    return await writeRunUnlocked(projectPath, run);
+  } finally {
+    await rm(lock, { recursive: true, force: true });
+  }
 }
 
 export async function loadRun(projectPath: string, runId: string): Promise<RunRecord> {
@@ -144,7 +156,7 @@ export async function decideTaskApproval(
       ? `Approved by ${safeReviewer}. Task is ready for an explicit subsequent run.`
       : `Rejected by ${safeReviewer}.${safeReason ? ` Reason: ${safeReason}` : ""}`,
   });
-  await saveRun(projectPath, run);
+  await writeRunUnlocked(projectPath, run);
   return run;
   } finally {
     await rm(lock, { recursive: true, force: true });
@@ -179,7 +191,7 @@ export async function recoverInterruptedRun(projectPath: string, runId: string):
     }
     run.status = "failed";
     run.updatedAt = at;
-    await saveRun(projectPath, run);
+    await writeRunUnlocked(projectPath, run);
     return run;
   } finally {
     await rm(lock, { recursive: true, force: true });
