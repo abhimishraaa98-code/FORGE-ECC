@@ -116,6 +116,24 @@ describe("task-aware model routing", () => {
     const router = new ModelRouter({ ...models, maxTaskDurationMs: 100, maxTaskDurationMsByAgent: { planner: 5 }, createProvider: model => ({ name: model, async complete() { await new Promise(resolve => setTimeout(resolve, 25)); return { provider: model, content: "late" }; } }) });
     await expect(router.complete({ task: { id: "slow", agent: "planner", title: "Slow", prompt: "Wait" }, completedDependencies: [] })).rejects.toThrow(/duration exceeded 5 ms/);
   });
+  it("does not call fallback after an ambiguous server failure", async () => {
+    const created: string[] = [];
+    const router = new ModelRouter({
+      ...models,
+      fallbackModel: "backup-model",
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          created.push(model);
+          throw new Error("AI provider request failed with HTTP 503.");
+        },
+      }),
+    });
+    await expect(router.complete({ task: { id: "secure", agent: "security-reviewer", title: "Security review", prompt: "Review auth" }, completedDependencies: [] })).rejects.toThrow("HTTP 503");
+    expect(created).toEqual(["large-model"]);
+    expect(router.traces[0]?.outcome).toBe("failed");
+  });
+
   it("uses configured fallback and records a trace", async () => {
     const created: string[] = [];
     const createProvider = (model: string): AgentProvider => {
@@ -123,7 +141,7 @@ describe("task-aware model routing", () => {
       return {
         name: model,
         async complete() {
-          if (model === "large-model") throw new Error("primary unavailable");
+          if (model === "large-model") throw new Error("AI provider request failed with HTTP 429.");
           return { provider: model, model, content: "fallback proposal" };
         },
       };
