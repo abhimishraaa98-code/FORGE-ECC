@@ -9,6 +9,7 @@ import { createReviewPlan } from "./core/review-planner.js";
 import { saveRun, listRuns, loadRun, decideTaskApproval } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
+import { createHostedAgentProvider } from "./core/hosted-agent-provider.js";
 import { ClaudeCodeProvider } from "./ai/claude-code-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
 import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
@@ -774,10 +775,13 @@ async function main(args: string[]): Promise<void> {
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
         const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
-        if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code to use your configured Claude Code CLI, or set FORGE_API_KEY for an OpenAI-compatible provider.");
-        const createProvider = (selectedModel: string) => providerChoice === "claude-code"
-          ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
-          : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+        const createProvider = (selectedModel: string) => {
+          if (providerChoice === "claude-code") return new ClaudeCodeProvider({ cwd: target, model: selectedModel });
+          if (["openai", "anthropic", "google", "ollama"].includes(providerChoice)) {
+            return createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel);
+          }
+          throw new Error("Unsupported FORGE_AI_PROVIDER. Choose claude-code, openai, anthropic, google or ollama.");
+        };
         const router = new ModelRouter({
           fastModel: process.env.FORGE_MODEL_FAST ?? baseModel,
           balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel,
