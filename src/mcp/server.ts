@@ -7,6 +7,8 @@ import { z } from "zod";
 import { inspectProject } from "../core/project-inspector.js";
 import { mapArchitecture } from "../core/architecture-map.js";
 import { searchWorkspace } from "../core/code-search.js";
+import { auditProject } from "../core/quality-audit.js";
+import { analyzeGitChanges } from "../core/git-intelligence.js";
 
 const WORKSPACE_ROOT = await realpath(process.env.FORGE_WORKSPACE ?? process.cwd());
 
@@ -78,6 +80,39 @@ server.registerTool(
     try {
       const root = await resolveWorkspace(projectPath);
       return result(await searchWorkspace(root, query, limit ?? 40));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_quality_audit",
+  {
+    title: "Audit project quality",
+    description: "Run FORGE's static, heuristic project-quality checks and return evidence-backed findings. Does not inspect secret contents, execute project code, or query vulnerability databases.",
+    inputSchema: z.object({ projectPath: z.string().optional() })
+  },
+  async ({ projectPath }) => {
+    try {
+      const root = await resolveWorkspace(projectPath);
+      return result(await auditProject(root));
+    } catch (error) { return failure(error); }
+  }
+);
+
+server.registerTool(
+  "forge_git_intelligence",
+  {
+    title: "Analyze Git changes",
+    description: "Read-only analysis of working-tree changes, static downstream impact, suggested test targets and heuristic change risk. Runs Git inspection commands only; it does not modify the repository or execute project scripts.",
+    inputSchema: z.object({
+      projectPath: z.string().optional(),
+      base: z.string().min(1).max(120).optional()
+    })
+  },
+  async ({ projectPath, base }) => {
+    try {
+      const root = await resolveWorkspace(projectPath);
+      return result(await analyzeGitChanges(root, base ?? "HEAD"));
     } catch (error) { return failure(error); }
   }
 );
