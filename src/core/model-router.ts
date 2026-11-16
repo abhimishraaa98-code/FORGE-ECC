@@ -141,16 +141,15 @@ export class ModelRouter implements AgentProvider {
     const waitWithinBudget = async (milliseconds: number): Promise<void> => {
       const remaining = remainingDuration();
       if (remaining === undefined) { await (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds); return; }
-      if (remaining <= 0 || milliseconds >= remaining) {
-        if (remaining > 0) {
-          await Promise.race([
-            (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds),
-            new Promise<never>((_, reject) => setTimeout(() => reject(durationError()), remaining)),
-          ]);
-        }
-        throw durationError();
-      }
-      await (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds);
+      if (remaining <= 0) throw durationError();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          (this.options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))))(milliseconds),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(durationError()), remaining); }),
+        ]);
+      } finally { if (timer !== undefined) clearTimeout(timer); }
+      if ((remainingDuration() ?? 1) <= 0) throw durationError();
     };
     const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
       const complete = async (): Promise<AgentResponse> => validateProviderResponse(await target.complete(request));
