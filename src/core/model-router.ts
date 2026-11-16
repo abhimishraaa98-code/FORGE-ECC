@@ -92,14 +92,23 @@ export class ModelRouter implements AgentProvider {
     const start = Date.now();
     const inputText = request.task.prompt + (request.projectContext ?? "") + request.completedDependencies.map(item => item.result).join("");
     const inputTokensEstimate = Math.ceil(inputText.length / 4);
+    const rejectBeforeProvider = (message: string): never => {
+      this.recordTrace({
+        taskId: request.task.id, agent: request.task.agent, tier: route.tier,
+        model: route.model, provider: "not-started", startedAt,
+        durationMs: Date.now() - start, outcome: "failed", retries: 0,
+        inputTokensEstimate, outputTokensEstimate: 0, error: message,
+      });
+      throw new Error(message);
+    };
     const maxInput = this.options.maxInputTokensPerTask;
-    if (maxInput !== undefined && inputTokensEstimate > maxInput) throw new Error(`FORGE budget exceeded: task input estimate ${inputTokensEstimate} exceeds per-task limit ${maxInput}.`);
+    if (maxInput !== undefined && inputTokensEstimate > maxInput) rejectBeforeProvider(`FORGE budget exceeded: task input estimate ${inputTokensEstimate} exceeds per-task limit ${maxInput}.`);
     const runLimit = this.options.maxEstimatedTokensPerRun;
     const agentLimit = this.options.maxEstimatedTokensPerAgent?.[request.task.agent];
     const agentUsed = this.estimatedTokensByAgent.get(request.task.agent) ?? 0;
     const maxOutput = this.options.maxOutputTokensPerTask;
-    if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
-    if (agentLimit !== undefined && agentUsed + inputTokensEstimate > agentLimit) throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before provider call.`);
+    if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) rejectBeforeProvider(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
+    if (agentLimit !== undefined && agentUsed + inputTokensEstimate > agentLimit) rejectBeforeProvider(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before provider call.`);
     this.estimatedTokensUsed += inputTokensEstimate;
     this.estimatedTokensByAgent.set(request.task.agent, agentUsed + inputTokensEstimate);
     const provider = this.options.createProvider(route.model);
