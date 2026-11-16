@@ -143,6 +143,27 @@ describe("isolated approved patch staging", () => {
     expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\n");
     await expect(readFile(path.join(stageRoot, "promotion-journal.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
+  it("refuses recovery when the promotion journal does not match its stage", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    const stageRoot = path.join(root, ".forge", "patch-workspaces", staged.id);
+    const manifestPath = path.join(stageRoot, "stage.json");
+    const originalManifest = await readFile(manifestPath, "utf8");
+    const promoted = await promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256);
+    await writeFile(manifestPath, originalManifest);
+    const journalPath = path.join(stageRoot, "promotion-journal.json");
+    await writeFile(journalPath, JSON.stringify({
+      stageId: "patch-stage-000000000000000000000000",
+      file: promoted.file, reviewer: "reviewer", state: "prepared",
+      sourceSha256: promoted.sourceSha256, stagedSha256: promoted.promotedSha256,
+      backupPath: promoted.backupPath, backupSha256: promoted.sourceSha256,
+      preparedAt: new Date().toISOString(),
+    }));
+    await expect(rollbackStagedPatch(root, staged.id, "recovery-reviewer")).rejects.toThrow(/journal does not match/);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\n");
+    await expect(readFile(journalPath, "utf8")).resolves.toContain("patch-stage-000000000000000000000000");
+  });
+
   it("refuses rollback if the promoted file has changed since promotion", async () => {
     const approval = await fixture();
     const staged = await stageApprovedPatch(root, approval.id);
