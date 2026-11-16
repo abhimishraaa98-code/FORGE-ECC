@@ -16,10 +16,23 @@ describe("experiment manifests", () => {
     await writeFile(matrix, JSON.stringify({ id: "matrix-a", candidates: [] }));
     const manifest = await captureExperimentManifest({ projectPath: root, matrixFile: matrix, matrixId: "matrix-a", suiteId: "suite-a", suite: { cases: ["one"] }, provider: "matrix", model: "candidate-specific" });
     expect(manifest.fingerprint).toMatch(/^[a-f0-9]{64}$/);
-    expect(manifest.inputs.matrixSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(manifest.inputs.matrixSha256).toMatch(/^[a-f0-9]{64}$/);\n    expect(manifest.environment).toBeDefined();\n    expect(JSON.stringify(manifest)).not.toMatch(/OPENAI_API_KEY|FORGE_API_KEY|secret-value/);
     const saved = await saveExperimentManifest(root, manifest);
     expect((await loadExperimentManifest(root, manifest.id)).fingerprint).toBe(manifest.fingerprint);
     expect(JSON.parse(await readFile(saved, "utf8")).id).toBe(manifest.id);
+  });
+  it("reports differences in safe environment metadata", () => {
+    const base = {
+      version: 1 as const, id: "exp-aaaaaaaaaaaa", createdAt: "2026-01-01T00:00:00.000Z", fingerprint: "a".repeat(64),
+      source: { commit: "abc", dirty: false }, runtime: { node: "v22", platform: "linux", architecture: "x64" },
+      environment: { variables: [{ name: "NODE_ENV", value: "test" }], lockfiles: [] },
+      inputs: { matrixId: "m", matrixSha256: "a".repeat(64), suiteId: "s", suiteSha256: "b".repeat(64), packageLockSha256: null },
+      provider: { provider: "openai", model: "model-a", baseUrlHost: "api.openai.com" },
+      configuration: { agentConfigFingerprints: [] }
+    };
+    const changed = compareExperimentManifests(base, { ...base, id: "exp-bbbbbbbbbbbb", environment: { variables: [{ name: "NODE_ENV", value: "production" }], lockfiles: [] } });
+    expect(changed.compatible).toBe(false);
+    expect(changed.differences).toContain("Allowlisted runtime environment variables or dependency lockfiles differ.");
   });
   it("flags mismatched source, suite, provider and pinned config", async () => {
     const base = {
