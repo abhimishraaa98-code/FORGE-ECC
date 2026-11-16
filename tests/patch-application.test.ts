@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
@@ -11,7 +11,11 @@ import type { AIReviewResult } from "../src/core/ai-code-review.js";
 
 describe("isolated approved patch staging", () => {
   let root = "";
-  afterEach(async () => { if (root) await rm(root, { recursive: true, force: true }); });
+  const afterEachCleanup: string[] = [];
+  afterEach(async () => {
+    if (root) await rm(root, { recursive: true, force: true });
+    for (const item of afterEachCleanup.splice(0)) await rm(item, { recursive: true, force: true });
+  });
   async function fixture() {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-patch-stage-"));
     await mkdir(path.join(root, "src"));
@@ -182,6 +186,24 @@ describe("isolated approved patch staging", () => {
     await expect(rollbackStagedPatch(root, staged.id, "recovery-reviewer")).rejects.toThrow(/journal does not match/);
     expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\\n");
     await expect(readFile(journalPath, "utf8")).resolves.toContain("other-stage");
+  });
+
+  it("refuses rollback when a backup parent directory is replaced by a symlink", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    const promoted = await promoteStagedPatch(root, staged.id, "reviewer", staged.stagedSha256);
+    const backupDir = path.dirname(path.join(root, promoted.backupPath));
+    const originalParent = path.join(backupDir, "src-original");
+    const outside = await mkdtemp(path.join(os.tmpdir(), "forge-outside-backup-"));
+    await afterEachCleanup.push(outside);
+    await rename(path.join(backupDir, "a.ts"), path.join(backupDir, "a-original.ts"));
+    await mkdir(path.join(outside, "src"));
+    await writeFile(path.join(outside, "src/a.ts"), "forged backup\\n");
+    await rm(path.join(backupDir, "a-original.ts"));
+    await rename(backupDir, originalParent);
+    await symlink(path.join(outside, "src"), backupDir);
+    await expect(rollbackStagedPatch(root, staged.id, "reviewer")).rejects.toThrow(/resolves outside/);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 2;\\n");
   });
 
   it("refuses rollback if the promoted file has changed since promotion", async () => {
