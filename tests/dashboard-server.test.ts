@@ -136,7 +136,7 @@ describe("local dashboard server", () => {
     expect(snapshot.status).toBe(201);
     const version = await snapshot.json();
     expect(version.status).toBe("candidate");
-    expect(version.files).toHaveLength(2);
+    expect(version.files).toHaveLength(4);
     const bypassApproval = await fetch(base + "/api/config-snapshots/" + version.id + "/approve", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ reviewer: "test-reviewer" })
