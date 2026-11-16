@@ -8,6 +8,7 @@ import { verifyStagedPatch } from "../src/core/staged-verification.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
 import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
@@ -130,6 +131,26 @@ describe("staged verification policy integration", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("patch-verify CLI policy argument validation", () => {
+  const stageId = "patch-stage-12345678901234567890";
+
+  it("rejects a missing --policy value", () => {
+    const result = spawnSync(process.execPath, ["--import", "tsx", "src/cli.ts", "patch-verify", stageId, "test", "--sandbox-image", image, "--policy"], {
+      cwd: process.cwd(), encoding: "utf8", timeout: 20_000,
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--policy requires a policy file path");
+  });
+
+  it("rejects another flag where the policy path should be", () => {
+    const result = spawnSync(process.execPath, ["--import", "tsx", "src/cli.ts", "patch-verify", stageId, "test", "--sandbox-image", image, "--policy", "--path", process.cwd()], {
+      cwd: process.cwd(), encoding: "utf8", timeout: 20_000,
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--policy requires a policy file path");
   });
 });
 
