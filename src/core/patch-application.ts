@@ -397,8 +397,38 @@ export async function rollbackStagedPatch(root: string, stageId: string, reviewe
     const manifestPath = path.join(stageRoot, "stage.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
     const journalPath = path.join(stageRoot, "promotion-journal.json");
-    let journal: { stageId: string; file: string; reviewer: string; state: string; sourceSha256: string; stagedSha256: string; backupPath: string; backupSha256: string } | undefined;
-    try { journal = JSON.parse(await readFile(journalPath, "utf8")) as typeof journal; } catch (error) {
+    let journal: {
+      stageId: string; file: string; reviewer: string; state: string;
+      sourceSha256: string; stagedSha256: string; backupPath: string;
+      backupSha256: string; preparedAt: string;
+    } | undefined;
+    try {
+      const journalInfo = await lstat(journalPath);
+      if (journalInfo.isSymbolicLink() || !journalInfo.isFile() || journalInfo.size > 16 * 1024) {
+        throw new Error("Promotion journal must be a regular file no larger than 16 KiB.");
+      }
+      const parsed: unknown = JSON.parse(await readFile(journalPath, "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Promotion journal is malformed.");
+      const value = parsed as Record<string, unknown>;
+      const expectedBackupPath = path.posix.join(".forge", "patch-workspaces", stageId, "backup", path.relative(project, path.resolve(project, manifest.file)).split(path.sep).join("/"));
+      const validHash = (candidate: unknown): candidate is string => typeof candidate === "string" && /^[a-f0-9]{64}$/.test(candidate);
+      if (
+        value.stageId !== stageId || value.file !== manifest.file ||
+        value.state !== "prepared" ||
+        typeof value.reviewer !== "string" || !value.reviewer.trim() || value.reviewer.length > 80 ||
+        !validHash(value.sourceSha256) || value.sourceSha256 !== manifest.sourceSha256 ||
+        !validHash(value.stagedSha256) || value.stagedSha256 !== manifest.stagedSha256 ||
+        value.backupPath !== expectedBackupPath ||
+        !validHash(value.backupSha256) || value.backupSha256 !== manifest.sourceSha256 ||
+        typeof value.preparedAt !== "string" || !Number.isFinite(Date.parse(value.preparedAt))
+      ) throw new Error("Promotion journal does not match the stage manifest; recovery refused.");
+      if (manifest.promotedAt && (
+        manifest.backupPath !== value.backupPath ||
+        manifest.backupSha256 !== value.backupSha256 ||
+        manifest.promotedBy !== value.reviewer
+      )) throw new Error("Promotion journal conflicts with the completed promotion manifest; recovery refused.");
+      journal = value as typeof journal;
+    } catch (error) {
       if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
     }
     const file = manifest.promotedAt ? manifest.file : journal?.file;
