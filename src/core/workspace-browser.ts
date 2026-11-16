@@ -1,4 +1,5 @@
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { isExcludedScanDirectory } from "./workspace-scan-policy.js";
 
@@ -97,13 +98,19 @@ export async function listWorkspaceDirectory(projectPath: string, relativePath =
 
 export async function readWorkspaceFile(projectPath: string, relativePath: string): Promise<{ path: string; name: string; extension: string; size: number; content: string }> {
   const resolved = await resolveWorkspacePath(projectPath, relativePath);
-  const info = await lstat(resolved.target);
-  if (!info.isFile()) throw new Error("Workspace item is not a regular file.");
   const name = path.basename(resolved.target);
   const extension = path.extname(name).toLowerCase();
   if (isBlocked(name) || !PREVIEW_EXTENSIONS.has(extension)) throw new Error("This file type is not available in the workspace preview.");
-  if (info.size > MAX_PREVIEW_BYTES) throw new Error("File is too large to preview (128 KiB maximum).");
-  const content = await readFile(resolved.target, "utf8");
-  if (content.includes("\u0000")) throw new Error("Binary files cannot be previewed.");
-  return { path: resolved.relative, name, extension: extension.slice(1), size: info.size, content };
+  // O_NOFOLLOW closes the final-component symlink swap between lstat and read.
+  const handle = await open(resolved.target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) throw new Error("Workspace item is not a regular file.");
+    if (info.size > MAX_PREVIEW_BYTES) throw new Error("File is too large to preview (128 KiB maximum).");
+    const content = await handle.readFile({ encoding: "utf8" });
+    if (content.includes("\u0000")) throw new Error("Binary files cannot be previewed.");
+    return { path: resolved.relative, name, extension: extension.slice(1), size: info.size, content };
+  } finally {
+    await handle.close();
+  }
 }
