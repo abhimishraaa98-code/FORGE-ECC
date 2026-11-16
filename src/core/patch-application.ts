@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { consumePatchApproval, loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
@@ -19,6 +19,10 @@ export interface PatchStageRecord {
   workspaceSha256: string;
   snapshotFiles: number;
   snapshotBytes: number;
+  promotedAt?: string;
+  promotedBy?: string;
+  backupPath?: string;
+  backupSha256?: string;
 }
 function sha(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 
@@ -261,4 +265,147 @@ export async function reviewStagedPatch(root: string, stageId: string): Promise<
   if (sourceSha256 !== record.sourceSha256) throw new Error("Original source changed after staging; regenerate and approve a fresh patch.");
   if (stagedSha256 !== record.stagedSha256) throw new Error("Staged file changed after staging; do not promote this workspace.");
   return { stageId, file: record.file, sourceSha256, stagedSha256, unchanged: source === staged, diff: lineDiff(source, staged) };
+}
+
+
+export interface PatchPromotionRecord {
+  stageId: string;
+  file: string;
+  promotedAt: string;
+  promotedBy: string;
+  sourceSha256: string;
+  promotedSha256: string;
+  backupPath: string;
+}
+
+/** Promotes one reviewed staged file only after an explicit hash confirmation. */
+export async function promoteStagedPatch(
+  root: string,
+  stageId: string,
+  reviewer: string,
+  expectedStagedSha256: string,
+): Promise<PatchPromotionRecord> {
+  const name = reviewer.trim().slice(0, 80);
+  if (!name) throw new Error("A non-empty promotion reviewer identity is required.");
+  if (!/^[a-f0-9]{64}$/.test(expectedStagedSha256)) throw new Error("Promotion requires the exact staged SHA-256 confirmation.");
+  const project = path.resolve(root);
+  const reviewed = await reviewStagedPatch(project, stageId);
+  if (reviewed.stagedSha256 !== expectedStagedSha256) throw new Error("Promotion confirmation does not match the staged file hash.");
+  const projectReal = await realpath(project);
+  const stageRoot = path.join(project, ".forge", "patch-workspaces", stageId);
+  const stageReal = await realpath(stageRoot);
+  if (!stageReal.startsWith(projectReal + path.sep)) throw new Error("Promotion stage resolves outside the project.");
+  const lock = path.join(stageRoot, ".promotion-lock");
+  try { await mkdir(lock, { mode: 0o700 }); }
+  catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      throw new Error("This staged patch is already being promoted or rolled back.");
+    }
+    throw error;
+  }
+  let temporary = "";
+  try {
+    const manifestPath = path.join(stageRoot, "stage.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
+    if (manifest.promotedAt) throw new Error("This staged patch has already been promoted.");
+    const workspace = path.resolve(project, manifest.workspacePath);
+    const workspaceFingerprint = await fingerprintStagedWorkspace(workspace);
+    if (workspaceFingerprint.sha256 !== manifest.workspaceSha256) throw new Error("Staged workspace changed after staging; promotion refused.");
+    const target = path.resolve(project, manifest.file);
+    const relative = path.relative(project, target);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Promotion target escapes the project.");
+    const targetReal = await realpath(target);
+    if (!targetReal.startsWith(projectReal + path.sep)) throw new Error("Promotion target resolves outside the project.");
+    const targetInfo = await lstat(target);
+    if (targetInfo.isSymbolicLink() || !targetInfo.isFile()) throw new Error("Promotion target must be a regular file.");
+    const current = await readFile(targetReal);
+    const currentHash = sha(current.toString("utf8"));
+    if (currentHash !== manifest.sourceSha256 || currentHash !== reviewed.sourceSha256) {
+      throw new Error("Original file changed since staging; create a fresh review and approval.");
+    }
+    const stagedPath = path.resolve(project, manifest.stagedFile);
+    const stagedInfo = await lstat(stagedPath);
+    if (stagedInfo.isSymbolicLink() || !stagedInfo.isFile()) throw new Error("Staged target must be a regular file.");
+    const staged = await readFile(stagedPath);
+    if (sha(staged.toString("utf8")) !== expectedStagedSha256) throw new Error("Staged file changed before promotion.");
+    const backupRelative = path.posix.join(".forge", "patch-workspaces", stageId, "backup", relative.split(path.sep).join("/"));
+    const backup = path.resolve(project, backupRelative);
+    await mkdir(path.dirname(backup), { recursive: true, mode: 0o700 });
+    await writeFile(backup, current, { flag: "wx", mode: 0o600 });
+    temporary = path.join(path.dirname(target), ".forge-promote-" + randomUUID() + ".tmp");
+    await writeFile(temporary, staged, { flag: "wx", mode: 0o600 });
+    const lastCheck = await readFile(target);
+    if (sha(lastCheck.toString("utf8")) !== manifest.sourceSha256) throw new Error("Original file changed during promotion; no changes were applied.");
+    await rename(temporary, target);
+    temporary = "";
+    const promotedAt = new Date().toISOString();
+    const updated: PatchStageRecord = {
+      ...manifest, promotedAt, promotedBy: name,
+      backupPath: backupRelative, backupSha256: manifest.sourceSha256,
+    };
+    const manifestTemp = path.join(stageRoot, ".stage-" + randomUUID() + ".tmp");
+    try {
+      await writeFile(manifestTemp, JSON.stringify(updated, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+      await rename(manifestTemp, manifestPath);
+    } catch (error) {
+      await rm(manifestTemp, { force: true }).catch(() => undefined);
+      const rollbackTemp = path.join(path.dirname(target), ".forge-rollback-" + randomUUID() + ".tmp");
+      await writeFile(rollbackTemp, current, { flag: "wx", mode: 0o600 });
+      await rename(rollbackTemp, target);
+      throw error;
+    }
+    return {
+      stageId, file: manifest.file, promotedAt, promotedBy: name,
+      sourceSha256: manifest.sourceSha256, promotedSha256: expectedStagedSha256,
+      backupPath: backupRelative,
+    };
+  } finally {
+    if (temporary) await rm(temporary, { force: true }).catch(() => undefined);
+    await rm(lock, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** Restores the original file only if the promoted contents are still untouched. */
+export async function rollbackStagedPatch(root: string, stageId: string, reviewer: string): Promise<void> {
+  const name = reviewer.trim().slice(0, 80);
+  if (!name) throw new Error("A non-empty rollback reviewer identity is required.");
+  if (!/^patch-stage-[a-f0-9-]{20,40}$/.test(stageId) || stageId.includes("..")) throw new Error("Invalid patch stage identifier.");
+  const project = path.resolve(root);
+  const stageRoot = path.join(project, ".forge", "patch-workspaces", stageId);
+  const stageReal = await realpath(stageRoot);
+  const projectReal = await realpath(project);
+  if (!stageReal.startsWith(projectReal + path.sep)) throw new Error("Rollback stage resolves outside the project.");
+  const lock = path.join(stageRoot, ".promotion-lock");
+  try { await mkdir(lock, { mode: 0o700 }); }
+  catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") throw new Error("This staged patch is already being promoted or rolled back.");
+    throw error;
+  }
+  try {
+    const manifestPath = path.join(stageRoot, "stage.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
+    if (!manifest.promotedAt || !manifest.backupPath || !manifest.backupSha256) throw new Error("This stage has no completed promotion to roll back.");
+    const target = path.resolve(project, manifest.file);
+    const backup = path.resolve(project, manifest.backupPath);
+    for (const candidate of [target, backup]) {
+      const relative = path.relative(project, candidate);
+      if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Rollback path escapes the project.");
+      const info = await lstat(candidate);
+      if (info.isSymbolicLink() || !info.isFile()) throw new Error("Rollback only supports regular files.");
+    }
+    const [current, original] = await Promise.all([readFile(target), readFile(backup)]);
+    if (sha(current.toString("utf8")) !== manifest.stagedSha256) throw new Error("Promoted file has changed since promotion; refusing to overwrite newer work.");
+    if (sha(original.toString("utf8")) !== manifest.backupSha256) throw new Error("Promotion backup failed integrity verification.");
+    const temp = path.join(path.dirname(target), ".forge-rollback-" + randomUUID() + ".tmp");
+    await writeFile(temp, original, { flag: "wx", mode: 0o600 });
+    await rename(temp, target);
+    const updated: PatchStageRecord = { ...manifest, promotedAt: undefined, promotedBy: undefined };
+    delete updated.promotedAt;
+    delete updated.promotedBy;
+    const manifestTemp = path.join(stageRoot, ".stage-" + randomUUID() + ".tmp");
+    await writeFile(manifestTemp, JSON.stringify(updated, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+    await rename(manifestTemp, manifestPath);
+  } finally {
+    await rm(lock, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
