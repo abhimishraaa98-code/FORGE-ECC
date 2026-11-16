@@ -17,6 +17,9 @@ export interface OpenAICompatibleOptions {
 function normalizeEndpoint(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
   const url = new URL(trimmed);
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error("AI provider URL must not contain credentials, a query string, or a fragment.");
+  }
   const local = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
     throw new Error("AI provider URL must use HTTPS (HTTP is allowed only for localhost).");
