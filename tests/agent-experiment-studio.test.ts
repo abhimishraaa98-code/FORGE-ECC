@@ -14,7 +14,7 @@ describe("agent experiment studio", () => {
     expect(() => createSkillExperimentMatrix({ id: "invalid-experiment", name: "Invalid", baselineCandidateId: "baseline", treatmentCandidateId: "treatment", provider: "openai", model: "gpt-test", repeats: 2, skillIds: [] })).toThrow("unique valid skill IDs");
   });
   it("requires distinct valid candidate IDs and bounded repeat count", () => {
-    expect(() => createSkillExperimentMatrix({ id: "bad", name: "Bad", baselineCandidateId: "same", treatmentCandidateId: "same", provider: "openai", model: "gpt-test", repeats: 2, skillIds: ["secure-changes"] })).toThrow("distinct baseline and treatment");
+    expect(() => createSkillExperimentMatrix({ id: "bad", name: "Bad", baselineCandidateId: "same", treatmentCandidateId: "same", provider: "openai", model: "gpt-test", repeats: 2, skillIds: ["secure-changes"] })).toThrow("unique valid id");
     expect(() => createSkillExperimentMatrix({ id: "bad-repeats", name: "Bad repeats", baselineCandidateId: "baseline", treatmentCandidateId: "treatment", provider: "openai", model: "gpt-test", repeats: 4, skillIds: ["secure-changes"] })).toThrow("repeats must be between 1 and 3");
   });
 });
