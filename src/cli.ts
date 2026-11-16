@@ -45,6 +45,7 @@ import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/
 import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } from "./core/agent-evaluation-intelligence.js";
 import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
 import { createSkillExperimentMatrix, formatSkillExperimentMatrix } from "./core/agent-experiment-studio.js";
+import { buildExperimentHistory, formatExperimentHistory } from "./core/experiment-history.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
@@ -92,6 +93,7 @@ Commands:
   agent-intelligence [--suite ID] [--candidate ID] [--limit N] [--path PROJECT]  Score agent effectiveness across benchmark history
   agent-evolution MATRIX_ID [--path PROJECT]  Evaluate a controlled baseline/treatment experiment
   experiment-studio create [options]  Scaffold a controlled baseline/treatment skill experiment
+  experiment-history [--suite ID] [--candidate ID] [--limit N] [--json] [--path PROJECT]  Rank historical benchmark candidates
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
   experiment <capture|show|compare> [options]  Capture and compare reproducible benchmark manifests
@@ -241,6 +243,28 @@ async function main(args: string[]): Promise<void> {
         } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
       } catch (error) {
         process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "experiment-history": {
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const rawLimit = option("--limit");
+      const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+      if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)) {
+        process.stderr.write("FORGE experiment history: --limit must be an integer from 1 to 100.\\n");
+        process.exitCode = 1; return;
+      }
+      try {
+        const suiteId = option("--suite");
+        const candidateId = option("--candidate");
+        const reports = await listBenchmarkMatrices(target);
+        const history = buildExperimentHistory(reports, { ...(suiteId ? { suiteId } : {}), ...(candidateId ? { candidateId } : {}), ...(limit !== undefined ? { limit } : {}) });
+        process.stdout.write(rest.includes("--json") ? JSON.stringify(history, null, 2) + "\\n" : formatExperimentHistory(history) + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE experiment history failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
