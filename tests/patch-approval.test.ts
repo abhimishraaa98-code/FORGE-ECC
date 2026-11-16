@@ -94,6 +94,28 @@ describe("patch approval records", () => {
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
     expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
   });
+  it("does not allow revocation after an approval is consumed", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    await consumePatchApproval(root, approval.id);
+    await expect(revokePatchApproval(root, approval.id)).rejects.toThrow(/already used or being consumed/);
+  });
+  it("does not allow consumption after revocation", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    await revokePatchApproval(root, approval.id);
+    await expect(consumePatchApproval(root, approval.id)).rejects.toThrow(/revoked/);
+  });
+  it("serializes concurrent revocation and consumption", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    const results = await Promise.allSettled([
+      consumePatchApproval(root, approval.id),
+      revokePatchApproval(root, approval.id),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+  });
   it("rejects expired approvals", async () => {
     const review = await fixture();
     const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
