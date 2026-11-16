@@ -1124,17 +1124,23 @@ async function main(args: string[]): Promise<void> {
       const sandboxImageIndex = rest.indexOf("--sandbox-image");
       const sandboxImage = sandboxImageIndex >= 0 ? rest[sandboxImageIndex + 1] : undefined;
       const requireRootless = rest.includes("--require-rootless");
-      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && !(pathIndex >= 0 && index === pathIndex + 1) && arg !== "--install-dependencies" && arg !== "--sandbox-image" && !(sandboxImageIndex >= 0 && index === sandboxImageIndex + 1) && arg !== "--require-rootless");
+      const profileIndex = rest.indexOf("--profile");
+      const securityProfile = profileIndex >= 0 ? rest[profileIndex + 1] : undefined;
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && !(pathIndex >= 0 && index === pathIndex + 1) && arg !== "--install-dependencies" && arg !== "--sandbox-image" && !(sandboxImageIndex >= 0 && index === sandboxImageIndex + 1) && arg !== "--require-rootless" && arg !== "--profile" && !(profileIndex >= 0 && index === profileIndex + 1));
       const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
       const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
       try {
-        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]");
+        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--profile balanced|hardened|rootless-required] [--path PROJECT]");
         if (sandboxImageIndex >= 0 && !sandboxImage) throw new Error("--sandbox-image requires an image pinned by sha256 digest.");
         if (requireRootless && !sandboxImage) throw new Error("--require-rootless requires --sandbox-image container execution.");
+        if (profileIndex >= 0 && !securityProfile) throw new Error("--profile requires a profile name.");
+        if (securityProfile && !["balanced", "hardened", "rootless-required"].includes(securityProfile)) throw new Error("Unknown sandbox security profile: " + securityProfile);
+        if (securityProfile && !sandboxImage) throw new Error("--profile requires --sandbox-image container execution.");
         const result = await verifyStagedPatch(target, stageId, script, {
           installDependencies,
           ...(sandboxImage ? { sandboxImage } : {}),
           ...(requireRootless ? { requireRootless } : {}),
+          ...(securityProfile ? { securityProfile: securityProfile as "balanced" | "hardened" | "rootless-required" } : {}),
         });
         process.stdout.write(
           "# FORGE Staged Patch Verification\n\n" +
