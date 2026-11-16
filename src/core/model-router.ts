@@ -29,6 +29,10 @@ export interface ModelRouterOptions {
   maxInputTokensPerTask?: number;
   maxOutputTokensPerTask?: number;
   maxEstimatedTokensPerRun?: number;
+  /** Previously accounted usage restored when continuing a persisted run. */
+  initialEstimatedTokensUsed?: number;
+  /** Previously accounted usage by agent, restored when continuing a persisted run. */
+  initialEstimatedTokensByAgent?: Readonly<Record<string, number>>;
   /** Optional cumulative estimated input + output token ceilings keyed by agent ID. */
   maxEstimatedTokensPerAgent?: Readonly<Record<string, number>>;
   /** Wall-clock ceiling; providers without abort support may continue after FORGE stops waiting. */
@@ -79,6 +83,12 @@ export class ModelRouter implements AgentProvider {
     if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
     for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun, maxTaskDurationMs: options.maxTaskDurationMs })) {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error(`${name} must be a positive safe integer.`);
+    }
+    if (options.initialEstimatedTokensUsed !== undefined && (!Number.isSafeInteger(options.initialEstimatedTokensUsed) || options.initialEstimatedTokensUsed < 0)) throw new Error("initialEstimatedTokensUsed must be a non-negative safe integer.");
+    this.estimatedTokensUsed = options.initialEstimatedTokensUsed ?? 0;
+    for (const [agent, used] of Object.entries(options.initialEstimatedTokensByAgent ?? {})) {
+      if (!agent.trim() || !Number.isSafeInteger(used) || used < 0) throw new Error(`Initial token usage for agent ${agent || "<empty>"} must be a non-negative safe integer.`);
+      this.estimatedTokensByAgent.set(agent, used);
     }
     for (const [agent, limit] of Object.entries(options.maxEstimatedTokensPerAgent ?? {})) {
       if (!agent.trim() || !Number.isSafeInteger(limit) || limit < 1) throw new Error(`Token budget for agent ${agent || "<empty>"} must be a positive safe integer.`);
