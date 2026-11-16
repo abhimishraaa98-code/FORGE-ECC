@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
+import { spawn } from "node:child_process";
 import os from "node:os";
 import { mkdtemp, rm } from "node:fs/promises";
 import { initializeProject } from "./core/project-init.js";
@@ -1011,7 +1012,7 @@ async function main(args: string[]): Promise<void> {
       try {
         const [version, security] = await Promise.all([
           new Promise<string>((resolve, reject) => {
-            const child = (await import("node:child_process")).spawn(runtime, ["--version"], { shell: false, windowsHide: true });
+            const child = spawn(runtime, ["--version"], { shell: false, windowsHide: true });
             let output = "";
             child.stdout.on("data", chunk => { output += chunk.toString().slice(0, 4096); });
             child.once("error", reject);
