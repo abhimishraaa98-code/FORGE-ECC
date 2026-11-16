@@ -49,6 +49,34 @@ describe("container sandbox arguments", () => {
   });
 });
 
+describe("custom sandbox policy runtime enforcement", () => {
+  const policy = {
+    version: 1 as const, profile: "balanced" as const, network: "none" as const,
+    readOnlyRoot: true as const, dropAllCapabilities: true as const,
+    noNewPrivileges: true as const, maxMemory: "512m", maxCpus: 1,
+    maxProcesses: 64, requireRootless: false, requireImageDigest: true as const,
+  };
+
+  it("maps validated policy resource limits into actual container arguments", () => {
+    const args = buildContainerRunArgs("/tmp/project", image, "test", "forge-policy", getSandboxSecurityProfile("balanced"), policy);
+    expect(args).toContain("--memory=512m");
+    expect(args).toContain("--memory-swap=512m");
+    expect(args).toContain("--cpus=1");
+    expect(args).toContain("--pids-limit=64");
+    expect(args).toContain("--network=none");
+    expect(args).toContain("--read-only");
+    expect(args).toContain("--cap-drop=ALL");
+    expect(args).toContain("--security-opt=no-new-privileges");
+  });
+
+  it("keeps built-in limits when no custom policy is supplied", () => {
+    const args = buildContainerRunArgs("/tmp/project", image, "test", "forge-default");
+    expect(args).toContain("--memory=1g");
+    expect(args).toContain("--cpus=2");
+    expect(args).toContain("--pids-limit=128");
+  });
+});
+
 describe("container runtime security detection", () => {
   it("recognizes rootless Docker security options", () => {
     expect(detectDockerRootless('["name=seccomp,profile=builtin","name=rootless"]')).toBe(true);
