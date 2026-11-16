@@ -884,12 +884,19 @@ async function main(args: string[]): Promise<void> {
     }
     case "runs": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge runs [path] [--json]\nLists valid saved run records. Use --json for the versioned machine-readable summary.\n");
+        process.stdout.write("Usage: forge runs [path] [--json] [--limit N]\nLists valid saved run records. Use --json for the versioned machine-readable summary and --limit N to return the newest N runs.\n");
         return;
       }
-      const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
+      const limitIndex = rest.indexOf("--limit");
+      const rawLimit = limitIndex >= 0 ? rest[limitIndex + 1] : undefined;
+      const limit = limitIndex < 0 ? undefined : Number(rawLimit);
+      const target = rest.find((arg, index) => !arg.startsWith("--") && index !== limitIndex + 1) ?? ".";
       try {
-        const runs = await listRuns(path.resolve(target));
+        if (limitIndex >= 0 && (!rawLimit || !Number.isSafeInteger(limit) || limit! < 1)) {
+          throw new Error("--limit requires a positive safe integer.");
+        }
+        const allRuns = await listRuns(path.resolve(target));
+        const runs = limit === undefined ? allRuns : allRuns.slice(0, limit);
         if (rest.includes("--json")) {
           process.stdout.write(formatRunHistoryJson(runs));
         } else {
