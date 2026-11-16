@@ -135,6 +135,9 @@ describe("local dashboard server", () => {
     const benchmarks = await fetch(base + "/api/benchmarks");
     expect(benchmarks.status).toBe(200);
     expect(await benchmarks.json()).toEqual([]);
+    const benchmarkMatrices = await fetch(base + "/api/benchmark-matrices");
+    expect(benchmarkMatrices.status).toBe(200);
+    expect(await benchmarkMatrices.json()).toEqual([]);
 
     const observability = await fetch(base + "/api/observability");
     expect(observability.status).toBe(200);
