@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { inspectProject } from "./project-inspector.js";
 import { mapArchitecture } from "./architecture-map.js";
-import { decideTaskApproval, listRuns, loadRun } from "./run-store.js";
+import { decideTaskApproval, listRuns, loadRun, saveRun } from "./run-store.js";
 import { loadAgentRegistry } from "./agent-registry.js";
 import { auditProject } from "./quality-audit.js";
 import { listVerifications } from "./verification-history.js";
@@ -17,7 +17,6 @@ import { compareLatestIntelligence, listIntelligenceSnapshots } from "./intellig
 import { analyzeDependencies } from "./dependency-intelligence.js";
 import { loadExecutionTrace } from "./execution-trace.js";
 import { createReplayRun } from "./run-replay.js";
-import { saveRun } from "./run-store.js";
 import { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
 
 const PAGE = String.raw`<!doctype html>
@@ -70,6 +69,7 @@ async function inspectRun(id){
   const traceRequest=await api("/api/runs/"+encodeURIComponent(id)+"/trace").catch(()=>null);
   el("inspectorLabel").textContent=run.id;
   const handoffs=run.tasks.map(task=>'<div class="task-card"><b>'+esc(task.title)+'</b><small>'+esc(task.agent)+' · '+esc(task.id)+'</small><span class="pill">'+esc(task.status)+'</span><small>'+(task.dependsOn&&task.dependsOn.length?'Receives findings from: '+esc(task.dependsOn.join(', ')):'No upstream dependencies')+'</small></div>').join("");
+  const eventStream=run.events.length?'<div class="card"><div class="section-head"><h2>Live event stream</h2><span class="pill">LATEST 20</span></div><div class="activity">'+run.events.slice(-20).reverse().map(event=>'<div class="activity-item"><span class="activity-dot '+(event.type==="completed"?"completed":event.type==="failed"||event.type==="blocked"?"failed":event.type==="started"?"running":"")+'"></span><div><b>'+esc(event.taskId)+' · '+esc(event.type)+'</b><div class="run-meta">'+esc(event.message)+' · '+esc(new Date(event.at).toLocaleTimeString())+'</div></div></div>').join("")+'</div></div>':'<div class="empty">No run events recorded yet.</div>';
   const trace=traceRequest?'<div class="card"><div class="section-head"><h2>Execution telemetry</h2><span class="pill">ESTIMATES · LOCAL</span></div><div class="grid">'+metric("Agent attempts",traceRequest.totals.tasks,"Recorded trace entries")+metric("Input tokens","~"+traceRequest.totals.estimatedInputTokens,"Character-based estimate")+metric("Output tokens","~"+traceRequest.totals.estimatedOutputTokens,"Character-based estimate")+metric("Agent time",traceRequest.totals.durationMs+" ms",traceRequest.totals.fallbacks+" fallbacks · "+traceRequest.totals.failures+" failures")+'</div><div class="activity">'+traceRequest.entries.slice().reverse().map(entry=>'<div class="activity-item"><span class="activity-dot '+(entry.outcome==="success"?"completed":entry.outcome==="failed"?"failed":"running")+'"></span><div><b>'+esc(entry.agent)+' · '+esc(entry.model)+'</b><div class="run-meta">'+esc(entry.taskId)+' · '+esc(entry.tier)+' tier · '+esc(entry.durationMs)+' ms · '+esc(entry.outcome)+'</div></div></div>').join("")+'</div></div>':'<div class="empty">No execution trace is available for this run yet. Start a provider-backed run to record model and timing telemetry.</div>';
   el("runInspector").innerHTML='<div><b>'+esc(run.goal)+'</b><div class="run-meta">'+esc(run.status)+' · '+esc(new Date(run.createdAt).toLocaleString())+'</div></div><div class="card"><div class="section-head"><h2>Agent handoff map</h2><span class="pill">'+run.tasks.length+' TASKS</span></div><div class="task-grid">'+handoffs+'</div><div class="run-meta">Dependency links show which completed agent proposals are passed downstream.</div></div>'+trace+run.tasks.map(task=>'<article class="inspector-task '+(task.status==="awaiting_approval"?"approval":"")+'"><div class="run-title"><b>'+esc(task.title)+'</b><span class="pill">'+esc(task.status)+'</span></div><div class="run-meta">'+esc(task.agent)+' · '+esc(task.id)+(task.dependsOn&&task.dependsOn.length?' · depends on '+esc(task.dependsOn.join(', ')):'')+'</div>'+(task.result?'<pre>'+esc(task.result.content)+'</pre>':"")+(task.error?'<div class="error">'+esc(task.error)+'</div>':"")+(task.approval?'<div class="approval-audit">'+esc(task.approval.decision)+' by '+esc(task.approval.reviewer)+' · '+esc(new Date(task.approval.at).toLocaleString())+(task.approval.reason?' · '+esc(task.approval.reason):"")+'</div>':"")+(task.status==="awaiting_approval"?'<div class="run-meta">Human decision required before this task can proceed.</div><div class="approval-actions"><button class="btn approve" data-approval="approved" data-task="'+esc(task.id)+'">Approve task</button><button class="btn reject" data-approval="rejected" data-task="'+esc(task.id)+'">Reject task</button></div>':"")+'</article>').join("");
   el("runInspector").querySelectorAll("[data-approval]").forEach(button=>button.addEventListener("click",()=>submitApproval(id,button.getAttribute("data-task"),button.getAttribute("data-approval"))));
@@ -252,7 +252,8 @@ async function refreshWorkflows(){
 }
 async function saveCurrentWorkflow(){
  const name=el("workflowName").value.trim();if(!name||!workflowTasks.length){el("workflowMessage").textContent="Enter a workflow name and add at least one task.";return null;}
- const analysis=analyzeWorkflow();if(analysis.cyclic){el("workflowMessage").textContent="Cannot save: dependency cycle detected. Remove a circular link first.";return null;}\n const definition={id:workflowSlug(name),name,description:el("workflowDescription").value.trim(),tasks:workflowTasks,positions:workflowPositions};
+ const analysis=analyzeWorkflow();if(analysis.cyclic){el("workflowMessage").textContent="Cannot save: dependency cycle detected. Remove a circular link first.";return null;}
+ const definition={id:workflowSlug(name),name,description:el("workflowDescription").value.trim(),tasks:workflowTasks,positions:workflowPositions};
  try{const saved=await fetch("/api/workflows",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(definition)});const data=await saved.json();if(!saved.ok)throw new Error(data.error||"Could not save workflow.");el("workflowMessage").textContent="Saved locally as .forge/workflows/"+data.id+".json";await refreshWorkflows();return data.id;}
  catch(error){el("workflowMessage").textContent=error.message;return null;}
 }
