@@ -52,6 +52,34 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.retries).toBe(0);
   });
 
+  it("keeps a successful provider result when the trace observer throws", async () => {
+    const router = new ModelRouter({
+      ...models,
+      onTrace() { throw new Error("telemetry unavailable"); },
+      createProvider: model => ({
+        name: model,
+        async complete() { return { provider: model, content: "valid proposal" }; },
+      }),
+    });
+    const result = await router.complete({ task: { id: "trace", agent: "planner", title: "Trace", prompt: "Write" }, completedDependencies: [] });
+    expect(result.content).toBe("valid proposal");
+    expect(router.traces[0]?.outcome).toBe("success");
+  });
+
+  it("sends failed provider outcomes to the trace observer", async () => {
+    const observed: string[] = [];
+    const router = new ModelRouter({
+      ...models,
+      onTrace(trace) { observed.push(trace.outcome); },
+      createProvider: model => ({
+        name: model,
+        async complete() { throw new Error("AI provider request failed with HTTP 503."); },
+      }),
+    });
+    await expect(router.complete({ task: { id: "failed", agent: "planner", title: "Failure", prompt: "Try" }, completedDependencies: [] })).rejects.toThrow("HTTP 503");
+    expect(observed).toEqual(["failed"]);
+  });
+
   it("rejects an oversized task input before calling the provider", async () => {
     let calls = 0;
     const router = new ModelRouter({
