@@ -73,6 +73,7 @@ export class ModelRouter implements AgentProvider {
     const maxInput = this.options.maxInputTokensPerTask;
     if (maxInput !== undefined && inputTokensEstimate > maxInput) throw new Error(`FORGE budget exceeded: task input estimate ${inputTokensEstimate} exceeds per-task limit ${maxInput}.`);
     const runLimit = this.options.maxEstimatedTokensPerRun;
+    const maxOutput = this.options.maxOutputTokensPerTask;
     if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
     this.estimatedTokensUsed += inputTokensEstimate;
     const provider = this.options.createProvider(route.model);
@@ -94,7 +95,6 @@ export class ModelRouter implements AgentProvider {
     }
     if (response) {
       const outputTokensEstimate = Math.ceil(response.content.length / 4);
-      const maxOutput = this.options.maxOutputTokensPerTask;
       if (maxOutput !== undefined && outputTokensEstimate > maxOutput) {
         const message = `FORGE budget exceeded: task output estimate ${outputTokensEstimate} exceeds per-task limit ${maxOutput}.`;
         this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
