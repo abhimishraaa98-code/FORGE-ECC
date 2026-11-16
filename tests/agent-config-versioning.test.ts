@@ -70,6 +70,17 @@ describe("agent configuration versioning", () => {
     await expect(readFile(path.join(isolated, ".forge", "hooks.json"), "utf8")).resolves.toContain("Snapshot-specific policy guidance.");
     await expect(loadHooks(isolated)).resolves.toMatchObject([{ id: "candidate-policy", message: "Snapshot-specific policy guidance." }]);
   });
+  it("captures an explicit empty hook policy when the workspace has no hooks file", async () => {
+    const root = await project();
+    await unlink(path.join(root, ".forge", "hooks.json"));
+    const version = await captureAgentConfigVersion(root);
+    const hooks = version.files.find(file => file.path === "hooks.json");
+    expect(hooks?.content.trim()).toBe("[]");
+    const isolated = path.join(root, "isolated-no-hooks");
+    await mkdir(isolated);
+    await materializeAgentConfigVersion(root, version.id, isolated);
+    await expect(loadHooks(isolated)).resolves.toEqual([]);
+  });
   it("requires a workspace configuration to snapshot", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-config-empty-"));
     roots.push(root);
