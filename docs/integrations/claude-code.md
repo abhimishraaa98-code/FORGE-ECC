@@ -68,3 +68,20 @@ FORGE_AI_MODEL=sonnet
 The provider invokes Claude Code in non-interactive print mode, requests JSON output, starts in plan permission mode, denies Bash/Edit/Write tools, and caps the run at three agentic turns. The process also has a two-minute default timeout and a one-megabyte output cap. It returns a text proposal only; it does not apply file edits or run shell commands.
 
 This is a first local harness adapter, not a full Agent SDK integration. Confirm Claude Code is installed and authenticated on the same machine and that your plan permits the CLI usage you intend. Subscription entitlements and usage limits are controlled by Anthropic and may change. FORGE does not read, store, or bypass Claude credentials.
+
+
+## Run FORGE's agent plan with Claude Code
+
+After building FORGE, you can use the local CLI adapter for proposal-only agent runs:
+
+```bash
+# Windows PowerShell
+$env:FORGE_AI_PROVIDER = "claude-code"
+$env:FORGE_AI_MODEL = "sonnet" # optional
+npm run dev -- run --goal "Review the architecture and propose a safe improvement"
+
+# macOS / Linux
+FORGE_AI_PROVIDER=claude-code FORGE_AI_MODEL=sonnet npm run dev -- run --goal "Review the architecture and propose a safe improvement"
+```
+
+The existing run orchestrator sequences the plan's specialist tasks and stores its run record locally. The Claude adapter returns proposals only. It does not apply patches, and it does not run project scripts. Check the generated run record before acting on any suggestion.
