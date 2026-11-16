@@ -536,3 +536,16 @@ The public page is separate from the local engineering dashboard. To inspect a r
 FORGE includes a built-in registry of specialist roles: Planner, Architect, Code Reviewer, Test Engineer, Security Reviewer, Debugger, Performance Engineer, Documentation Writer, DevOps Engineer, Database Reviewer, Accessibility Reviewer and Release Manager. Projects can add or override role instructions with Markdown files under `.forge/agents/`.
 
 The engineering review planner creates a dependency-aware workflow: architecture understanding → plan → specialist reviews → release-readiness synthesis. Independent tasks execute in bounded parallel batches (default concurrency 4; configurable in the orchestration API). Agents return text proposals; they do not directly edit files or run project scripts. Findings and release recommendations must distinguish verified evidence from hypotheses and suggested checks.\n\n### Local project memory and context\n\nFORGE stores optional project notes in `.forge/memory.json` on the local machine. Add notes with `forge memory add . --kind decision --content "Use adapters for providers" --tags architecture,providers`, inspect them with `forge memory list .`, retrieve context with `forge memory context . --query "provider architecture"`, and remove a note with `forge memory remove . mem-ID`. Memory is opt-in, local-only, bounded to 500 entries, and includes a basic credential-pattern guard. The Claude Code harness receives a relevance-ranked selection (default budget approximately 1,800 tokens) during `forge run`. Treat memory as potentially stale: it is context, not authoritative truth. Do not store secrets in memory.
+
+
+## Agent evaluation & benchmarking
+
+FORGE includes a deterministic rubric evaluator for saved agent runs. A starter suite is included at `.forge/evals/engineering-basics.json`.
+
+```bash
+forge evals .
+forge evaluate RUN_ID --path .
+forge evaluate RUN_ID --suite engineering-basics --path .
+```
+
+Suites define cases matched by task ID or agent ID and weighted criteria using required terms, forbidden terms, and optional minimum/maximum word counts. Reports are stored under `.forge/evaluations/` and appear in the local dashboard's Evaluation history. This is deterministic rubric scoring, not an AI semantic judge or proof of engineering correctness. For model comparisons, run the same suite against equivalent tasks and compare the saved reports; provider/model metadata remains available in execution traces.
