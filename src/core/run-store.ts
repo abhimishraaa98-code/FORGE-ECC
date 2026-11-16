@@ -48,10 +48,10 @@ async function writeRunUnlocked(projectPath: string, run: RunRecord): Promise<st
   return destination;
 }
 
-async function withRunLock<T>(projectPath: string, runId: string, action: () => Promise<T>): Promise<T> {
+async function withRunLock<T>(projectPath: string, runId: string, action: () => Promise<T>, lockSuffix = ".lock"): Promise<T> {
   validateRunId(runId);
   const directory = await safeRunsDirectory(projectPath);
-  const lock = path.join(directory, `${runId}.lock`);
+  const lock = path.join(directory, `${runId}${lockSuffix}`);
   const ownerFile = path.join(lock, "owner.json");
   const token = randomUUID();
   try {
@@ -82,6 +82,11 @@ async function withRunLock<T>(projectPath: string, runId: string, action: () => 
       // risk deleting a lock that may have been replaced by another process.
     }
   }
+}
+
+/** Holds an exclusive execution lease across a complete resume operation. */
+export async function withRunExecutionLock<T>(projectPath: string, runId: string, action: () => Promise<T>): Promise<T> {
+  return withRunLock(projectPath, runId, action, ".execution.lock");
 }
 
 export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
