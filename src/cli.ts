@@ -76,7 +76,7 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   evaluate RUNID  Score a saved run against a local evaluation suite
-  benchmark [SUITE] Show benchmark leaderboard or record a run
+  benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -162,8 +162,8 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     case "benchmark": {
-      const runId = rest.find(arg => !arg.startsWith("--"));
       const pathIndex = rest.indexOf("--path"), suiteIndex = rest.indexOf("--suite");
+      const runId = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--path" && rest[index - 1] !== "--suite");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
       try {
