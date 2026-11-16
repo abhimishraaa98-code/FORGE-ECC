@@ -276,7 +276,7 @@ Create a version 1 JSON policy with a built-in profile and restrictive controls,
 
 ## Machine-readable run history
 
-Use `forge runs --json` for a stable, versioned summary intended for scripts and external tools. The command prints a JSON object with a `schemaVersion` field and a `runs` array. Version 1 exposes run identity, goal, status, timestamps, task-state counts, and event count; it deliberately does not expose internal task payloads or prompt data.
+Use `forge runs --json` for a stable, versioned summary intended for scripts and external tools. The command prints a JSON object with a `schemaVersion` field and a `runs` array. Version 1 exposes run identity, goal, status, timestamps, task-state counts (including running tasks), and event count; it deliberately does not expose internal task payloads or prompt data.
 
 ```json
 {
@@ -291,6 +291,7 @@ Use `forge runs --json` for a stable, versioned summary intended for scripts and
       "taskCount": 2,
       "pendingTaskCount": 0,
       "awaitingApprovalTaskCount": 0,
+      "runningTaskCount": 0,
       "completedTaskCount": 2,
       "failedTaskCount": 0,
       "blockedTaskCount": 0,
