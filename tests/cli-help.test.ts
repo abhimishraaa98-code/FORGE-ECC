@@ -40,6 +40,19 @@ describe("run-history CLI help", () => {
     expect(runCli("show-run", "--help")).toContain("Usage: forge show-run RUN_ID [--path PROJECT]");
   });
 
+  it("rejects malformed show-run arguments", async () => {
+    const directory = await createWorkspace();
+    for (const args of [
+      ["forge-example", "--path"],
+      ["forge-example", "--path", "--json"],
+      ["forge-example", "--path", directory, "--path", directory],
+      ["forge-example", "extra"],
+      ["forge-example", "--unexpected"],
+    ]) {
+      expect(() => runCli("show-run", ...args)).toThrow();
+    }
+  }, 20_000);
+
   it("limits text and JSON history to the newest runs", async () => {
     const directory = await createWorkspace();
     const older = createRun("Older run", [{ id: "older-task", agent: "planner", title: "Older task", prompt: "Plan older run" }]);
