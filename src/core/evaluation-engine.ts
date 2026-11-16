@@ -190,5 +190,6 @@ export async function evaluateRunWithJudge(run: RunRecord, suite: EvaluationSuit
   }
   const provider = [...new Set(judgedCases.map(item => item.result.provider))].join(", ") || judge.name;
   const model = [...new Set(judgedCases.map(item => item.result.model).filter((item): item is string => Boolean(item)))].join(", ");
-  const averageScore = judgedCases.length ? Math.round(judgedCases.reduce((sum, item) => sum + item.result.score, 0) / judgedCases.length) : 0;\n  return { ...base, judge: { provider, ...(model ? { model } : {}), evaluatedCases: judgedCases.length, averageScore, passed: judgedCases.length === suite.cases.length && averageScore >= 80 }, judgedCases };
+  const averageScore = judgedCases.length ? Math.round(judgedCases.reduce((sum, item) => sum + item.result.score, 0) / judgedCases.length) : 0;
+  return { ...base, judge: { provider, ...(model ? { model } : {}), evaluatedCases: judgedCases.length, averageScore, passed: judgedCases.length === suite.cases.length && averageScore >= 80 }, judgedCases };
 }
