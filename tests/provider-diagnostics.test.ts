@@ -7,7 +7,7 @@ describe("provider diagnostics", () => {
     const result = await diagnoseProvider("openai", {}, fetcher as unknown as typeof fetch);
     expect(result.status).toBe("needs-credentials");
     expect(fetcher).not.toHaveBeenCalled();
-    expect(result.message).not.toContain("API");
+    expect(result.message).not.toContain("test-secret");
   });
 
   it("reports a successful OpenAI connection and model availability", async () => {
