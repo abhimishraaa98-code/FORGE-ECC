@@ -139,7 +139,7 @@ server.registerTool(
   "forge_create_review_plan",
   {
     title: "Create engineering review plan",
-    description: "Create a deterministic, reviewable draft plan with architecture, planning and test-strategy tasks. This does not call an AI provider, modify files, or execute commands.",
+    description: "Create a dependency-aware engineering workflow with architecture, planning, code review, security, performance, debugging, testing, documentation, delivery and release-readiness specialist tasks. This creates a draft only; it does not call an AI provider, modify files, or execute commands.",
     inputSchema: z.object({ goal: z.string().min(5).max(2000) })
   },
   async ({ goal }) => {
