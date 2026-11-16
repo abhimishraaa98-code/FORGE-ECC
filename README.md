@@ -457,6 +457,24 @@ forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.j
 The planner never installs, upgrades, removes, or modifies dependencies and never executes suggested commands. Vulnerability and outdated status are not assessed when reports are absent. Suggested versions are candidates, not compatibility guarantees; review release notes, peer dependencies, lockfile changes, and project checks before acting. License classifications are heuristic metadata signals, not legal advice. Only npm manifests and npm lockfiles are currently supported.
 
 
+### Task-aware model routing and execution traces
+
+The CLI can select a model tier per task. Configure `FORGE_MODEL_FAST`, `FORGE_MODEL_BALANCED`, and `FORGE_MODEL_REASONING`; unset tiers fall back to `FORGE_AI_MODEL` (or the CLI's provider default). Security, architecture, incident/debugging and release-sensitive tasks prefer the reasoning tier; focused documentation and small cleanup tasks prefer fast; other tasks use balanced. This is a heuristic, not a benchmark or guarantee of model quality.
+
+Set `FORGE_FALLBACK_MODEL` to enable one fallback attempt when the primary model request fails. The fallback uses the same configured provider and credentials. It does not bypass provider limits or retry indefinitely.
+
+Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, and approximate token counts estimated from character length (not provider-billed usage). Trace files are local and excluded from Git.
+
+Example:
+```bash
+FORGE_AI_PROVIDER=claude-code \
+FORGE_MODEL_FAST=haiku \
+FORGE_MODEL_BALANCED=sonnet \
+FORGE_MODEL_REASONING=opus \
+FORGE_FALLBACK_MODEL=sonnet \
+forge run --goal "Review the authentication architecture"
+```
+
 ### Skills and declarative lifecycle hooks
 
 FORGE includes built-in skills for implementation planning, verification, secure changes, documentation, and performance. Add or override Markdown skills in `.forge/skills/*.md`; optional `triggers: keyword, another-keyword` metadata controls relevance matching. Run `forge skills .` to inspect the registry. During `forge run`, a small set of relevant skill instructions is selected and added to agent context.
