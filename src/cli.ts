@@ -893,7 +893,9 @@ async function main(args: string[]): Promise<void> {
       const rawStatus = statusIndex >= 0 ? rest[statusIndex + 1] : undefined;
       const limit = limitIndex < 0 ? undefined : Number(rawLimit);
       const target = rest.find((arg, index) =>
-        !arg.startsWith("--") && index !== limitIndex + 1 && index !== statusIndex + 1
+        !arg.startsWith("--") &&
+        !(limitIndex >= 0 && index === limitIndex + 1) &&
+        !(statusIndex >= 0 && index === statusIndex + 1)
       ) ?? ".";
       try {
         if (limitIndex >= 0 && (!rawLimit || !Number.isSafeInteger(limit) || limit! < 1)) {
