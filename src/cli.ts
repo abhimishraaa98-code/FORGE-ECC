@@ -33,6 +33,7 @@ import { detectDockerRootless } from "./core/container-sandbox.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "./core/sandbox-lifecycle.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles } from "./core/sandbox-security-profiles.js";
 import { createSandboxComplianceReport, formatSandboxComplianceReport } from "./core/sandbox-compliance.js";
+import { formatSandboxPolicyValidation, loadSandboxPolicy } from "./core/sandbox-policy.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "./core/sandbox-cleanup-audit.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
@@ -153,7 +154,8 @@ Commands:
   patch-check ID N  Dry-run validate AI patch N from a saved review
   regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
-  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options\n  sandbox-compliance [PROFILE] [IMAGE@sha256:DIGEST] Generate a sandbox compliance report\n  sandbox-profiles [NAME] List or inspect built-in sandbox security profiles\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them\n  sandbox-cleanup-history [PATH] Show recorded cleanup activity
+  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options\n  sandbox-compliance [PROFILE] [IMAGE@sha256:DIGEST] Generate a sandbox compliance report
+  sandbox-policy-check POLICY.json Validate a fail-closed sandbox policy file\n  sandbox-profiles [NAME] List or inspect built-in sandbox security profiles\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them\n  sandbox-cleanup-history [PATH] Show recorded cleanup activity
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
@@ -1100,6 +1102,14 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write("FORGE sandbox cleanup failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
+      return;
+    }
+    case "sandbox-policy-check": {
+      const policyPath = rest[0];
+      if (!policyPath) { process.stderr.write("Usage: forge sandbox-policy-check POLICY.json\n"); process.exitCode = 1; return; }
+      const result = await loadSandboxPolicy(policyPath);
+      process.stdout.write(formatSandboxPolicyValidation(result) + "\n");
+      if (!result.valid) process.exitCode = 1;
       return;
     }
     case "sandbox-compliance": {
