@@ -57,3 +57,9 @@ npm run typecheck
 npm test
 npm run build
 ```
+
+### Snapshot isolation semantics
+
+When a benchmark candidate specifies `configVersionId`, FORGE now materializes that verified snapshot into a fresh temporary workspace for the candidate run. Workspace agent and skill Markdown are loaded from that snapshot and passed as task guidance; the temporary configuration workspace is removed after the trial. The source project's configuration files are not overwritten.
+
+This is configuration isolation for **agent and skill Markdown only**. Project hooks are still loaded from the target workspace, project memory remains shared, and the candidate still inspects the original project working tree (including its code). Tool permissions and execution policy are not snapshotted or isolated by this feature. Do not interpret these trials as fully hermetic or security-sandboxed runs. The report records the snapshot ID and content fingerprint so the exact agent/skill inputs can be traced.
