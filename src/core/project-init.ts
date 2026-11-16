@@ -179,6 +179,50 @@ export const starterFiles: StarterFile[] = [
     ], null, 2) + "\n"
   },
   {
+    path: "skills/research-first/SKILL.md",
+    content: `---
+name: Research First
+description: Gather evidence before choosing an implementation.
+triggers: research, compare, investigate, evaluate
+tags: sources, tradeoffs
+version: 1.0.0
+---
+
+# Research First
+
+1. Define the decision and constraints.
+2. Inspect primary sources and the existing project before proposing changes.
+3. Separate verified facts, assumptions, and unknowns.
+4. Compare realistic options with trade-offs.
+5. Record source links and dates for time-sensitive claims.
+6. Recommend the smallest option that meets the requirements.
+
+Do not invent sources or claim research was performed when it was not.
+`
+  },
+  {
+    path: "skills/test-driven-development/SKILL.md",
+    content: `---
+name: Test-Driven Development
+description: Define intended behavior with tests before implementation.
+triggers: tdd, regression, test-driven, edge case
+tags: tests, quality
+version: 1.0.0
+---
+
+# Test-Driven Development
+
+1. Identify observable behavior and edge cases.
+2. Add a focused test that demonstrates the expected behavior.
+3. Confirm the test fails for the intended reason when practical.
+4. Implement the smallest change.
+5. Run the focused test, then relevant broader checks.
+6. Inspect the final diff and report exact verification evidence.
+
+Never claim a red-green cycle unless both outcomes were observed.
+`
+  },
+  {
     path: "memory/README.md",
     content: `# Project Memory
 
