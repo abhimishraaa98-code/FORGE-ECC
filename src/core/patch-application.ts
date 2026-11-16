@@ -138,8 +138,8 @@ export interface PatchStageReview {
   diff: string;
 }
 function lineDiff(before: string, after: string): string {
-  const left = before.replace(/\\r\\n/g, "\\n").split("\\n");
-  const right = after.replace(/\\r\\n/g, "\\n").split("\\n");
+  const left = before.replace(/\r\n/g, "\n").split("\n");
+  const right = after.replace(/\r\n/g, "\n").split("\n");
   if (left.length > 2000 || right.length > 2000) throw new Error("Staged diff exceeds the 2,000-line review limit.");
   const rows = left.length + 1, cols = right.length + 1;
   const table = Array.from({ length: rows }, () => new Uint16Array(cols));
@@ -154,7 +154,7 @@ function lineDiff(before: string, after: string): string {
     else { out.push("-" + left[i]); i++; }
     if (out.length > 4000) throw new Error("Staged diff exceeds the 4,000-line output limit.");
   }
-  return out.join("\\n");
+  return out.join("\n");
 }
 
 /** Verifies a staged manifest and returns a bounded, read-only diff. */
