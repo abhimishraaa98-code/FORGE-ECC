@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
 import { approveReviewPatch } from "../src/core/patch-approval.js";
-import { stageApprovedPatch } from "../src/core/patch-application.js";
+import { stageApprovedPatch, reviewStagedPatch } from "../src/core/patch-application.js";
 import type { CodeReviewReport } from "../src/core/code-review.js";
 import type { AIReviewResult } from "../src/core/ai-code-review.js";
 
@@ -45,4 +45,21 @@ describe("isolated approved patch staging", () => {
     await writeFile(path.join(root, "src/a.ts"), "const a = 3;\n");
     await expect(stageApprovedPatch(root, approval.id)).rejects.toThrow(/changed after approval|no longer applicable/);
   });
+
+  it("reviews the staged diff and verifies source and staged hashes", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    const review = await reviewStagedPatch(root, staged.id);
+    expect(review.file).toBe("src/a.ts");
+    expect(review.unchanged).toBe(false);
+    expect(review.diff).toContain("-const a = 1;");
+    expect(review.diff).toContain("+const a = 2;");
+  });
+  it("rejects a staged file modified after staging", async () => {
+    const approval = await fixture();
+    const staged = await stageApprovedPatch(root, approval.id);
+    await writeFile(path.join(root, staged.stagedFile), "tampered");
+    await expect(reviewStagedPatch(root, staged.id)).rejects.toThrow(/changed after staging/);
+  });
+
 });
