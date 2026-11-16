@@ -9,6 +9,7 @@ import { createReviewPlan } from "./core/review-planner.js";
 import { saveRun, listRuns, loadRun } from "./core/run-store.js";
 import { advanceRun } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
+import { ClaudeCodeProvider } from "./ai/claude-code-provider.js";
 import { startDashboard } from "./core/dashboard-server.js";
 import { auditProject, formatQualityAudit } from "./core/quality-audit.js";
 import { discoverChecks, formatVerificationResult, runVerification } from "./core/verification.js";
@@ -176,13 +177,19 @@ async function main(args: string[]): Promise<void> {
       const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd).join(" ").trim() : "";
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
-        const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
-        const model = process.env.FORGE_MODEL ?? "gpt-4.1-mini";
-        const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
-        if (!apiKey) throw new Error("Set FORGE_API_KEY (or OPENAI_API_KEY) in your local environment before using forge run.");
-        const provider = new OpenAICompatibleProvider({ apiKey, model, baseUrl });
+        const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
+        const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
+        const provider = providerChoice === "claude-code"
+          ? new ClaudeCodeProvider(model ? { model } : {})
+          : (() => {
+              const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+              const selectedModel = model ?? "gpt-4.1-mini";
+              const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+              if (!apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code to use your configured Claude Code CLI, or set FORGE_API_KEY for an OpenAI-compatible provider.");
+              return new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+            })();
         const plan = createReviewPlan(goal);
-        process.stdout.write(`Starting ${plan.id} with provider ${provider.name} (model ${model})...\n`);
+        process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\\n`);
         const completed = await advanceRun(plan, provider);
         const saved = await saveRun(target, completed);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
