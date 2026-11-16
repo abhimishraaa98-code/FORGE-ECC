@@ -37,6 +37,9 @@ async function writeRunUnlocked(projectPath: string, run: RunRecord): Promise<st
   const destination = path.join(directory, `${run.id}.json`);
   const temporary = path.join(directory, `.${run.id}.${randomUUID()}.tmp`);
   const serialized = JSON.stringify(run, null, 2) + "\n";
+  if (Buffer.byteLength(serialized, "utf8") > MAX_RUN_FILE_BYTES) {
+    throw new Error("Run history record exceeds the maximum file size.");
+  }
 
   try {
     await writeFile(temporary, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
