@@ -123,6 +123,35 @@ describe("local run history", () => {
     expect(saved.events.filter(event => event.type === "approved" || event.type === "rejected")).toHaveLength(1);
   });
 
+  it("shares one lock between approval and interrupted-run recovery", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-shared-lock-"));
+    const run = createRun("Serialize recovery and approval", [
+      { id: "review", agent: "reviewer", title: "Review", prompt: "Review", requiresApproval: true },
+    ]);
+    const held = {
+      ...run,
+      status: "awaiting_approval" as const,
+      tasks: run.tasks.map(task => ({ ...task, status: "awaiting_approval" as const })),
+    };
+    await saveRun(root, held);
+    const directory = path.join(root, ".forge", "runs");
+    const lock = path.join(directory, `${run.id}.lock`);
+
+    await (await import("node:fs/promises")).mkdir(lock);
+    await expect(recoverInterruptedRun(root, run.id)).rejects.toThrow();
+    await rm(lock, { recursive: true, force: true });
+
+    const running = {
+      ...held,
+      status: "running" as const,
+      tasks: held.tasks.map(task => ({ ...task, status: "running" as const })),
+    };
+    await saveRun(root, running);
+    await (await import("node:fs/promises")).mkdir(lock);
+    await expect(decideTaskApproval(root, run.id, "review", "approved", "reviewer")).rejects.toThrow();
+    await rm(lock, { recursive: true, force: true });
+  });
+
   it("rejects path-like run identifiers", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-store-"));
     await expect(loadRun(root, "../outside")).rejects.toThrow(/identifier/);
