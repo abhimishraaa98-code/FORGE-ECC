@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface AgentDefinition {
@@ -38,34 +38,65 @@ function descriptionFromMarkdown(content: string, title: string): string {
   return paragraph || `Workspace instructions for ${title}.`;
 }
 
+function isInside(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(".." + path.sep) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+function isMissing(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+}
+
 export async function loadAgentRegistry(projectPath: string): Promise<AgentDefinition[]> {
-  const root = path.resolve(projectPath);
-  const agentDirectory = path.join(root, ".forge", "agents");
+  const root = await realpath(path.resolve(projectPath));
+  const forgeDirectory = path.join(root, ".forge");
+  const agentDirectory = path.join(forgeDirectory, "agents");
   const definitions = new Map(BUILT_INS.map(agent => [agent.id, agent]));
 
-  let entries;
+  let forgeInfo;
   try {
-    entries = await readdir(agentDirectory, { withFileTypes: true });
+    forgeInfo = await lstat(forgeDirectory);
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return [...definitions.values()].sort((a, b) => a.id.localeCompare(b.id));
-    }
+    if (isMissing(error)) return [...definitions.values()].sort((a, b) => a.id.localeCompare(b.id));
     throw error;
   }
+  if (forgeInfo.isSymbolicLink() || !forgeInfo.isDirectory()) {
+    throw new Error("Workspace .forge directory must be a real directory inside the project.");
+  }
 
+  let agentInfo;
+  try {
+    agentInfo = await lstat(agentDirectory);
+  } catch (error) {
+    if (isMissing(error)) return [...definitions.values()].sort((a, b) => a.id.localeCompare(b.id));
+    throw error;
+  }
+  if (agentInfo.isSymbolicLink() || !agentInfo.isDirectory()) {
+    throw new Error("Workspace agent directory must be a real directory inside the project.");
+  }
+  const actualAgentDirectory = await realpath(agentDirectory);
+  if (!isInside(root, actualAgentDirectory)) {
+    throw new Error("Workspace agent directory must stay inside the project.");
+  }
+
+  const entries = await readdir(actualAgentDirectory, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     const id = path.basename(entry.name, ".md");
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) continue;
-    const filePath = path.join(agentDirectory, entry.name);
-    const instructions = await readFile(filePath, "utf8");
+    const filePath = path.join(actualAgentDirectory, entry.name);
+    const info = await lstat(filePath);
+    if (info.isSymbolicLink() || !info.isFile()) continue;
+    const actualFilePath = await realpath(filePath);
+    if (!isInside(root, actualFilePath)) continue;
+    const instructions = await readFile(actualFilePath, "utf8");
     const name = titleFromMarkdown(instructions, id);
     definitions.set(id, {
       id,
       name,
       description: descriptionFromMarkdown(instructions, name),
       source: "workspace",
-      filePath,
+      filePath: actualFilePath,
       instructions,
     });
   }
