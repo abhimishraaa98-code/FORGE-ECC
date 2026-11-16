@@ -140,6 +140,8 @@ export interface AdvanceRunOptions {
   projectContext?: string;
   projectContextForTask?: (task: AgentTask) => string | Promise<string>;
   onUpdate?: (run: RunRecord) => void | Promise<void>;
+  /** Persist a settled task before waiting for the rest of its parallel batch. */
+  onTaskSettled?: (run: RunRecord, taskId: string) => void | Promise<void>;
   shouldCancel?: () => boolean | Promise<boolean>;
 }
 
@@ -218,8 +220,21 @@ export async function advanceRun(
     for (const record of batch) { record.status = "running"; appendEvent(record.task.id, "started", `Sent to provider "${provider.name}".`); }
     next.status = "running"; next.updatedAt = timestamp();
     await options.onUpdate?.(next);
+    let settlementQueue = Promise.resolve();
+    const persistSettledTask = (record: TaskRecord): Promise<void> => {
+      if (!options.onTaskSettled) return Promise.resolve();
+      const snapshot: RunRecord = {
+        ...next,
+        tasks: next.tasks.map(item => ({ ...item })),
+        events: [...next.events],
+        updatedAt: timestamp(),
+      };
+      settlementQueue = settlementQueue.then(() => options.onTaskSettled!(snapshot, record.task.id));
+      return settlementQueue;
+    };
     const batchResults = await Promise.all(batch.map(async record => {
       const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
+      let outcome: { record: TaskRecord; result: AgentResponse } | { record: TaskRecord; error: string };
       try {
         const taskSpecificContext = await options.projectContextForTask?.(record.task);
         const projectContext = [options.projectContext, taskSpecificContext].filter(Boolean).join("\n\n");
@@ -238,23 +253,22 @@ export async function advanceRun(
             (result.model !== undefined && typeof result.model !== "string")) {
           throw new Error("Provider returned an invalid or empty agent proposal.");
         }
-        return { record, result } as const;
+        outcome = { record, result };
       } catch (error) {
-        return { record, error: error instanceof Error ? error.message : String(error) } as const;
+        outcome = { record, error: error instanceof Error ? error.message : String(error) };
       }
-    }));
-
-    for (const outcome of batchResults) {
       if ("result" in outcome) {
-        outcome.record.result = outcome.result;
-        outcome.record.status = "completed";
-        appendEvent(outcome.record.task.id, "completed", "Provider returned a proposal.");
+        record.result = outcome.result;
+        record.status = "completed";
+        appendEvent(record.task.id, "completed", "Provider returned a proposal.");
       } else {
-        outcome.record.status = "failed";
-        outcome.record.error = outcome.error;
-        appendEvent(outcome.record.task.id, "failed", outcome.error);
+        record.status = "failed";
+        record.error = outcome.error;
+        appendEvent(record.task.id, "failed", outcome.error);
       }
-    }
+      await persistSettledTask(record);
+      return outcome;
+    }));
     const budgetExceeded = batchResults.some(outcome => "error" in outcome && outcome.error.startsWith("FORGE budget exceeded:"));
     if (budgetExceeded) {
       for (const record of next.tasks) {
