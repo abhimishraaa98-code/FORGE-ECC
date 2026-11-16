@@ -127,3 +127,81 @@ export function formatVerificationResult(result: VerificationResult): string {
     "","_The selected package script was explicitly executed. Review its output; a passing exit code is not a security or correctness certification._"
   ].join("\n");
 }
+
+export interface DependencyInstallResult {
+  status: "passed" | "failed" | "timed_out" | "spawn_error";
+  exitCode: number | null;
+  durationMs: number;
+  output: string;
+  outputTruncated: boolean;
+  command: string;
+}
+
+/** Installs lockfile dependencies without lifecycle scripts. This operation can access the network. */
+export async function installVerificationDependencies(
+  inputPath: string,
+  options: { timeoutMs?: number } = {},
+): Promise<DependencyInstallResult> {
+  const root = await verifiedProjectRoot(inputPath);
+  const lockInfo = await lstat(path.join(root, "package-lock.json")).catch(() => null);
+  if (!lockInfo || lockInfo.isSymbolicLink() || !lockInfo.isFile()) {
+    throw new Error("Dependency preparation requires a regular package-lock.json; no installation was attempted.");
+  }
+  const timeoutMs = options.timeoutMs ?? MAX_TIMEOUT;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > MAX_TIMEOUT) {
+    throw new Error("Dependency installation timeout must be between 1,000 and 600,000 milliseconds.");
+  }
+  const startedAt = Date.now();
+  const chunks: string[] = [];
+  let outputSize = 0;
+  let outputTruncated = false;
+  const append = (chunk: Buffer | string) => {
+    const value = chunk.toString();
+    const remaining = MAX_OUTPUT - outputSize;
+    if (remaining > 0) {
+      const kept = value.slice(0, remaining);
+      chunks.push(kept);
+      outputSize += kept.length;
+    }
+    if (value.length > remaining) outputTruncated = true;
+  };
+  const windows = process.platform === "win32";
+  const env: NodeJS.ProcessEnv = {
+    PATH: process.env.PATH ?? "", CI: "1", NODE_ENV: "test", FORGE_VERIFICATION: "1",
+    ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    ...(process.env.WINDIR ? { WINDIR: process.env.WINDIR } : {}),
+    ...(process.env.TEMP ? { TEMP: process.env.TEMP } : {}),
+    ...(process.env.TMP ? { TMP: process.env.TMP } : {}),
+    ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+  };
+  const command = "npm ci --ignore-scripts --no-audit --no-fund";
+  const child = spawn(windows ? "npm.cmd" : "npm", ["ci", "--ignore-scripts", "--no-audit", "--no-fund"], {
+    cwd: root, shell: windows, windowsHide: true, env, stdio: ["ignore", "pipe", "pipe"], detached: !windows,
+  });
+  child.stdout.on("data", append);
+  child.stderr.on("data", append);
+  let timedOut = false;
+  const outcome = await new Promise<{ exitCode: number | null; error?: string }>(resolve => {
+    let settled = false;
+    const finish = (value: { exitCode: number | null; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (!windows && child.pid) {
+        try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
+      } else child.kill("SIGTERM");
+    }, timeoutMs);
+    child.once("error", error => finish({ exitCode: null, error: error.message }));
+    child.once("close", code => finish({ exitCode: code }));
+  });
+  if (outcome.error) append("\\nFORGE could not start npm: " + outcome.error + "\\n");
+  return {
+    status: outcome.error ? "spawn_error" : timedOut ? "timed_out" : outcome.exitCode === 0 ? "passed" : "failed",
+    exitCode: outcome.exitCode, durationMs: Date.now() - startedAt,
+    output: chunks.join(""), outputTruncated, command,
+  };
+}
