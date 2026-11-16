@@ -141,13 +141,13 @@ export class ModelRouter implements AgentProvider {
         const message = `FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after provider response.`;
         this.estimatedTokensUsed += outputTokensEstimate;
         this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
       if (runLimit !== undefined && this.estimatedTokensUsed + outputTokensEstimate > runLimit) {
         const message = `FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after provider response.`;
         this.estimatedTokensUsed += outputTokensEstimate;
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
       this.estimatedTokensUsed += outputTokensEstimate;
@@ -168,7 +168,7 @@ export class ModelRouter implements AgentProvider {
       const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
       if (primaryMessage.startsWith("FORGE budget exceeded:") || !isRetryableProviderError(primaryError) || !this.options.fallbackModel || this.options.fallbackModel === route.model) {
         const message = primaryMessage;
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw primaryError;
       }
       try {
@@ -191,11 +191,11 @@ export class ModelRouter implements AgentProvider {
           outputTokensEstimate: Math.ceil(response.content.length / 4),
           error: "Primary model failed; configured fallback was used.",
         };
-        this.traces.push(trace); this.options.onTrace?.(trace);
+        this.recordTrace(trace);
         return response;
       } catch (fallbackError) {
         const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: "fallback", startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: "fallback", startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw fallbackError;
       }
     }
