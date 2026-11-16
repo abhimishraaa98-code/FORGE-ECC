@@ -70,4 +70,41 @@ describe("OpenAI-compatible provider", () => {
     const body = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
     expect(body.tools).toBeUndefined();
   });
+
+  it("rejects an oversized tool-call batch before executing any tool", async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "forge-agent-tool-budget-"));
+    try {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        choices: [{ message: { content: null, tool_calls: [
+          { id: "call_one", type: "function", function: { name: "read-file", arguments: JSON.stringify({ relativePath: "src/one.ts" }) } },
+          { id: "call_two", type: "function", function: { name: "read-file", arguments: JSON.stringify({ relativePath: "src/two.ts" }) } },
+        ] } }],
+      }), { status: 200, headers: { "content-type": "application/json" } }));
+      vi.stubGlobal("fetch", fetchMock);
+      const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file"] });
+      const provider = new OpenAICompatibleProvider({
+        apiKey: "test-secret", model: "test-model", workspacePath: workspace,
+        permissionPolicy: policy, maxToolCalls: 1,
+      });
+      await expect(provider.complete({
+        task: { id: "budget", agent: "reviewer", title: "Budget", prompt: "Read two files" },
+        completedDependencies: [],
+      })).rejects.toThrow("maximum number of tool calls");
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("validates the configured tool-call budget before making a request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAICompatibleProvider({ apiKey: "test-secret", model: "test-model", maxToolCalls: 11 });
+    await expect(provider.complete({
+      task: { id: "invalid-budget", agent: "reviewer", title: "Budget", prompt: "Review" },
+      completedDependencies: [],
+    })).rejects.toThrow("maxToolCalls must be an integer from 0 to 10");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
 });
