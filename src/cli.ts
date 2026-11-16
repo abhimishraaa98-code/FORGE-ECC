@@ -36,6 +36,19 @@ import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
 
+function readAgentTokenBudgets(): Record<string, number> | undefined {
+  const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
+  if (!raw) return undefined;
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT must be a JSON object mapping agent IDs to token limits.");
+  const budgets: Record<string, number> = {};
+  for (const [agent, value] of Object.entries(parsed)) {
+    if (!agent.trim() || !Number.isSafeInteger(value) || (value as number) < 1) throw new Error("Every per-agent token budget must be a positive integer.");
+    budgets[agent] = value as number;
+  }
+  return budgets;
+}
+
 function readAgentDurationBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT;
   if (!raw) return undefined;
@@ -272,6 +285,7 @@ async function main(args: string[]): Promise<void> {
         if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code or FORGE_API_KEY before resuming.");
         const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2), retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500), ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
+          ...(readAgentTokenBudgets() ? { maxEstimatedTokensPerAgent: readAgentTokenBudgets() } : {}),
           ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
           ...(readAgentDurationBudgets() ? { maxTaskDurationMsByAgent: readAgentDurationBudgets() } : {}), createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
