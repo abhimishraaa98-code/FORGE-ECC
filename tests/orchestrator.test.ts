@@ -97,6 +97,23 @@ describe("FORGE orchestration engine", () => {
     expect(receivedContext).toContain("Relevant local project decision.");
   });
 
+  it("passes source-agent provenance with completed dependency handoffs", async () => {
+    let received: { id: string; fromAgent?: string; taskTitle?: string; result: string }[] = [];
+    const handoffProvider: AgentProvider = {
+      name: "handoff-test",
+      async complete(request) {
+        received = [...request.completedDependencies];
+        return { provider: "handoff-test", content: "proposal" };
+      },
+    };
+    const run = createRun("Agent handoff", [
+      { id: "architect", agent: "architect", title: "Map architecture", prompt: "Map it" },
+      { id: "reviewer", agent: "code-reviewer", title: "Review architecture", prompt: "Review findings", dependsOn: ["architect"] },
+    ]);
+    await advanceRun(run, handoffProvider);
+    expect(received[0]).toMatchObject({ id: "architect", fromAgent: "architect", taskTitle: "Map architecture" });
+    expect(received[0]?.result).toContain("Proposal from architect");
+  });
   it("holds approval-gated work until explicit approval", async () => {
     const run = createRun("Review a change", [
       { id: "review", agent: "reviewer", title: "Review", prompt: "Review proposal", requiresApproval: true },
