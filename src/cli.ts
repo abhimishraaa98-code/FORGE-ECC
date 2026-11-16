@@ -1181,7 +1181,7 @@ async function main(args: string[]): Promise<void> {
         if (profileIndex >= 0 && !securityProfile) throw new Error("--profile requires a profile name.");
         if (securityProfile && !["balanced", "hardened", "rootless-required"].includes(securityProfile)) throw new Error("Unknown sandbox security profile: " + securityProfile);
         if (securityProfile && !sandboxImage) throw new Error("--profile requires --sandbox-image container execution.");
-        if (policyIndex >= 0 && !sandboxPolicyPath) throw new Error("--policy requires a policy file path.");
+        if (policyIndex >= 0 && (!sandboxPolicyPath || sandboxPolicyPath.startsWith("--"))) throw new Error("--policy requires a policy file path.");
         if (sandboxPolicyPath && !sandboxImage) throw new Error("--policy requires --sandbox-image container execution.");
         const result = await verifyStagedPatch(target, stageId, script, {
           installDependencies,
