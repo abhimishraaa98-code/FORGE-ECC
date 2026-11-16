@@ -37,22 +37,27 @@ function promptFor(request: AgentRequest): string {
     projectContext: request.projectContext ?? "",
   });
 }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function parseText(payload: unknown, provider: HostedProviderId): string {
-  if (!payload || typeof payload !== "object") throw new Error(provider + " returned an unexpected response format.");
-  const data = payload as Record<string, unknown>;
+  if (!isRecord(payload)) throw new Error(provider + " returned an unexpected response format.");
   let result = "";
   if (provider === "anthropic") {
-    const content = data.content;
-    if (Array.isArray(content)) result = content.flatMap(item => item && typeof item === "object" && (item as {type?:unknown}).type === "text" && typeof (item as {text?:unknown}).text === "string" ? [(item as {text:string}).text] : []).join("\n");
-  } else if (provider === "google") {
-    const candidates = data.candidates;
-    if (Array.isArray(candidates)) {
-      const first = candidates[0] as { content?: { parts?: Array<{ text?: unknown }> } } | undefined;
-      result = first?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n") ?? "";
+    const content = payload.content;
+    if (Array.isArray(content)) {
+      result = content.flatMap(item => isRecord(item) && item.type === "text" && typeof item.text === "string" ? [item.text] : []).join("\n");
     }
+  } else if (provider === "google") {
+    const candidates = payload.candidates;
+    const first = Array.isArray(candidates) ? candidates[0] : undefined;
+    const content = isRecord(first) ? first.content : undefined;
+    const parts = isRecord(content) && Array.isArray(content.parts) ? content.parts : [];
+    result = parts.flatMap(part => isRecord(part) && typeof part.text === "string" ? [part.text] : []).join("\n");
   } else if (provider === "ollama") {
-    const message = data.message as { content?: unknown } | undefined;
-    if (typeof message?.content === "string") result = message.content;
+    const message = payload.message;
+    if (isRecord(message) && typeof message.content === "string") result = message.content;
   }
   if (!result.trim()) throw new Error(provider + " returned an empty assistant response.");
   return result;
