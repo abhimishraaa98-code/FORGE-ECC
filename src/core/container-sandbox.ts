@@ -169,12 +169,20 @@ export async function runContainerVerification(
   const startedAt = new Date();
   const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
   const args = buildContainerRunArgs(root, image, script, containerName, profile, policy);
+  let cleanupWarning = "";
   const result = await runProcess(runtime, args, root, timeoutMs, async () => {
-    await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
+    const stopped = await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
+    if (stopped.error || stopped.code !== 0 || stopped.timedOut) {
+      const removed = await runProcess(runtime, ["rm", "--force", containerName], root, 5_000);
+      if (removed.error || removed.code !== 0 || removed.timedOut) {
+        cleanupWarning = "FORGE cleanup warning: stop and force-remove both failed; inspect the container runtime for a possibly running verification container.";
+      }
+    }
   });
   const finishedAt = new Date();
   result.output = "[FORGE profile] " + profile.name + "\\n[FORGE compliance] network=" + profile.network + ", readOnlyRoot=" + String(profile.readOnlyRoot) + ", capDrop=" + (profile.dropAllCapabilities ? "ALL" : "NONE") + ", noNewPrivileges=" + String(profile.noNewPrivileges) + ", memory=" + (policy?.maxMemory ?? profile.maxMemory) + ", cpus=" + String(policy?.maxCpus ?? profile.maxCpus) + ", pids=" + String(policy?.maxProcesses ?? profile.maxProcesses) + "\\n[FORGE runtime] Rootless daemon: " + (rootless === true ? "yes" : rootless === false ? "no" : "unknown") + "\\n" + result.output;
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
+  if (cleanupWarning) result.output += "\\n" + cleanupWarning;
   return {
     id: "verify-container-" + startedAt.getTime().toString(36) + "-" + randomUUID().slice(0, 6),
     projectPath: root,
