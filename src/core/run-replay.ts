@@ -29,3 +29,36 @@ export function createReplayRun(source: RunRecord): RunRecord {
   });
   return replay;
 }
+
+/** Creates a focused retry run for one failed task and its blocked dependants. */
+export function createTaskRetryRun(source: RunRecord, taskId: string): RunRecord {
+  const target = source.tasks.find(record => record.task.id === taskId);
+  if (!target || (target.status !== "failed" && target.status !== "blocked")) {
+    throw new Error("Only a failed or blocked task can be retried.");
+  }
+  if (target.approval?.decision === "rejected") {
+    throw new Error("An explicitly rejected task cannot be retried.");
+  }
+  const reset = new Set<string>([taskId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const record of source.tasks) {
+      if (!reset.has(record.task.id) && record.status === "blocked" &&
+          (record.task.dependsOn ?? []).some(dependency => reset.has(dependency)) &&
+          !record.error?.startsWith("Blocked by policy hook:")) {
+        reset.add(record.task.id); changed = true;
+      }
+    }
+  }
+  const retry = createRun(source.goal, source.tasks.map(record => record.task));
+  retry.tasks = source.tasks.map(record => reset.has(record.task.id)
+    ? { task: { ...record.task, dependsOn: [...(record.task.dependsOn ?? [])] }, status: "pending" as const }
+    : { ...record, task: { ...record.task, dependsOn: [...(record.task.dependsOn ?? [])] } });
+  retry.events.push({
+    at: new Date().toISOString(), taskId,
+    type: "started",
+    message: `Focused retry created from run ${source.id}; reset ${[...reset].join(", ")}.`,
+  });
+  return retry;
+}
