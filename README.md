@@ -148,13 +148,14 @@ Start a local, read-only engineering control center with `forge dashboard .` (or
 
 - Project structure, detected stack, language composition, and specialist agent registry
 - Saved orchestration runs with live progress snapshots, task status counts, a chronological event stream, execution telemetry, and explicit human approval controls
-- Failed-run recovery: create a separate replay from the dashboard; completed prerequisites remain preserved and retryable work returns to pending. Provider execution still requires the explicit CLI `forge resume` command
+- Failed-run recovery: replay retryable tasks or create a focused retry for one failed task and its blocked dependants; completed prerequisites remain preserved
+- Run controls: request cooperative cancellation between provider batches and compare a run with the latest saved run. An in-flight provider call is allowed to settle before the orchestrator stops starting further tasks
 - Interactive static architecture graph
 - Project health snapshots, quality findings, and verification history
 - Regression classifications across saved verification runs, plus current Git change context
 - Saved code-review snapshots with finding summaries
 
-The server binds to `127.0.0.1` and exposes local JSON endpoints for the dashboard. During `forge resume`, the CLI persists run snapshots as task batches start and finish, allowing the dashboard to poll progress while the process is active. Execution traces are incrementally written under `.forge/traces/`. The dashboard does not automatically run project tests, apply patches, or make code changes; creating a replay only prepares a new run, and provider execution still requires the explicit CLI resume command. Human approval controls are limited to recorded workflow tasks. Quality, architecture, and regression signals are heuristic and should be reviewed in context.
+The server binds to `127.0.0.1` and exposes local JSON endpoints for the dashboard. During `forge resume`, the CLI persists run snapshots as task batches start and finish, allowing the dashboard to poll progress while the process is active. Execution traces are incrementally written under `.forge/traces/`. The dashboard does not automatically run project tests, apply patches, or make code changes. Creating a replay or focused retry only prepares a new run; provider execution still requires the explicit CLI `forge resume` command. Cancellation is cooperative: an active provider request may finish, but no subsequent task batch should start after the cancellation is observed. Human approval controls are limited to recorded workflow tasks. Quality, architecture, and regression signals are heuristic and should be reviewed in context.
 
 ### Interactive Workspace Explorer — available (early)
 
