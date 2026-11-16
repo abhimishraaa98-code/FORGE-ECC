@@ -467,3 +467,10 @@ The repository includes a Vercel configuration for the static product page in `p
 4. Deploy. Vercel will provide a temporary `*.vercel.app` URL; add a custom domain later when you purchase one.
 
 The public page is separate from the local engineering dashboard. To inspect a real codebase, install FORGE and run `forge dashboard ./your-project` on the machine containing that project. The public preview uses clearly labelled sample data and does not expose local project files.
+
+
+## Specialist agent team
+
+FORGE includes a built-in registry of specialist roles: Planner, Architect, Code Reviewer, Test Engineer, Security Reviewer, Debugger, Performance Engineer, Documentation Writer, DevOps Engineer, Database Reviewer, Accessibility Reviewer and Release Manager. Projects can add or override role instructions with Markdown files under `.forge/agents/`.
+
+The engineering review planner creates a dependency-aware workflow: architecture understanding → plan → specialist reviews → release-readiness synthesis. The current orchestrator processes eligible tasks in plan order (not concurrently). Agents return text proposals; they do not directly edit files or run project scripts. Findings and release recommendations must distinguish verified evidence from hypotheses and suggested checks.
