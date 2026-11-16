@@ -94,4 +94,39 @@ describe("hosted agent provider security and protocol handling", () => {
     await expect(provider.complete(request)).rejects.not.toThrow("sensitive upstream detail");
   });
 
+
+  it("encodes Google model identifiers in the request path", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toContain("/models/model%2Fwith%20spaces:generateContent");
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Encoded model response" }] } }] }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new HostedAgentProvider({ provider: "google", model: "model/with spaces", apiKey: "test-key" });
+    await expect(provider.complete(request)).resolves.toMatchObject({ content: "Encoded model response" });
+  });
+
+  it("passes the configured timeout to the network request", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      expect(init?.signal?.aborted).toBe(false);
+      return new Response(JSON.stringify({ message: { content: "Timed request response" } }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new HostedAgentProvider({ provider: "ollama", model: "llama-test", timeoutMs: 12_000 });
+    await expect(provider.complete(request)).resolves.toMatchObject({ content: "Timed request response" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("rejects empty provider responses rather than returning a blank proposal", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ content: [] }), {
+      status: 200, headers: { "content-type": "application/json" },
+    })));
+    const provider = new HostedAgentProvider({ provider: "anthropic", model: "claude-test", apiKey: "test-key" });
+    await expect(provider.complete(request)).rejects.toThrow("empty assistant response");
+  });
+
 });
