@@ -177,7 +177,12 @@ export class ModelRouter implements AgentProvider {
         if (attempt >= maxRetries || !isRetryableProviderError(error)) break;
         retries += 1;
         const delay = (this.options.retryDelayMs ?? 500) * Math.pow(2, attempt);
-        await waitWithinBudget(delay);
+        try {
+          await waitWithinBudget(delay);
+        } catch (waitError) {
+          primaryError = waitError;
+          break;
+        }
       }
     }
     if (response) {
