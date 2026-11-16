@@ -24,6 +24,26 @@ function failure(error: unknown) {
   return { isError: true, content: [{ type: "text" as const, text: error instanceof Error ? error.message : "FORGE tool failed." }] };
 }
 
+async function auditReadOnlyMcpTool<T>(tool: string, operation: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  try {
+    const value = await operation();
+    process.stderr.write(JSON.stringify({
+      type: "forge-tool-audit", tool, allowed: true, outcome: "success",
+      at: new Date().toISOString(), durationMs: Date.now() - started,
+      summary: "Read-only MCP operation completed."
+    }) + String.fromCharCode(10));
+    return value;
+  } catch (error) {
+    process.stderr.write(JSON.stringify({
+      type: "forge-tool-audit", tool, allowed: true, outcome: "error",
+      at: new Date().toISOString(), durationMs: Date.now() - started,
+      summary: "Read-only MCP operation failed."
+    }) + String.fromCharCode(10));
+    throw error;
+  }
+}
+
 const server = new McpServer({
   name: "forge-engineering-workbench",
   version: "0.35.0"
@@ -39,7 +59,7 @@ server.registerTool(
   async ({ projectPath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await inspectProject(root));
+      return result(await auditReadOnlyMcpTool("forge_inspect_project", () => inspectProject(root)));
     } catch (error) { return failure(error); }
   }
 );
@@ -54,7 +74,7 @@ server.registerTool(
   async ({ projectPath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await mapArchitecture(root));
+      return result(await auditReadOnlyMcpTool("forge_map_architecture", () => mapArchitecture(root)));
     } catch (error) { return failure(error); }
   }
 );
@@ -127,7 +147,7 @@ server.registerTool(
   async ({ projectPath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await auditProject(root));
+      return result(await auditReadOnlyMcpTool("forge_quality_audit", () => auditProject(root)));
     } catch (error) { return failure(error); }
   }
 );
@@ -145,7 +165,7 @@ server.registerTool(
   async ({ projectPath, base }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      return result(await analyzeGitChanges(root, base ?? "HEAD"));
+      return result(await auditReadOnlyMcpTool("forge_git_intelligence", () => analyzeGitChanges(root, base ?? "HEAD")));
     } catch (error) { return failure(error); }
   }
 );
@@ -160,7 +180,7 @@ server.registerTool(
   async ({ projectPath }) => {
     try {
       const root = await resolveWorkspace(projectPath);
-      const agents = await loadAgentRegistry(root);
+      const agents = await auditReadOnlyMcpTool("forge_list_agents", () => loadAgentRegistry(root));
       return result(agents.map(({ id, name, description, source }) => ({ id, name, description, source })));
     } catch (error) { return failure(error); }
   }
