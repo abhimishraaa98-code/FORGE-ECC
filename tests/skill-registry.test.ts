@@ -60,6 +60,14 @@ describe("skill registry", () => {
     ));
     await expect(loadSkillRegistry(root)).rejects.toThrow("exceeds the maximum of 5000 directory entries");
   });
+  it("ignores skills reached through a symlinked .forge directory", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
+    const outside = path.join(root, "outside");
+    await mkdir(path.join(outside, "skills"), { recursive: true });
+    await writeFile(path.join(outside, "skills", "external.md"), "# External Skill");
+    await symlink(outside, path.join(root, ".forge"));
+    expect((await loadSkillRegistry(root)).some(skill => skill.id === "external")).toBe(false);
+  });
   it("ignores a symlinked skills root", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-skills-"));
     const outside = path.join(root, "outside");
