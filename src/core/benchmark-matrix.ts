@@ -54,8 +54,8 @@ export function validateBenchmarkMatrix(value: unknown): BenchmarkMatrixConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Benchmark matrix config must be a JSON object.");
   const config = value as BenchmarkMatrixConfig;
   if (!SAFE_ID.test(config.id) || typeof config.name !== "string" || !config.name.trim() || config.name.length > 120) throw new Error("Benchmark matrix needs a valid id and name.");
-  if (!Number.isSafeInteger(config.repeats) || config.repeats < 1 || config.repeats > 10) throw new Error("Benchmark matrix repeats must be between 1 and 10.");
-  if (!Array.isArray(config.candidates) || config.candidates.length < 2 || config.candidates.length > 8) throw new Error("Benchmark matrix needs between 2 and 8 candidates.");
+  if (!Number.isSafeInteger(config.repeats) || config.repeats < 1 || config.repeats > 3) throw new Error("Benchmark matrix repeats must be between 1 and 3.");
+  if (!Array.isArray(config.candidates) || config.candidates.length < 2 || config.candidates.length > 4) throw new Error("Benchmark matrix needs between 2 and 4 candidates.");
   const ids = new Set<string>();
   for (const candidate of config.candidates) {
     if (!candidate || !SAFE_ID.test(candidate.id) || ids.has(candidate.id)) throw new Error("Every benchmark candidate needs a unique valid id.");
