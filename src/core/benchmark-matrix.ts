@@ -23,7 +23,7 @@ export interface BenchmarkMatrixResult {
   passed: boolean;
   durationMs: number;
   estimatedTokens: number;
-  status: "passed" | "failed";
+  status: "completed" | "failed";
   error?: string;
 }
 export interface BenchmarkMatrixReport {
@@ -79,14 +79,14 @@ export async function executeBenchmarkMatrix(
     for (let repeat = 1; repeat <= config.repeats; repeat += 1) {
       try {
         const result = await execute(candidate, repeat);
-        results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, status: "passed", ...result });
+        results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, status: "completed", ...result });
       } catch (error) {
         results.push({ candidateId: candidate.id, provider: candidate.provider, model: candidate.model, repeat, runId: "", score: 0, passed: false, durationMs: 0, estimatedTokens: 0, status: "failed", error: error instanceof Error ? error.message : String(error) });
       }
     }
   }
   const summary = config.candidates.map(candidate => {
-    const items = results.filter(item => item.candidateId === candidate.id && item.status === "passed");
+    const items = results.filter(item => item.candidateId === candidate.id && item.status === "completed");
     const scores = items.map(item => item.score);
     const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
     return {
@@ -108,7 +108,7 @@ export async function saveBenchmarkMatrix(projectPath: string, report: Benchmark
   const destination = path.join(directory, report.matrixId + "-" + report.createdAt.replace(/[:.]/g, "-") + ".json");
   const temporary = path.join(directory, "." + randomUUID() + ".tmp");
   try {
-    await writeFile(temporary, JSON.stringify(report, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(report, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     await rename(temporary, destination);
   } catch (error) { await rm(temporary, { force: true }).catch(() => undefined); throw error; }
   return destination;
@@ -120,5 +120,5 @@ export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
   lines.push("", "Trial details:");
   for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "passed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
   lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
-  return lines.join("\\n");
+  return lines.join("\n");
 }
