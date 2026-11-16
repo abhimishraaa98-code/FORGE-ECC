@@ -51,7 +51,8 @@ export class ModelRouter implements AgentProvider {
   readonly traces: AgentTrace[] = [];
   constructor(private readonly options: ModelRouterOptions) {
     if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");
-    if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");\n    for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
+    if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
+    for (const model of [options.fastModel, options.balancedModel, options.reasoningModel]) {
       if (!model.trim()) throw new Error("Every model routing tier needs a model name.");
     }
   }
