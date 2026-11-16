@@ -15,7 +15,10 @@ import { analyzeEngineeringRisk } from "./engineering-risk.js";
 import { analyzeChangeIntelligence } from "./change-intelligence.js";
 import { compareLatestIntelligence, listIntelligenceSnapshots } from "./intelligence-timeline.js";
 import { analyzeDependencies } from "./dependency-intelligence.js";
-import { loadExecutionTrace } from "./execution-trace.js";\nimport { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
+import { loadExecutionTrace } from "./execution-trace.js";
+import { createReplayRun } from "./run-replay.js";
+import { saveRun } from "./run-store.js";
+import { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
 
 const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -59,6 +62,7 @@ const signals=[["Important files",data.importantFiles.length],["Available script
 async function loadAgents(){try{const data=await api("/api/agents");el("agents").innerHTML=data.length?data.map(agent=>'<div class="rowitem"><div><b>'+esc(agent.name)+'</b><div class="run-meta">'+esc(agent.description)+'</div></div><span class="pill">'+esc(agent.source)+'</span></div>').join(""):'<div class="empty">No agent roles found.</div>';}catch(error){el("agents").innerHTML='<div class="error">'+esc(error.message)+'</div>';}}
 async function submitApproval(runId,taskId,decision){const reviewer=window.prompt("Reviewer label for the local audit log:","local-user");if(!reviewer)return;const reason=decision==="rejected"?window.prompt("Reason for rejecting this task (optional):")||"":"";try{const response=await fetch("/api/runs/"+encodeURIComponent(runId)+"/tasks/"+encodeURIComponent(taskId)+"/approval",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({taskId,decision,reviewer,reason})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Approval action failed.");await inspectRun(runId);await loadRuns();await loadActivity();}catch(error){el("runInspector").insertAdjacentHTML("afterbegin",'<div class="error">'+esc(error.message)+'</div>');}}
 let selectedRunId="";
+let runMonitorTimer=null;
 async function inspectRun(id){
  selectedRunId=id;
  try{
@@ -69,6 +73,13 @@ async function inspectRun(id){
   const trace=traceRequest?'<div class="card"><div class="section-head"><h2>Execution telemetry</h2><span class="pill">ESTIMATES · LOCAL</span></div><div class="grid">'+metric("Agent attempts",traceRequest.totals.tasks,"Recorded trace entries")+metric("Input tokens","~"+traceRequest.totals.estimatedInputTokens,"Character-based estimate")+metric("Output tokens","~"+traceRequest.totals.estimatedOutputTokens,"Character-based estimate")+metric("Agent time",traceRequest.totals.durationMs+" ms",traceRequest.totals.fallbacks+" fallbacks · "+traceRequest.totals.failures+" failures")+'</div><div class="activity">'+traceRequest.entries.slice().reverse().map(entry=>'<div class="activity-item"><span class="activity-dot '+(entry.outcome==="success"?"completed":entry.outcome==="failed"?"failed":"running")+'"></span><div><b>'+esc(entry.agent)+' · '+esc(entry.model)+'</b><div class="run-meta">'+esc(entry.taskId)+' · '+esc(entry.tier)+' tier · '+esc(entry.durationMs)+' ms · '+esc(entry.outcome)+'</div></div></div>').join("")+'</div></div>':'<div class="empty">No execution trace is available for this run yet. Start a provider-backed run to record model and timing telemetry.</div>';
   el("runInspector").innerHTML='<div><b>'+esc(run.goal)+'</b><div class="run-meta">'+esc(run.status)+' · '+esc(new Date(run.createdAt).toLocaleString())+'</div></div><div class="card"><div class="section-head"><h2>Agent handoff map</h2><span class="pill">'+run.tasks.length+' TASKS</span></div><div class="task-grid">'+handoffs+'</div><div class="run-meta">Dependency links show which completed agent proposals are passed downstream.</div></div>'+trace+run.tasks.map(task=>'<article class="inspector-task '+(task.status==="awaiting_approval"?"approval":"")+'"><div class="run-title"><b>'+esc(task.title)+'</b><span class="pill">'+esc(task.status)+'</span></div><div class="run-meta">'+esc(task.agent)+' · '+esc(task.id)+(task.dependsOn&&task.dependsOn.length?' · depends on '+esc(task.dependsOn.join(', ')):'')+'</div>'+(task.result?'<pre>'+esc(task.result.content)+'</pre>':"")+(task.error?'<div class="error">'+esc(task.error)+'</div>':"")+(task.approval?'<div class="approval-audit">'+esc(task.approval.decision)+' by '+esc(task.approval.reviewer)+' · '+esc(new Date(task.approval.at).toLocaleString())+(task.approval.reason?' · '+esc(task.approval.reason):"")+'</div>':"")+(task.status==="awaiting_approval"?'<div class="run-meta">Human decision required before this task can proceed.</div><div class="approval-actions"><button class="btn approve" data-approval="approved" data-task="'+esc(task.id)+'">Approve task</button><button class="btn reject" data-approval="rejected" data-task="'+esc(task.id)+'">Reject task</button></div>':"")+'</article>').join("");
   el("runInspector").querySelectorAll("[data-approval]").forEach(button=>button.addEventListener("click",()=>submitApproval(id,button.getAttribute("data-task"),button.getAttribute("data-approval"))));
+  if(run.status==="failed"){
+   const replay=document.createElement("button");replay.className="btn";replay.textContent="Create replay of retryable tasks";
+   replay.addEventListener("click",async()=>{try{const response=await fetch("/api/runs/"+encodeURIComponent(id)+"/replay",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});const data=await response.json();if(!response.ok)throw new Error(data.error||"Replay creation failed.");await loadRuns();await inspectRun(data.id);}catch(error){el("runInspector").insertAdjacentHTML("afterbegin",'<div class="error">'+esc(error.message)+'</div>');}});
+   el("runInspector").prepend(replay);
+  }
+  if(runMonitorTimer)clearTimeout(runMonitorTimer);
+  if(run.status==="running")runMonitorTimer=setTimeout(()=>{if(selectedRunId===id)inspectRun(id);},1800);
   document.querySelectorAll(".run").forEach(item=>item.classList.toggle("selected",item.getAttribute("data-run-id")===id));
  }catch(error){el("runInspector").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
 }
@@ -319,7 +330,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
         return;
       }
-      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/"))) {
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/replay$/.test(requestUrl.pathname))) {
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -332,6 +343,14 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         const chunks: Buffer[] = []; let size = 0;
         for await (const chunk of request) { size += chunk.length; if (size > 16384) { response.writeHead(413, { "content-type": "application/json" }).end(JSON.stringify({ error: "Request body is too large." })); return; } chunks.push(Buffer.from(chunk)); }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+        const replayRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/replay$/);
+        if (replayRoute) {
+          const source = await loadRun(projectPath, decodeURIComponent(replayRoute[1]!));
+          const replay = createReplayRun(source);
+          await saveRun(projectPath, replay);
+          response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: replay.id, status: replay.status, sourceRunId: source.id }));
+          return;
+        }
         if (requestUrl.pathname === "/api/workflows") {
           const workflow = await saveWorkflow(projectPath, body);
           response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(workflow));
