@@ -104,17 +104,28 @@ export async function loadPatchApproval(root: string, id: string): Promise<Patch
 }
 
 export async function revokePatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
-  const approval = await loadPatchApproval(root, id);
-  if (approval.revokedAt) return approval;
-  const revoked: PatchApprovalRecord = { ...approval, revokedAt: new Date().toISOString() };
   const dir = await safeApprovalDirectory(root);
+  const marker = path.join(dir, id + ".used");
+  try {
+    await mkdir(marker, { mode: 0o700 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      const existing = await loadPatchApproval(root, id);
+      if (existing.revokedAt) return existing;
+      throw new Error("Patch approval is already used or being consumed; it cannot be revoked.");
+    }
+    throw error;
+  }
+  const approval = await loadPatchApproval(root, id);
+  const revoked: PatchApprovalRecord = { ...approval, revokedAt: new Date().toISOString() };
   const destination = path.join(dir, id + ".json");
   const temporary = path.join(dir, "." + id + "." + randomUUID() + ".tmp");
   try {
-    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);
+    // Keep the marker: a failed revocation fails closed rather than reopening approval.
     throw error;
   }
   return revoked;
