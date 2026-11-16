@@ -490,8 +490,10 @@ Optional token guardrails are available for both `forge run` and `forge resume`:
 - `FORGE_MAX_INPUT_TOKENS_PER_TASK` — reject a task before sending it when its estimated input exceeds this limit.
 - `FORGE_MAX_OUTPUT_TOKENS_PER_TASK` — reject a provider response whose estimated output exceeds this limit.
 - `FORGE_MAX_ESTIMATED_TOKENS_PER_RUN` — cap estimated input plus output across the run.
+- `FORGE_MAX_TASK_DURATION_MS` — maximum wall-clock time FORGE waits for one provider task.
+- `FORGE_MAX_TASK_DURATION_MS_BY_AGENT` — optional JSON map of stricter agent-specific limits, e.g. `{"security-reviewer":90000,"planner":60000}`. Per-agent values override the default.
 
-These are character-based estimates (roughly four characters per token), not provider billing measurements. Input is checked before a request; output is checked after the provider responds. With parallel execution, already-started tasks in the same batch may finish before the budget breach is detected. Once detected, FORGE marks unstarted tasks blocked and does not schedule another batch. No provider request is forcibly interrupted.
+These are character-based estimates (roughly four characters per token), not provider billing measurements. Input is checked before a request; output is checked after the provider responds. With parallel execution, already-started tasks in the same batch may finish before the budget breach is detected. Once detected, FORGE marks unstarted tasks blocked and does not schedule another batch. A task-duration ceiling stops FORGE from waiting and marks the task failed; providers without cancellation support may continue in the background, so this is not a hard network abort. Budget-exceeded tasks do not trigger model fallback.
 
 Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, retry counts, and approximate token counts estimated from character length (not provider-billed usage). They also aggregate provider health for the run: request counts, successes, fallbacks, failures, retries, and cumulative duration. Inspect both views with `forge trace RUNID --path .`. Trace files are local and excluded from Git.
 
