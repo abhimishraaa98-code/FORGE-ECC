@@ -140,7 +140,14 @@ forge patch-verify PATCH_STAGE_ID test --path .
 
 Patch staging now captures a bounded project snapshot under `.forge/patch-workspaces/<stage-id>/workspace`, overlays the approved patch, and records a SHA-256 tree fingerprint plus file/byte counts. The snapshot excludes `.git`, `.forge`, dependency/build caches, common environment files, and private-key files. Symlinks are rejected; snapshots are capped at 20,000 files and 256 MiB. Before verification, FORGE checks the entire snapshot fingerprint, then copies that exact snapshot to a temporary workspace and checks the fingerprint again. Later edits to the live project do not change the snapshot being verified. Tampering with any staged snapshot file causes verification to fail closed.
 
-The temporary workspace is removed after the command. Dependencies are not copied or installed, so scripts requiring packages from `node_modules` may not run; the command does not install packages or access the network. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
+The temporary workspace is removed after the command. By default, dependencies are neither copied nor installed, and no network access is attempted.
+If you explicitly opt in, use:
+
+```bash
+forge patch-verify PATCH_STAGE_ID test --install-dependencies --path .
+```
+
+FORGE requires a regular `package-lock.json` and runs `npm ci --ignore-scripts --no-audit --no-fund` inside the temporary workspace before the selected check. This can access the network, is capped at ten minutes with bounded output, and does not run package lifecycle scripts. It is opt-in because package retrieval is an external side effect. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
 
 ### Verification runner safety
 
