@@ -75,11 +75,19 @@ describe("run-history CLI help", () => {
     expect(failedJson.runs.map((run: { id: string }) => run.id)).toEqual([older.id]);
   });
 
-  it("rejects missing, zero, and non-numeric limits", async () => {
+  it("rejects missing and invalid run-history option values", async () => {
     const directory = await createWorkspace();
     for (const args of [
       ["--limit"], ["--limit", "0"], ["--limit", "many"], ["--limit", "--json"],
       ["--status"], ["--status", "unknown"], ["--status", "--json"],
+    ]) {
+      expect(() => runCli("runs", directory, ...args)).toThrow();
+    }
+  }, 20_000);
+
+  it("rejects duplicate and unknown run-history options", async () => {
+    const directory = await createWorkspace();
+    for (const args of [
       ["--limit", "1", "--limit", "2"], ["--status", "completed", "--status", "failed"],
       ["--json", "--json"], ["--unexpected"],
     ]) {
