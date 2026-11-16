@@ -29,6 +29,8 @@ export interface ModelRouterOptions {
   maxInputTokensPerTask?: number;
   maxOutputTokensPerTask?: number;
   maxEstimatedTokensPerRun?: number;
+  /** Optional cumulative estimated input + output token ceilings keyed by agent ID. */
+  maxEstimatedTokensPerAgent?: Readonly<Record<string, number>>;
   /** Wall-clock ceiling; providers without abort support may continue after FORGE stops waiting. */
   maxTaskDurationMs?: number;
   /** Optional stricter duration ceilings keyed by agent ID. */
@@ -57,11 +59,15 @@ export class ModelRouter implements AgentProvider {
   readonly name = "forge-model-router";
   readonly traces: AgentTrace[] = [];
   private estimatedTokensUsed = 0;
+  private readonly estimatedTokensByAgent = new Map<string, number>();
   constructor(private readonly options: ModelRouterOptions) {
     if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");
     if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
     for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun, maxTaskDurationMs: options.maxTaskDurationMs })) {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error(`${name} must be a positive safe integer.`);
+    }
+    for (const [agent, limit] of Object.entries(options.maxEstimatedTokensPerAgent ?? {})) {
+      if (!agent.trim() || !Number.isSafeInteger(limit) || limit < 1) throw new Error(`Token budget for agent ${agent || "<empty>"} must be a positive safe integer.`);
     }
     for (const [agent, limit] of Object.entries(options.maxTaskDurationMsByAgent ?? {})) {
       if (!agent.trim() || !Number.isSafeInteger(limit) || limit < 1) throw new Error(`Duration budget for agent ${agent || "<empty>"} must be a positive safe integer.`);
@@ -80,9 +86,13 @@ export class ModelRouter implements AgentProvider {
     const maxInput = this.options.maxInputTokensPerTask;
     if (maxInput !== undefined && inputTokensEstimate > maxInput) throw new Error(`FORGE budget exceeded: task input estimate ${inputTokensEstimate} exceeds per-task limit ${maxInput}.`);
     const runLimit = this.options.maxEstimatedTokensPerRun;
+    const agentLimit = this.options.maxEstimatedTokensPerAgent?.[request.task.agent];
+    const agentUsed = this.estimatedTokensByAgent.get(request.task.agent) ?? 0;
     const maxOutput = this.options.maxOutputTokensPerTask;
     if (runLimit !== undefined && this.estimatedTokensUsed + inputTokensEstimate > runLimit) throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before provider call.`);
+    if (agentLimit !== undefined && agentUsed + inputTokensEstimate > agentLimit) throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before provider call.`);
     this.estimatedTokensUsed += inputTokensEstimate;
+    this.estimatedTokensByAgent.set(request.task.agent, agentUsed + inputTokensEstimate);
     const provider = this.options.createProvider(route.model);
     const durationLimit = this.options.maxTaskDurationMsByAgent?.[request.task.agent] ?? this.options.maxTaskDurationMs;
     const completeWithinBudget = async (target: AgentProvider): Promise<AgentResponse> => {
@@ -118,6 +128,13 @@ export class ModelRouter implements AgentProvider {
         this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
+      if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate > agentLimit) {
+        const message = `FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after provider response.`;
+        this.estimatedTokensUsed += outputTokensEstimate;
+        this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
+        this.traces.push({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
+        throw new Error(message);
+      }
       if (runLimit !== undefined && this.estimatedTokensUsed + outputTokensEstimate > runLimit) {
         const message = `FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after provider response.`;
         this.estimatedTokensUsed += outputTokensEstimate;
@@ -125,6 +142,7 @@ export class ModelRouter implements AgentProvider {
         throw new Error(message);
       }
       this.estimatedTokensUsed += outputTokensEstimate;
+      this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
       const trace: AgentTrace = {
         taskId: request.task.id, agent: request.task.agent, tier: route.tier,
         model: response.model ?? route.model, provider: response.provider,
@@ -149,11 +167,13 @@ export class ModelRouter implements AgentProvider {
         const response = await completeWithinBudget(fallback);
         const fallbackOutputEstimate = Math.ceil(response.content.length / 4);
         if (maxOutput !== undefined && fallbackOutputEstimate > maxOutput) throw new Error(`FORGE budget exceeded: fallback output estimate ${fallbackOutputEstimate} exceeds per-task limit ${maxOutput}.`);
+        if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + fallbackOutputEstimate > agentLimit) throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after fallback response.`);
         if (runLimit !== undefined && this.estimatedTokensUsed + fallbackOutputEstimate > runLimit) {
           this.estimatedTokensUsed += fallbackOutputEstimate;
           throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after fallback response.`);
         }
         this.estimatedTokensUsed += fallbackOutputEstimate;
+        this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + fallbackOutputEstimate);
         const trace: AgentTrace = {
           taskId: request.task.id, agent: request.task.agent, tier: route.tier,
           model: response.model ?? this.options.fallbackModel, provider: response.provider,
