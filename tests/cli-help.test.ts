@@ -26,13 +26,14 @@ afterEach(async () => {
 
 describe("run-history CLI help", () => {
   it("prints runs usage without reading project history", () => {
-    expect(runCli("runs", "--help")).toContain("Usage: forge runs [path] [--json] [--limit N]");
+    expect(runCli("runs", "--help")).toContain("Usage: forge runs [path] [--json] [--limit N] [--status STATUS]");
   });
 
   it("documents the versioned JSON option and run limit", () => {
     const help = runCli("runs", "--help");
     expect(help).toContain("versioned machine-readable summary");
     expect(help).toContain("--limit N");
+    expect(help).toContain("--status");
   });
 
   it("prints show-run usage without requiring a run ID", () => {
@@ -43,8 +44,10 @@ describe("run-history CLI help", () => {
     const directory = await createWorkspace();
     const older = createRun("Older run", [{ id: "older-task", agent: "planner", title: "Older task", prompt: "Plan older run" }]);
     older.createdAt = "2026-01-01T00:00:00.000Z";
+    older.status = "failed";
     const newer = createRun("Newer run", [{ id: "newer-task", agent: "planner", title: "Newer task", prompt: "Plan newer run" }]);
     newer.createdAt = "2026-01-02T00:00:00.000Z";
+    newer.status = "completed";
     await saveRun(directory, older);
     await saveRun(directory, newer);
 
@@ -55,11 +58,17 @@ describe("run-history CLI help", () => {
     const jsonOutput = JSON.parse(runCli("runs", directory, "--json", "--limit", "1"));
     expect(jsonOutput.runs).toHaveLength(1);
     expect(jsonOutput.runs[0].id).toBe(newer.id);
+
+    const completedOutput = runCli("runs", directory, "--status", "completed");
+    expect(completedOutput).toContain(newer.id);
+    expect(completedOutput).not.toContain(older.id);
+    const failedJson = JSON.parse(runCli("runs", directory, "--json", "--status", "failed"));
+    expect(failedJson.runs.map((run: { id: string }) => run.id)).toEqual([older.id]);
   });
 
   it("rejects missing, zero, and non-numeric limits", async () => {
     const directory = await createWorkspace();
-    for (const args of [["--limit"], ["--limit", "0"], ["--limit", "many"]]) {
+    for (const args of [["--limit"], ["--limit", "0"], ["--limit", "many"], ["--status"], ["--status", "unknown"]]) {
       expect(() => runCli("runs", directory, ...args)).toThrow();
     }
   });
