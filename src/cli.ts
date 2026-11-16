@@ -29,6 +29,7 @@ import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/chan
 import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntelligenceComparison } from "./core/intelligence-timeline.js";
 import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
+import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 
 const VERSION = "0.34.0";
 
@@ -59,7 +60,7 @@ Commands:
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
-  agents [path]    List built-in and workspace agent roles
+  agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
   runs [path]      List locally saved run history
@@ -121,6 +122,41 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE could not load agents: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "memory": {
+      const [action = "list", ...memoryArgs] = rest;
+      const targetIndex = memoryArgs.findIndex(arg => !arg.startsWith("--"));
+      const target = path.resolve(targetIndex >= 0 ? memoryArgs[targetIndex] ?? "." : ".");
+      const option = (name: string) => { const index = memoryArgs.indexOf(name); return index >= 0 ? memoryArgs[index + 1] : undefined; };
+      try {
+        if (action === "list") {
+          const entries = await listProjectMemory(target);
+          process.stdout.write(entries.length ? entries.map(entry => `${entry.id} [${entry.kind}] ${entry.content}`).join("\\n") + "\\n" : "No project memory entries.\\n");
+        } else if (action === "add") {
+          const kind = option("--kind") as ProjectMemoryKind | undefined;
+          const content = option("--content");
+          const allowed: ProjectMemoryKind[] = ["decision", "architecture", "constraint", "preference", "fact"];
+          if (!kind || !allowed.includes(kind) || !content) throw new Error("Usage: forge memory add [path] --kind decision|architecture|constraint|preference|fact --content TEXT [--tags a,b]");
+          const tags = option("--tags")?.split(",") ?? [];
+          const entry = await addProjectMemory(target, { kind, content, tags });
+          process.stdout.write(`Saved ${entry.id} to .forge/memory.json\\n`);
+        } else if (action === "remove") {
+          const id = memoryArgs.find(arg => arg.startsWith("mem-"));
+          if (!id) throw new Error("Usage: forge memory remove [path] mem-ID");
+          const removed = await removeProjectMemory(target, id);
+          process.stdout.write(removed ? `Removed ${id}.\\n` : `Memory entry ${id} was not found.\\n`);
+        } else if (action === "context") {
+          const query = option("--query") ?? "";
+          const context = await buildProjectMemoryContext(target, query);
+          process.stdout.write(context.text || "No relevant project memory.\\n");
+        } else {
+          throw new Error("Memory actions: add, list, remove, context.");
+        }
+      } catch (error) {
+        process.stderr.write("FORGE memory command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
@@ -190,7 +226,7 @@ async function main(args: string[]): Promise<void> {
             })();
         const plan = createReviewPlan(goal);
         process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\n`);
-        const completed = await advanceRun(plan, provider);
+        const memory = await buildProjectMemoryContext(target, goal);\n        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext: memory.text });
         const saved = await saveRun(target, completed);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
         for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\n`);
