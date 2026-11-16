@@ -26,15 +26,20 @@ const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 function validateHooks(value: unknown): ForgeHook[] {
   if (!Array.isArray(value)) throw new Error("Hook configuration must be a JSON array.");
+  const ids = new Set<string>();
   return value.map((item, index) => {
-    if (!item || typeof item !== "object") throw new Error(`Hook ${index} must be an object.`);
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`Hook ${index} must be an object.`);
     const hook = item as Partial<ForgeHook>;
     if (typeof hook.id !== "string" || !ID.test(hook.id)) throw new Error(`Hook ${index} has an invalid id.`);
+    if (ids.has(hook.id)) throw new Error(`Hook ${hook.id} is duplicated.`);
+    ids.add(hook.id);
     if (hook.event !== "before-agent") throw new Error(`Hook ${hook.id} uses an unsupported event.`);
     if (!["require-approval", "append-context", "block-task"].includes(hook.action ?? "")) throw new Error(`Hook ${hook.id} uses an unsupported action.`);
     if (typeof hook.message !== "string" || !hook.message.trim() || hook.message.length > 2000) throw new Error(`Hook ${hook.id} needs a message of 1–2000 characters.`);
-    if (hook.match?.agents && (!Array.isArray(hook.match.agents) || hook.match.agents.some(agent => typeof agent !== "string"))) throw new Error(`Hook ${hook.id} has invalid agent filters.`);
-    if (hook.match?.contains && (!Array.isArray(hook.match.contains) || hook.match.contains.some(term => typeof term !== "string"))) throw new Error(`Hook ${hook.id} has invalid text filters.`);
+    if (hook.enabled !== undefined && typeof hook.enabled !== "boolean") throw new Error(`Hook ${hook.id} has an invalid enabled flag.`);
+    if (hook.match !== undefined && (!hook.match || typeof hook.match !== "object" || Array.isArray(hook.match))) throw new Error(`Hook ${hook.id} has invalid match filters.`);
+    if (hook.match?.agents !== undefined && (!Array.isArray(hook.match.agents) || hook.match.agents.some(agent => typeof agent !== "string" || !agent.trim()))) throw new Error(`Hook ${hook.id} has invalid agent filters.`);
+    if (hook.match?.contains !== undefined && (!Array.isArray(hook.match.contains) || hook.match.contains.some(term => typeof term !== "string" || !term.trim()))) throw new Error(`Hook ${hook.id} has invalid text filters.`);
     return hook as ForgeHook;
   });
 }
