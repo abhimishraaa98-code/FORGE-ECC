@@ -50,6 +50,19 @@ describe("local dashboard server", () => {
     expect(providers.find((item: { id: string }) => item.id === "openai")).toMatchObject({ id: "openai", status: "needs-credentials", configured: false, selected: true });
     expect(JSON.stringify(providers)).not.toContain("sk-");
     expect(providers.every((item: { status: string }) => item.status !== "connected")).toBe(true);
+    const previousBase = process.env.FORGE_BASE_URL;
+    process.env.FORGE_BASE_URL = "https://user:private-token@example.test:9443/api?key=private-query";
+    try {
+      const refreshed = await fetch(`http://127.0.0.1:${address.port}/api/providers`);
+      const refreshedProviders = await refreshed.json();
+      expect(JSON.stringify(refreshedProviders)).not.toContain("private-token");
+      expect(JSON.stringify(refreshedProviders)).not.toContain("private-query");
+      expect(refreshedProviders.find((item: { id: string }) => item.id === "ollama").detail).toContain("https://example.test:9443");
+    } finally {
+      if (previousBase === undefined) delete process.env.FORGE_BASE_URL;
+      else process.env.FORGE_BASE_URL = previousBase;
+    }
+
   });
 
   it("lists, reads and safely saves workspace agent and skill Markdown", async () => {
