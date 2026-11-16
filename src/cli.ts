@@ -10,7 +10,7 @@ import { formatProjectReport, inspectProject } from "./core/project-inspector.js
 import { loadAgentRegistry } from "./core/agent-registry.js";
 import { createReviewPlan } from "./core/review-planner.js";
 import { saveRun, listRuns, loadRun, decideTaskApproval, recoverInterruptedRun, withRunExecutionLock } from "./core/run-store.js";
-import { advanceRun } from "./core/orchestrator.js";
+import { advanceRun, type RunRecord } from "./core/orchestrator.js";
 import { OpenAICompatibleProvider } from "./core/openai-compatible-provider.js";
 import { createHostedAgentProvider } from "./core/hosted-agent-provider.js";
 import { ClaudeCodeProvider } from "./ai/claude-code-provider.js";
