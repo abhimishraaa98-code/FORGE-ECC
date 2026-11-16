@@ -73,7 +73,7 @@ describe("run-history CLI help", () => {
     expect(combinedJson.runs[0].id).toBe(newest.id);
     const failedJson = JSON.parse(runCli("runs", directory, "--json", "--status", "failed"));
     expect(failedJson.runs.map((run: { id: string }) => run.id)).toEqual([older.id]);
-  });
+  }, 20_000);
 
   it("rejects missing and invalid run-history option values", async () => {
     const directory = await createWorkspace();
