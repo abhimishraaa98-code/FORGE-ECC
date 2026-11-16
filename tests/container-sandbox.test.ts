@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
+import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 
 const image = "node:22-alpine@sha256:" + "a".repeat(64);
 
@@ -58,5 +59,19 @@ describe("staged verification CLI security flags", () => {
     const usage = "forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]";
     expect(usage).toContain("--require-rootless");
     expect(usage).toContain("--sandbox-image");
+  });
+});
+
+describe("sandbox runtime status report", () => {
+  it("reports available rootless Docker capabilities", () => {
+    const report = parseSandboxRuntimeReport("docker", "Docker version 27.0.0", '["name=rootless","name=seccomp"]');
+    expect(report.available).toBe(true);
+    expect(report.rootless).toBe(true);
+    expect(formatSandboxRuntimeReport(report)).toContain("Rootless: yes");
+  });
+  it("warns when rootless status cannot be established", () => {
+    const report = parseSandboxRuntimeReport("docker", "Docker version 27.0.0", "invalid");
+    expect(report.rootless).toBeNull();
+    expect(report.warnings.join(" ")).toMatch(/could not be determined/);
   });
 });
