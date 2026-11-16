@@ -13,3 +13,6 @@ coverage/
 .forge/memory.json
 .forge/runs/
 .forge/intelligence/
+
+# Local FORGE execution telemetry
+.forge/traces/
