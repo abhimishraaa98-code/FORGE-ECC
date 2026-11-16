@@ -1029,7 +1029,7 @@ async function main(args: string[]): Promise<void> {
           "- **Snapshot files:** `" + result.snapshotFileCount + "`\n" +
           "- **Snapshot bytes:** `" + result.snapshotBytes + "`\n" +
           (result.dependencyInstall ? "- **Dependencies:** **" + result.dependencyInstall.status.toUpperCase() + "** (`" + result.dependencyInstall.command + "`)\n" : "") +
-          (sandboxImage ? "- **Execution:** **CONTAINER** (\`" + sandboxImage + "\`)\n" : "- **Execution:** **LOCAL HOST**\n") +
+          (sandboxImage ? "- **Execution:** **CONTAINER** (`" + sandboxImage + "`)\n" : "- **Execution:** **LOCAL HOST**\n") +
           "- **Verification:** **" + result.verification.status.toUpperCase() + "**\n" +
           "- **Duration:** `" + result.verification.durationMs + " ms`\n\n" +
           "## Output\n\n```\n" + (result.verification.output || "(No output captured.)") + "\n```\n\n" +
