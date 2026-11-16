@@ -41,7 +41,7 @@ export interface AIProviderConfig {
   apiKey?: string;
 }
 
-const PROVIDER_ENV: Record<Exclude<AIProviderId, "mock">, {
+const PROVIDER_ENV: Record<Exclude<AIProviderId, "mock" | "claude-code">, {
   key: string;
   model: string;
   baseUrl?: string;
