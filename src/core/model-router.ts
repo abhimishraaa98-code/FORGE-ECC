@@ -165,6 +165,10 @@ export class ModelRouter implements AgentProvider {
     }
     if (response) {
       const outputTokensEstimate = Math.ceil(response.content.length / 4);
+      // Account for generated output even when policy rejects it: the provider
+      // has already produced (and potentially billed) these tokens.
+      this.estimatedTokensUsed += outputTokensEstimate;
+      this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
       if (maxOutput !== undefined && outputTokensEstimate > maxOutput) {
         const message = `FORGE budget exceeded: task output estimate ${outputTokensEstimate} exceeds per-task limit ${maxOutput}.`;
         this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
@@ -172,19 +176,14 @@ export class ModelRouter implements AgentProvider {
       }
       if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate > agentLimit) {
         const message = `FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after provider response.`;
-        this.estimatedTokensUsed += outputTokensEstimate;
-        this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
         this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
       if (runLimit !== undefined && this.estimatedTokensUsed + outputTokensEstimate > runLimit) {
         const message = `FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after provider response.`;
-        this.estimatedTokensUsed += outputTokensEstimate;
         this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: response.model ?? route.model, provider: response.provider, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate, outputTokensEstimate, error: message });
         throw new Error(message);
       }
-      this.estimatedTokensUsed += outputTokensEstimate;
-      this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + outputTokensEstimate);
       const trace: AgentTrace = {
         taskId: request.task.id, agent: request.task.agent, tier: route.tier,
         model: response.model ?? route.model, provider: response.provider,
@@ -208,14 +207,15 @@ export class ModelRouter implements AgentProvider {
         const fallback = this.options.createProvider(this.options.fallbackModel);
         const response = await completeWithinBudget(fallback);
         const fallbackOutputEstimate = Math.ceil(response.content.length / 4);
-        if (maxOutput !== undefined && fallbackOutputEstimate > maxOutput) throw new Error(`FORGE budget exceeded: fallback output estimate ${fallbackOutputEstimate} exceeds per-task limit ${maxOutput}.`);
-        if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + fallbackOutputEstimate > agentLimit) throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after fallback response.`);
-        if (runLimit !== undefined && this.estimatedTokensUsed + fallbackOutputEstimate > runLimit) {
-          this.estimatedTokensUsed += fallbackOutputEstimate;
-          throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after fallback response.`);
-        }
+        // The fallback has already generated this output, including when a
+        // post-response budget check rejects returning it to the caller.
         this.estimatedTokensUsed += fallbackOutputEstimate;
         this.estimatedTokensByAgent.set(request.task.agent, (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + fallbackOutputEstimate);
+        if (maxOutput !== undefined && fallbackOutputEstimate > maxOutput) throw new Error(`FORGE budget exceeded: fallback output estimate ${fallbackOutputEstimate} exceeds per-task limit ${maxOutput}.`);
+        if (agentLimit !== undefined && (this.estimatedTokensByAgent.get(request.task.agent) ?? 0) + fallbackOutputEstimate > agentLimit) throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens after fallback response.`);
+        if (runLimit !== undefined && this.estimatedTokensUsed > runLimit) {
+          throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after fallback response.`);
+        }
         const trace: AgentTrace = {
           taskId: request.task.id, agent: request.task.agent, tier: route.tier,
           model: response.model ?? this.options.fallbackModel, provider: response.provider,
