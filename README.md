@@ -549,3 +549,19 @@ forge evaluate RUN_ID --suite engineering-basics --path .
 ```
 
 Suites define cases matched by task ID or agent ID and weighted criteria using required terms, forbidden terms, and optional minimum/maximum word counts. Reports are stored under `.forge/evaluations/` and appear in the local dashboard's Evaluation history. This is deterministic rubric scoring, not an AI semantic judge or proof of engineering correctness. For model comparisons, run the same suite against equivalent tasks and compare the saved reports; provider/model metadata remains available in execution traces.
+
+
+### Model-judged evaluations
+
+For a second-pass qualitative review, use the optional model judge:
+
+```bash
+FORGE_AI_PROVIDER=openai
+FORGE_API_KEY=...
+FORGE_EVAL_JUDGE_MODEL=gpt-4.1
+forge evaluate RUN_ID --suite engineering-basics --judge --path .
+```
+
+The judge reviews each matching agent output against the case description and rubric, returns a score plus strengths/improvements, and must cite exact evidence copied from the candidate output. FORGE rejects fabricated or non-verbatim evidence quotes. The dashboard shows the judge's aggregate score separately from the deterministic rubric score.
+
+The judge is a model-based opinion, not ground truth. It can be inconsistent or biased; use the same judge model and rubric for comparisons, keep human review for consequential decisions, and account for the extra model/API usage. The deterministic evaluator remains available without any model call.
