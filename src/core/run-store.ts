@@ -69,7 +69,7 @@ async function withRunLock<T>(projectPath: string, runId: string, action: () => 
       pid: process.pid,
       host: os.hostname(),
       startedAt: new Date().toISOString(),
-    }) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    }) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     return await action();
   } finally {
     try {
