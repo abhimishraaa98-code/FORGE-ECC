@@ -94,3 +94,16 @@ All project paths are resolved under `FORGE_WORKSPACE`.  Normal `forge run`, `fo
 ```
 
 With the default `proposal-only` policy, these three tools are denied. Calls made through the MCP workspace tools emit structured audit metadata to the MCP server's stderr; audit records do not include file contents. The same allowlist is consumed by the normal OpenAI agent tool loop; other providers are rejected when restricted tool mode is selected. These MCP tools do not write project files, run project scripts, or provide shell access. The current MCP surface is intentionally read-only; write-capable tools will require a separately reviewed executor, explicit per-tool permissions, approval controls and audit records.
+
+
+## Patch approval records
+
+Patch validation remains a dry run. A reviewer can create a local, immutable approval record bound to the exact saved review patch and the current target-file contents:
+
+```bash
+forge patch-check REVIEW_ID 1 --path .
+forge patch-approve REVIEW_ID 1 --reviewer "Reviewer name" --reason "Reviewed change" --path .
+forge patch-approval-check PATCH_APPROVAL_ID --path .
+```
+
+Approval records are stored under `.forge/patch-approvals/` with restrictive file permissions. They include SHA-256 digests for the proposed patch and source file, reviewer identity, timestamp and expiry (24 hours by default). Expiry can be configured through the library API, between one minute and seven days. Verification fails if the patch or source file changes, the approval expires, or the patch no longer validates. Approval does not apply a patch or grant permission to modify files; isolated application and rollback are separate future capabilities.
