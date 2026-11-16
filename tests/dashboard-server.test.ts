@@ -80,6 +80,10 @@ describe("local dashboard server", () => {
     expect((await approval.json()).status).toBe("approved");
     const versions = await fetch(base + "/api/config-snapshots");
     expect((await versions.json())[0].approvedBy).toBe("test-reviewer");
+    const releases = await fetch(base + "/api/config-releases");
+    expect(releases.status).toBe(200);
+    expect(await releases.json()).toEqual([]);
+
   });
 
   it("serves the dashboard and read-only project APIs on loopback", async () => {
