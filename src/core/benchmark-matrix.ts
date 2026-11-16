@@ -118,7 +118,7 @@ export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
   const lines = ["FORGE Automated Benchmark Matrix · " + report.matrixName, "Suite: " + report.suiteId, "Goal: " + report.goal, "", "Candidate | Trials | Completed | Avg score | Pass rate | σ score | Avg time | Avg estimated tokens"];
   for (const item of report.summary) lines.push([item.candidateId + " (" + item.provider + "/" + item.model + ")", item.trials, item.completed, item.averageScore + "/100", item.passRate + "%", item.scoreStdDev, item.averageDurationMs + " ms", item.averageEstimatedTokens].join(" | "));
   lines.push("", "Trial details:");
-  for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "passed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
+  for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "completed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
   lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
   return lines.join("\n");
 }
