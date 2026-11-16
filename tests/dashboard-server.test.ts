@@ -34,6 +34,7 @@ describe("local dashboard server", () => {
     expect(html).toContain("Agent observability");
     expect(html).toContain("Per-agent utilization");
     expect(html).toContain("Provider health");
+    expect(html).toContain("Evaluation history");
     expect(html).toContain("Live event stream");
     expect(html).toContain("Create replay of retryable tasks");
     expect(html).toContain("Compare with previous run");
@@ -127,6 +128,10 @@ describe("local dashboard server", () => {
 
     const runDetail = await fetch(base + "/api/runs/forge-not-found");
     expect(runDetail.status).toBe(500);
+
+    const evaluations = await fetch(base + "/api/evaluations");
+    expect(evaluations.status).toBe(200);
+    expect(await evaluations.json()).toEqual([]);
 
     const observability = await fetch(base + "/api/observability");
     expect(observability.status).toBe(200);
