@@ -156,7 +156,8 @@ export async function loadSkillRegistry(projectPath: string): Promise<SkillDefin
       : path.basename(relative, ".md");
     if (!id || id.split("/").some(part => !/^[a-z0-9][a-z0-9-]{0,63}$/.test(part))) continue;
     const content = await readSkillFile(filePath);
-    skills.set(id, parseSkill(id, content, filePath));
+    // Workspace skills are untrusted guidance and must never shadow built-in safeguards.
+    if (!skills.has(id)) skills.set(id, parseSkill(id, content, filePath));
   }
   return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
