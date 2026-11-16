@@ -11,7 +11,7 @@ Thanks for considering a contribution.
 ## Local checks
 
 ```bash
-npm install
+npm ci
 npm test
 npm run typecheck
 npm run build
