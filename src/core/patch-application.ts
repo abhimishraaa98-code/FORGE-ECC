@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
@@ -17,6 +17,19 @@ export interface PatchStageRecord {
   stagedSha256: string;
 }
 function sha(value: string): string { return createHash("sha256").update(value).digest("hex"); }
+async function ensureSafeDirectory(project: string, target: string): Promise<void> {
+  const relative = path.relative(project, target);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Staging directory must be inside the project.");
+  let cursor = project;
+  for (const segment of relative.split(path.sep)) {
+    cursor = path.join(cursor, segment);
+    try { await mkdir(cursor); } catch (error) {
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+    }
+    const info = await lstat(cursor);
+    if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Staging path contains a symbolic link or non-directory component.");
+  }
+}
 function parseHunks(patch: string, file: string) {
   const lines = patch.replace(/\r\n/g, "\n").split("\n");
   if (lines[0] !== `--- a/${file}` || lines[1] !== `+++ b/${file}`) throw new Error("Patch headers do not match the approved target.");
@@ -95,13 +108,23 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
   const id = "patch-stage-" + randomUUID();
   const stageRoot = path.join(project, ".forge", "patch-workspaces", id);
   const stagedFile = path.join(stageRoot, relative);
-  await mkdir(path.dirname(stagedFile), { recursive: true });
-  await writeFile(stagedFile, patched, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  await ensureSafeDirectory(project, path.dirname(stagedFile));
+  try {
+    await writeFile(stagedFile, patched, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  } catch (error) {
+    await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
   const record: PatchStageRecord = {
     id, approvalId, reviewId: approval.reviewId, suggestionNumber: approval.suggestionNumber,
     file: approval.file, stagedFile: path.relative(project, stagedFile).split(path.sep).join("/"),
     stagedAt: new Date().toISOString(), sourceSha256: sha(source), stagedSha256: sha(patched),
   };
-  await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  try {
+    await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  } catch (error) {
+    await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
   return record;
 }
