@@ -16,7 +16,7 @@ import { analyzeChangeIntelligence } from "./change-intelligence.js";
 import { compareLatestIntelligence, listIntelligenceSnapshots } from "./intelligence-timeline.js";
 import { analyzeDependencies } from "./dependency-intelligence.js";
 import { loadExecutionTrace } from "./execution-trace.js";
-import { createReplayRun } from "./run-replay.js";
+import { createReplayRun, createTaskRetryRun } from "./run-replay.js";
 import { createRunFromWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from "./workflow-store.js";
 
 const PAGE = String.raw`<!doctype html>
@@ -332,7 +332,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
         return;
       }
-      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/replay$/.test(requestUrl.pathname))) {
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -345,6 +345,26 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         const chunks: Buffer[] = []; let size = 0;
         for await (const chunk of request) { size += chunk.length; if (size > 16384) { response.writeHead(413, { "content-type": "application/json" }).end(JSON.stringify({ error: "Request body is too large." })); return; } chunks.push(Buffer.from(chunk)); }
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+        const cancelRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/cancel$/);
+        if (cancelRoute) {
+          const run = await loadRun(projectPath, decodeURIComponent(cancelRoute[1]!));
+          if (["completed", "failed", "cancelled"].includes(run.status)) {
+            response.writeHead(409, { "content-type": "application/json" }).end(JSON.stringify({ error: "This run is already terminal." })); return;
+          }
+          run.status = "cancelled"; run.updatedAt = new Date().toISOString();
+          run.events.push({ at: run.updatedAt, taskId: "*", type: "blocked", message: "Cancellation requested from the dashboard. Active provider calls may finish before the run stops." });
+          await saveRun(projectPath, run);
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: run.id, status: run.status }));
+          return;
+        }
+        const retryRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/retry$/);
+        if (retryRoute) {
+          const source = await loadRun(projectPath, decodeURIComponent(retryRoute[1]!));
+          const retry = createTaskRetryRun(source, decodeURIComponent(retryRoute[2]!));
+          await saveRun(projectPath, retry);
+          response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: retry.id, status: retry.status, sourceRunId: source.id }));
+          return;
+        }
         const replayRoute = requestUrl.pathname.match(/^\/api\/runs\/([^/]+)\/replay$/);
         if (replayRoute) {
           const source = await loadRun(projectPath, decodeURIComponent(replayRoute[1]!));
