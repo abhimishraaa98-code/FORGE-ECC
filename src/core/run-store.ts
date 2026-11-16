@@ -193,7 +193,7 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
       throw new Error("Stored run file contains an event for an unknown task.");
     }
   }
-  return parsed as RunRecord;
+  return parsed as unknown as RunRecord;
 }
 
 export async function listRuns(projectPath: string): Promise<RunRecord[]> {
