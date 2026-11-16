@@ -170,7 +170,7 @@ async function main(args: string[]): Promise<void> {
       const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
       const goalEnd = goalIndex >= 0 ? rest.findIndex((arg, index) => index > goalIndex && arg.startsWith("--")) : -1;
       const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd >= 0 ? goalEnd : rest.length).join(" ").trim() : "";
-      if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\\n"); process.exitCode = 1; return; }
+      if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\n"); process.exitCode = 1; return; }
       try {
         const config = await loadBenchmarkMatrix(path.resolve(configFile));
         const suites = await loadEvaluationSuites(target);
@@ -194,11 +194,11 @@ async function main(args: string[]): Promise<void> {
           const hooks = await loadHooks(target);
           for (const record of run.tasks) {
             const applied = applyBeforeAgentHooks(record.task, hooks);
-            record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\\n\\nHook guidance:\\n" + applied.context.join("\\n") : applied.task.prompt };
+            record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\n\nHook guidance:\n" + applied.context.join("\n") : applied.task.prompt };
             if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
           }
           const memory = await buildProjectMemoryContext(target, goal);
-          const projectContext = [memory.text, formatSkillContext(skills)].filter(Boolean).join("\\n\\n");
+          const projectContext = [memory.text, formatSkillContext(skills)].filter(Boolean).join("\n\n");
           const started = Date.now();
           const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext });
           const durationMs = Date.now() - started;
@@ -215,9 +215,9 @@ async function main(args: string[]): Promise<void> {
         report.suiteId = suite.id;
         report.goal = goal;
         const saved = await saveBenchmarkMatrix(target, report);
-        process.stdout.write(formatBenchmarkMatrix(report) + "\\nSaved: " + path.relative(target, saved) + "\\n");
+        process.stdout.write(formatBenchmarkMatrix(report) + "\nSaved: " + path.relative(target, saved) + "\n");
         if (report.results.some(item => item.status === "failed") || report.results.some(item => !item.passed)) process.exitCode = 2;
-      } catch (error) { process.stderr.write("FORGE benchmark matrix failed: " + (error instanceof Error ? error.message : String(error)) + "\\n"); process.exitCode = 1; }
+      } catch (error) { process.stderr.write("FORGE benchmark matrix failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
     case "benchmark": {
@@ -234,8 +234,8 @@ async function main(args: string[]): Promise<void> {
         const report = await loadEvaluationReport(target, runId, suiteId);
         const trace = await loadExecutionTrace(target, runId);
         const document = await recordBenchmarkTrial(target, createBenchmarkTrial(report, trace));
-        process.stdout.write(formatBenchmark(document) + "\\n");
-      } catch (error) { process.stderr.write("FORGE benchmark failed: " + (error instanceof Error ? error.message : String(error)) + "\\n"); process.exitCode = 1; }
+        process.stdout.write(formatBenchmark(document) + "\n");
+      } catch (error) { process.stderr.write("FORGE benchmark failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
     case "evaluate": {
@@ -530,7 +530,7 @@ async function main(args: string[]): Promise<void> {
     }
     case "deps": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge deps [path] [--audit-report FILE] [--outdated-report FILE] [--json]\\n");
+        process.stdout.write("Usage: forge deps [path] [--audit-report FILE] [--outdated-report FILE] [--json]\n");
         return;
       }
       const option = (name:string) => { const index=rest.indexOf(name); return index>=0 ? rest[index+1] : undefined; };
@@ -767,7 +767,7 @@ async function main(args: string[]): Promise<void> {
     }
     case "remediate": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge remediate [path] [--audit-report FILE] [--outdated-report FILE] [--json]\\n");
+        process.stdout.write("Usage: forge remediate [path] [--audit-report FILE] [--outdated-report FILE] [--json]\n");
         return;
       }
       const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
