@@ -46,7 +46,7 @@ export function analyzeBenchmarkRegression(history: BenchmarkMatrixReport[], mat
   }
   const current = eligible[eligible.length - 1]!;
   const previous = [...eligible.slice(0, -1)].reverse().find(item => item.suiteId === current.suiteId && item.goal === current.goal);
-  if (!previous) return { status: "insufficient-history", matrixId: current.matrixId, matrixName: current.matrixName, suiteId: current.suiteId, baselineAt: "", currentAt: current.createdAt, candidates: [], summary: ["No earlier run has the same evaluation suite and goal; create a comparable baseline first."] };
+  if (!previous) return { status: "insufficient-history", matrixId: current.matrixId, matrixName: current.matrixName, suiteId: current.suiteId, baselineAt: "", currentAt: current.createdAt, candidates: [], agents: [], summary: ["No earlier run has the same evaluation suite and goal; create a comparable baseline first."] };
   const candidates: CandidateRegression[] = current.summary.flatMap(now => {
     const before = previous.summary.find(item => item.candidateId === now.candidateId && item.provider === now.provider && item.model === now.model);
     if (!before) return [];
