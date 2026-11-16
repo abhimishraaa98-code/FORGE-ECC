@@ -1,4 +1,5 @@
-import { lstat, readdir, readFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface SkillDefinition {
@@ -70,6 +71,29 @@ function parseSkill(id: string, content: string, filePath: string): SkillDefinit
   };
 }
 
+async function readSkillFile(filePath: string): Promise<string> {
+  const handle = await open(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > MAX_SKILL_BYTES) {
+      throw new Error("Workspace skill file is not a regular file or exceeds the size limit.");
+    }
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    while (totalBytes <= MAX_SKILL_BYTES) {
+      const chunk = Buffer.alloc(Math.min(16 * 1024, MAX_SKILL_BYTES + 1 - totalBytes));
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+      chunks.push(chunk.subarray(0, bytesRead));
+      totalBytes += bytesRead;
+    }
+    if (totalBytes > MAX_SKILL_BYTES) throw new Error("Workspace skill file exceeds the size limit.");
+    return Buffer.concat(chunks).toString("utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
 async function collectSkillFiles(directory: string, root: string, depth: number, output: string[], visited: { count: number }): Promise<void> {
   if (depth > MAX_SKILL_DEPTH) return;
   let entries;
@@ -110,6 +134,15 @@ export async function loadSkillRegistry(projectPath: string): Promise<SkillDefin
   const directory = path.join(root, ".forge", "skills");
   const skills = new Map(BUILTIN_SKILLS.map(skill => [skill.id, skill]));
   const files: string[] = [];
+  try {
+    const info = await lstat(directory);
+    if (info.isSymbolicLink() || !info.isDirectory()) return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
+    }
+    throw error;
+  }
   await collectSkillFiles(directory, root, 0, files, { count: 0 });
   for (const filePath of files) {
     const relative = path.relative(directory, filePath).split(path.sep).join("/");
@@ -117,7 +150,7 @@ export async function loadSkillRegistry(projectPath: string): Promise<SkillDefin
       ? relative.slice(0, -"/SKILL.md".length)
       : path.basename(relative, ".md");
     if (!id || id.split("/").some(part => !/^[a-z0-9][a-z0-9-]{0,63}$/.test(part))) continue;
-    const content = await readFile(filePath, "utf8");
+    const content = await readSkillFile(filePath);
     skills.set(id, parseSkill(id, content, filePath));
   }
   return [...skills.values()].sort((a, b) => a.id.localeCompare(b.id));
