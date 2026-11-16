@@ -802,10 +802,16 @@ async function main(args: string[]): Promise<void> {
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel, { workspacePath: target, permissionPolicy: permissions });
+        let priorTraceEntries: Awaited<ReturnType<typeof loadExecutionTrace>>["entries"] = [];
+        try { priorTraceEntries = (await loadExecutionTrace(target, runId)).entries; }
+        catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error; }
+        const priorAgentUsage = priorTraceEntries.reduce<Record<string, number>>((usage, entry) => { usage[entry.agent] = (usage[entry.agent] ?? 0) + entry.inputTokensEstimate + entry.outputTokensEstimate; return usage; }, {});
+        const priorRunUsage = priorTraceEntries.reduce((total, entry) => total + entry.inputTokensEstimate + entry.outputTokensEstimate, 0);
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2), retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500), ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
           ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT ? { maxEstimatedTokensPerAgent: readAgentTokenBudgets()! } : {}),
           ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
-          ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}), createProvider });
+          ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}),
+          initialEstimatedTokensUsed: priorRunUsage, initialEstimatedTokensByAgent: priorAgentUsage, createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
         let persistedTraceEntries = 0;
         const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, projectContextForTask: task => buildAgentWorkspaceContext(target, task), shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
