@@ -161,7 +161,7 @@ export async function decideTaskApproval(
   reviewer: string,
   reason?: string,
 ): Promise<RunRecord> {
-  return withRunLock(projectPath, runId, async () => {
+  return withRunExecutionLock(projectPath, runId, () => withRunLock(projectPath, runId, async () => {
     const run = await loadRun(projectPath, runId);
     const record = run.tasks.find(item => item.task.id === taskId);
     if (!record) throw new Error("Task not found in this run.");
@@ -188,7 +188,7 @@ export async function decideTaskApproval(
     });
     await writeRunUnlocked(projectPath, run);
     return run;
-  });
+  }));
 }
 
 /**
