@@ -130,6 +130,16 @@ forge patch-review PATCH_STAGE_ID --path .
 The command prints a bounded unified-style diff and rechecks both SHA-256 fingerprints. It is read-only; it does not promote the staged file or execute tests.
 
 
+### Staged patch verification
+
+Run an explicitly selected npm script against a temporary copy of the current project with the approved staged file overlaid:
+
+```bash
+forge patch-verify PATCH_STAGE_ID test --path .
+```
+
+The temporary copy excludes `.git`, `.forge`, dependency/build caches, and common environment or private-key files. Symlinks are rejected and snapshots are capped at 20,000 files and 256 MiB. The temporary workspace is removed after the command. Dependencies are not copied, so scripts that require installed packages may not run in this first version; the command does not install packages or access the network. This verifies the staged patch against the copied source tree, but it is not a reproducible snapshot of every file as it existed at patch-stage time. Project scripts still execute on the local host and this is not an OS-level sandbox.
+
 ### Verification runner safety
 
 `forge verify SCRIPT --path PROJECT` executes only the explicitly selected npm script, with npm lifecycle hooks disabled and bounded output/time. The runner passes a minimal environment rather than inheriting arbitrary process variables, so provider/API credentials and custom environment variables are not forwarded. On POSIX systems, timeout handling targets the spawned process group. This is still execution of project-controlled script code on the local host—not a sandbox. Only run scripts from projects you trust; OS-level isolation and staged-workspace verification remain separate work.
