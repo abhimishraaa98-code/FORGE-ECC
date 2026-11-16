@@ -805,21 +805,27 @@ async function main(args: string[]): Promise<void> {
         let priorTraceEntries: Awaited<ReturnType<typeof loadExecutionTrace>>["entries"] = [];
         try { priorTraceEntries = (await loadExecutionTrace(target, runId)).entries; }
         catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error; }
-        const priorAgentUsage = priorTraceEntries.reduce<Record<string, number>>((usage, entry) => { usage[entry.agent] = (usage[entry.agent] ?? 0) + entry.inputTokensEstimate + entry.outputTokensEstimate; return usage; }, {});
-        const priorRunUsage = priorTraceEntries.reduce((total, entry) => total + entry.inputTokensEstimate + entry.outputTokensEstimate, 0);
+        const traceAgentUsage = priorTraceEntries.reduce<Record<string, number>>((usage, entry) => { usage[entry.agent] = (usage[entry.agent] ?? 0) + entry.inputTokensEstimate + entry.outputTokensEstimate; return usage; }, {});
+        const traceRunUsage = priorTraceEntries.reduce((total, entry) => total + entry.inputTokensEstimate + entry.outputTokensEstimate, 0);
+        const priorAgentUsage = savedRun.tokenUsage?.estimatedTokensByAgent ?? traceAgentUsage;
+        const priorRunUsage = savedRun.tokenUsage?.estimatedTokensUsed ?? traceRunUsage;
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2), retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500), ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
           ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT ? { maxEstimatedTokensPerAgent: readAgentTokenBudgets()! } : {}),
           ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
           ...(process.env.FORGE_MAX_TASK_DURATION_MS_BY_AGENT ? { maxTaskDurationMsByAgent: readAgentDurationBudgets()! } : {}),
           initialEstimatedTokensUsed: priorRunUsage, initialEstimatedTokensByAgent: priorAgentUsage, createProvider });
         const memory = await buildProjectMemoryContext(target, savedRun.goal);
+        const currentTokenUsage = () => {
+          const usage = router.traces.reduce((total, entry) => { total.estimatedTokensUsed += entry.inputTokensEstimate + entry.outputTokensEstimate; total.estimatedTokensByAgent[entry.agent] = (total.estimatedTokensByAgent[entry.agent] ?? 0) + entry.inputTokensEstimate + entry.outputTokensEstimate; return total; }, { estimatedTokensUsed: priorRunUsage, estimatedTokensByAgent: { ...priorAgentUsage } as Record<string, number> });
+          return usage;
+        };
         let persistedTraceEntries = 0;
         const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, projectContextForTask: task => buildAgentWorkspaceContext(target, task), shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
-          await saveRun(target, snapshot);
+          await saveRun(target, { ...snapshot, tokenUsage: currentTokenUsage() });
           const newEntries = router.traces.slice(persistedTraceEntries);
           if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
         } });
-        const saved = await saveRun(target, completed);
+        const saved = await saveRun(target, { ...completed, tokenUsage: currentTokenUsage() });
         const tracePath = await saveExecutionTrace(target, completed.id, router.traces.slice(persistedTraceEntries));
         process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
         process.stdout.write("Saved: " + path.relative(target, saved) + "\nTrace: " + path.relative(target, tracePath) + "\n");
