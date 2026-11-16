@@ -135,6 +135,22 @@ describe("hosted agent provider security and protocol handling", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ["anthropic", { content: ["not-a-content-block", { type: "image", source: {} }] }],
+    ["google", { candidates: [{ content: { parts: [null, "not-a-part", { inlineData: {} }] } }] }],
+    ["ollama", { message: ["not-a-message-object"] }],
+    ["google", { candidates: [null, { content: "not-an-object" }] }],
+  ] as const)("rejects malformed nested %s response structures safely", async (provider, payload) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload), {
+      status:  200, headers: { "content-type": "application/json" },
+    })));
+    const options = provider === "ollama"
+      ? { provider, model: "test-model" } as const
+      : { provider, model: "test-model", apiKey: "test-key" } as const;
+    const instance = new HostedAgentProvider(options);
+    await expect(instance.complete(request)).rejects.toThrow("empty assistant response");
+  });
+
   it("rejects empty provider responses rather than returning a blank proposal", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ content: [] }), {
       status: 200, headers: { "content-type": "application/json" },
