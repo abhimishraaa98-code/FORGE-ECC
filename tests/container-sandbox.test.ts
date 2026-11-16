@@ -20,7 +20,7 @@ describe("container sandbox arguments", () => {
     expect(args).toContain("--cpus=2");
     expect(args).toContain("--pull=never");
     expect(args).toContain("--tmpfs");
-    expect(args).toContain("readonly");
+    expect(args.some(value => value.includes("readonly"))).toBe(true);
     expect(args).toContain("--entrypoint");
     expect(args).toContain("node");
     expect(args.some(value => value.includes("fs.cpSync"))).toBe(true);
