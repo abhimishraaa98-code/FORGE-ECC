@@ -454,7 +454,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify(release));
           return;
         }
-        const releaseDecision = requestUrl.pathname.match(/^\\/api\\/config-releases\\/(rel-[a-f0-9]{12})\\/(approve|reject)$/);
+        const releaseDecision = requestUrl.pathname.match(/^\/api\/config-releases\/(rel-[a-f0-9]{12})\/(approve|reject)$/);
         if (releaseDecision) {
           const input = body as { reviewer?: unknown };
           if (typeof input?.reviewer !== "string" || !input.reviewer.trim() || input.reviewer.length > 80) throw new Error("Reviewer label must contain 1–80 characters.");
