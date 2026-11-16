@@ -105,7 +105,9 @@ export async function executeBenchmarkMatrix(
   }).sort((a, b) => b.averageScore - a.averageScore || a.averageDurationMs - b.averageDurationMs);
   const agentKeys = new Set(results.flatMap(item => (item.agentScores ?? []).map(score => item.candidateId + "::" + score.agent)));
   const agentSummary = [...agentKeys].map(key => {
-    const [candidateId, agent] = key.split("::");
+    const separator = key.indexOf("::");
+    const candidateId = key.slice(0, separator);
+    const agent = key.slice(separator + 2);
     const candidate = config.candidates.find(item => item.id === candidateId)!;
     const scores = results.filter(item => item.candidateId === candidateId && item.status === "completed").flatMap(item => (item.agentScores ?? []).filter(score => score.agent === agent));
     const skillsObserved = [...new Set(scores.flatMap(item => item.skillIds))].sort();
