@@ -83,20 +83,20 @@ describe("sandbox runtime status report", () => {
 
 describe("sandbox lifecycle cleanup selection", () => {
   it("parses managed container records", () => {
-    expect(parseManagedContainers("abcdef123456\\tExited (0) 2 hours ago\\tforge-verify-old")).toEqual([
+    expect(parseManagedContainers("abcdef123456\tExited (0) 2 hours ago\tforge-verify-old")).toEqual([
       { id: "abcdef123456", status: "Exited (0) 2 hours ago", name: "forge-verify-old" },
     ]);
   });
   it("selects only stopped managed containers", () => {
     const items = parseManagedContainers([
-      "abcdef123456\\tExited (0) 2 hours ago\\tforge-verify-old",
-      "abcdef123457\\tUp 5 minutes\\tforge-verify-active",
-      "abcdef123458\\tCreated\\tforge-verify-created",
-    ].join("\\n"));
+      "abcdef123456\tExited (0) 2 hours ago\tforge-verify-old",
+      "abcdef123457\tUp 5 minutes\tforge-verify-active",
+      "abcdef123458\tCreated\tforge-verify-created",
+    ].join("\n"));
     expect(selectStoppedManagedContainers(items).map(item => item.id)).toEqual(["abcdef123456", "abcdef123458"]);
   });
   it("rejects malformed container output", () => {
-    expect(() => parseManagedContainers("not-an-id\\tExited\\tunknown")).toThrow(/invalid managed-container/);
+    expect(() => parseManagedContainers("not-an-id\tExited\tunknown")).toThrow(/invalid managed-container/);
   });
   it("defaults cleanup reporting to dry-run", () => {
     const report = formatSandboxCleanupReport([], [], false);
