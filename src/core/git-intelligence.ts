@@ -33,7 +33,7 @@ export async function analyzeGitChanges(inputPath:string,base="HEAD"):Promise<Gi
  try{
   const revision=(await git(root,["rev-parse","--verify","--end-of-options",base+"^{commit}"])).trim();
   if(!/^[0-9a-f]{40,64}$/i.test(revision))throw new Error("Invalid resolved revision.");
-  diff=await git(root,["diff","--name-status","-M",revision]);
+  diff=await git(root,["diff","--no-ext-diff","--no-textconv","--name-status","-M",revision]);
  }
  catch{throw new Error("Git diff failed. Ensure the base is a valid commit revision in this repository.");}
  const changes:GitChange[]=diff.split(/\r?\n/).filter(Boolean).map(line=>{
