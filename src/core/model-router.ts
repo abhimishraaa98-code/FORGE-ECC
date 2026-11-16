@@ -78,7 +78,10 @@ export class ModelRouter implements AgentProvider {
   readonly traces: AgentTrace[] = [];
   private estimatedTokensUsed = 0;
   private readonly estimatedTokensByAgent = new Map<string, number>();
+  private completionQueue: Promise<void> = Promise.resolve();
+  private readonly serializeBudgetedCalls: boolean;
   constructor(private readonly options: ModelRouterOptions) {
+    this.serializeBudgetedCalls = options.maxEstimatedTokensPerRun !== undefined || options.maxEstimatedTokensPerAgent !== undefined;
     if (!Number.isInteger(options.retryAttempts ?? 2) || (options.retryAttempts ?? 2) < 0 || (options.retryAttempts ?? 2) > 5) throw new Error("Provider retry attempts must be between 0 and 5.");
     if (!Number.isInteger(options.retryDelayMs ?? 500) || (options.retryDelayMs ?? 500) < 0 || (options.retryDelayMs ?? 500) > 10000) throw new Error("Provider retry delay must be between 0 and 10000 milliseconds.");
     for (const [name, value] of Object.entries({ maxInputTokensPerTask: options.maxInputTokensPerTask, maxOutputTokensPerTask: options.maxOutputTokensPerTask, maxEstimatedTokensPerRun: options.maxEstimatedTokensPerRun, maxTaskDurationMs: options.maxTaskDurationMs })) {
@@ -107,7 +110,16 @@ export class ModelRouter implements AgentProvider {
     try { this.options.onTrace?.(trace); } catch { /* Keep execution independent of telemetry consumers. */ }
   }
 
-  async complete(request: AgentRequest): Promise<AgentResponse> {
+  complete(request: AgentRequest): Promise<AgentResponse> {
+    if (!this.serializeBudgetedCalls) return this.completeTask(request);
+    // With cumulative budgets, provider calls must settle one at a time so an
+    // earlier response's output estimate is charged before the next preflight.
+    const result = this.completionQueue.then(() => this.completeTask(request));
+    this.completionQueue = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  private async completeTask(request: AgentRequest): Promise<AgentResponse> {
     const route = chooseModelRoute(request, this.options);
     const startedAt = new Date().toISOString();
     const start = Date.now();
