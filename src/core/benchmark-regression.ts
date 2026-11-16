@@ -31,6 +31,7 @@ export interface BenchmarkRegressionReport {
   baselineAt: string;
   currentAt: string;
   candidates: CandidateRegression[];
+  candidateProvenance?: Array<{ candidateId: string; configVersionId: string; fingerprint: string }>;
   agents: AgentRegression[];
   summary: string[];
 }
@@ -90,7 +91,7 @@ export function analyzeBenchmarkRegression(history: BenchmarkMatrixReport[], mat
     ...(unmatched ? [unmatched + " candidate(s) had no matching baseline and were excluded."] : []),
     "Thresholds: score drop ≥5 points or pass-rate drop ≥20 points blocks; time/token growth ≥25% or score σ ≥15 warns."
   ];
-  return { status, matrixId: current.matrixId, matrixName: current.matrixName, suiteId: current.suiteId, baselineAt: previous.createdAt, currentAt: current.createdAt, candidates, agents, summary: [...summary, agents.length + " per-agent scorecard(s) compared across the same candidate and model."] };
+  return { status, matrixId: current.matrixId, matrixName: current.matrixName, suiteId: current.suiteId, baselineAt: previous.createdAt, currentAt: current.createdAt, candidates, ...(current.candidateProvenance ? { candidateProvenance: current.candidateProvenance } : {}), agents, summary: [...summary, agents.length + " per-agent scorecard(s) compared across the same candidate and model."] };
 }
 
 export async function loadBenchmarkRegression(projectPath: string, matrixId?: string): Promise<BenchmarkRegressionReport> {
