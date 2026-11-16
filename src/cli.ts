@@ -852,11 +852,12 @@ async function main(args: string[]): Promise<void> {
           return usage;
         };
         let persistedTraceEntries = 0;
-        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, projectContextForTask: task => buildAgentWorkspaceContext(target, task), shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onUpdate: async snapshot => {
+        const persistRunSnapshot = async (snapshot: RunRecord) => {
           await saveRun(target, { ...snapshot, tokenUsage: currentTokenUsage() });
           const newEntries = router.traces.slice(persistedTraceEntries);
           if (newEntries.length) { await saveExecutionTrace(target, snapshot.id, newEntries); persistedTraceEntries = router.traces.length; }
-        } });
+        };
+        const completed = await advanceRun(savedRun, router, new Set(), { maxConcurrency: 4, projectContext: memory.text, projectContextForTask: task => buildAgentWorkspaceContext(target, task), shouldCancel: async () => (await loadRun(target, runId)).status === "cancelled", onTaskSettled: persistRunSnapshot, onUpdate: persistRunSnapshot });
         const saved = await saveRun(target, { ...completed, tokenUsage: currentTokenUsage() });
         const tracePath = await saveExecutionTrace(target, completed.id, router.traces.slice(persistedTraceEntries));
         process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
