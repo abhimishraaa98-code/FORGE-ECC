@@ -336,6 +336,8 @@ async function main(args: string[]): Promise<void> {
           balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel,
           reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel,
           ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}),
+          retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2),
+          retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500),
           createProvider,
           ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}),
           ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}),
