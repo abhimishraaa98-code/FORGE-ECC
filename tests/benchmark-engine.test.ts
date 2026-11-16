@@ -45,6 +45,7 @@ describe("Benchmark Lab", () => {
     expect(trial.score).toBe(75);
     expect(trial.judgeScore).toBe(91);
     expect(trial.judgeProvider).toBe("judge-api");
+    expect(trial.judgePassed).toBe(true);
   });
 
   it("replaces a duplicate run instead of inflating repeat counts", async () => {
