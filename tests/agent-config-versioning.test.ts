@@ -17,7 +17,8 @@ async function project(): Promise<string> {
   await mkdir(path.join(root, ".forge", "skills"), { recursive: true });
   await writeFile(path.join(root, ".forge", "agents", "planner.md"), "# Planner\nPlan carefully.\n");
   await writeFile(path.join(root, ".forge", "skills", "secure-changes.md"), "# Secure changes\nUse least privilege.\n");
-  await writeFile(path.join(root, ".forge", "hooks.json"), JSON.stringify([{ id: "candidate-policy", event: "before-agent", action: "append-context", message: "Snapshot-specific policy guidance." }]));\n  await writeFile(path.join(root, ".forge", "permissions.json"), JSON.stringify({ version: 1, mode: "proposal-only", allowedTools: [] }));
+  await writeFile(path.join(root, ".forge", "hooks.json"), JSON.stringify([{ id: "candidate-policy", event: "before-agent", action: "append-context", message: "Snapshot-specific policy guidance." }]));
+  await writeFile(path.join(root, ".forge", "permissions.json"), JSON.stringify({ version: 1, mode: "proposal-only", allowedTools: [] }));
   return root;
 }
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
