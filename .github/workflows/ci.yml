@@ -38,3 +38,10 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Pack and install CLI in a clean directory
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/forge-clean-install"
+          npm install --prefix "$RUNNER_TEMP/forge-clean-install" "$RUNNER_TEMP"/forge-engineering-workbench-*.tgz
+          "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" --version
+          "$RUNNER_TEMP/forge-clean-install/node_modules/.bin/forge" --help
