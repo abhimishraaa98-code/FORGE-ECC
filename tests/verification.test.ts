@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { discoverChecks, runVerification, formatVerificationResult } from "../src/core/verification.js";
+import { discoverChecks, runVerification, formatVerificationResult, installVerificationDependencies } from "../src/core/verification.js";
 
 describe("verification engine",()=>{
  let root="";
@@ -39,5 +39,14 @@ describe("verification engine",()=>{
   const result=await runVerification(root,"verify");
   expect(result.status).toBe("failed");
   expect(result.exitCode).toBe(7);
+ });
+ it("requires a regular lockfile before dependency preparation",async()=>{
+  await setup({verify:"node -e \"process.exit(0)\""});
+  await expect(installVerificationDependencies(root)).rejects.toThrow(/requires a regular package-lock.json/);
+ });
+ it("validates dependency installation timeout before spawning npm",async()=>{
+  await setup({verify:"node -e \"process.exit(0)\""});
+  await writeFile(path.join(root,"package-lock.json"),JSON.stringify({name:"fixture",lockfileVersion:3,packages:{}}));
+  await expect(installVerificationDependencies(root,{timeoutMs:999})).rejects.toThrow(/between 1,000 and 600,000/);
  });
 });
