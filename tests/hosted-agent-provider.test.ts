@@ -182,4 +182,16 @@ describe("hosted agent provider security and protocol handling", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("rejects provider URLs containing embedded credentials, queries, or fragments", () => {
+    for (const baseUrl of [
+      "https://user:pass@example.com",
+      "https://api.example.com?token=secret",
+      "https://api.example.com#fragment",
+    ]) {
+      expect(() => new HostedAgentProvider({
+        provider: "anthropic", model: "claude-test", apiKey: "test-key", baseUrl,
+      })).toThrow("must not contain credentials, a query string, or a fragment");
+    }
+  });
+
 });
