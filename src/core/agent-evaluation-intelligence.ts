@@ -75,7 +75,7 @@ export function buildAgentEvaluationIntelligence(history: BenchmarkMatrixReport[
     const criterionSignals = [...criteria.entries()].map(([criterionId,value]) => ({ criterionId, failures: value.failures, evaluations: value.evaluations, failureRate: value.evaluations ? Math.round(value.failures/value.evaluations*1000)/10 : 0 })).sort((a,b)=>b.failureRate-a.failureRate);
     const strengths = caseMetrics.filter(value => value.averageScore >= 85 && value.evaluations >= 2).map(value => value.caseId);
     const improvementAreas = [...caseMetrics.filter(value => value.averageScore < 75).map(value => "case:" + value.caseId), ...criterionSignals.filter(value => value.failureRate >= 30).map(value => "criterion:" + value.criterionId)];
-    const confidence = scores.length >= 10 && eligible.length >= 3 ? "high" : scores.length >= 4 && eligible.length >= 2 ? "medium" : "low";
+    const confidence: AgentEffectivenessCard["confidence"] = scores.length >= 10 && eligible.length >= 3 ? "high" : scores.length >= 4 && eligible.length >= 2 ? "medium" : "low";
     return { candidateId:item.candidateId,provider:item.provider,model:item.model,agent:item.agent,evaluations:scores.length,averageScore:item.averageScore,passRate:item.passRate,scoreTrend,caseMetrics,criterionSignals,strengths,improvementAreas,confidence };
   }).sort((a,b)=>a.averageScore-b.averageScore || a.agent.localeCompare(b.agent));
   const recommendations = cards.flatMap(card => [
