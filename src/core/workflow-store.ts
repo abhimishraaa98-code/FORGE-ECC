@@ -8,6 +8,7 @@ export interface WorkflowDefinition {
   name: string;
   description: string;
   tasks: AgentTask[];
+  positions?: Record<string, { x: number; y: number }>;
   updatedAt: string;
 }
 
@@ -35,6 +36,14 @@ function validateWorkflow(input: unknown): asserts input is Omit<WorkflowDefinit
   for (const task of tasks) {
     for (const dependency of task.dependsOn ?? []) {
       if (!ids.has(dependency) || dependency === task.id) throw new Error("Task dependencies must reference another task in this workflow.");
+    }
+  }
+  if (value.positions !== undefined) {
+    if (!value.positions || typeof value.positions !== "object" || Array.isArray(value.positions)) throw new Error("Workflow positions must be a map.");
+    for (const [taskId, point] of Object.entries(value.positions as Record<string, unknown>)) {
+      if (!ids.has(taskId) || !point || typeof point !== "object") throw new Error("Workflow positions must reference existing tasks.");
+      const position = point as { x?: number; y?: number };
+      if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || position.x! < 0 || position.x! > 4000 || position.y! < 0 || position.y! > 3000) throw new Error("Workflow position is outside the supported canvas.");
     }
   }
   // Reuse the run planner's cycle and dependency validation.
