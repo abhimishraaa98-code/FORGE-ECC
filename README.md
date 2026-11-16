@@ -457,6 +457,17 @@ forge remediate . --audit-report npm-audit.json --outdated-report npm-outdated.j
 The planner never installs, upgrades, removes, or modifies dependencies and never executes suggested commands. Vulnerability and outdated status are not assessed when reports are absent. Suggested versions are candidates, not compatibility guarantees; review release notes, peer dependencies, lockfile changes, and project checks before acting. License classifications are heuristic metadata signals, not legal advice. Only npm manifests and npm lockfiles are currently supported.
 
 
+### Skills and declarative lifecycle hooks
+
+FORGE includes built-in skills for implementation planning, verification, secure changes, documentation, and performance. Add or override Markdown skills in `.forge/skills/*.md`; optional `triggers: keyword, another-keyword` metadata controls relevance matching. Run `forge skills .` to inspect the registry. During `forge run`, a small set of relevant skill instructions is selected and added to agent context.
+
+Project policy hooks live in `.forge/hooks.json`. Supported lifecycle event: `before-agent`. Supported actions are deliberately declarative and non-executable:
+- `require-approval` — hold matching tasks for explicit approval.
+- `append-context` — add policy guidance to the task prompt.
+- `block-task` — prevent a matching task from running.
+
+Optional match filters: `agents` (agent IDs) and `contains` (case-insensitive text terms in the task title/prompt). Set `enabled: false` to disable a hook. Run `forge hooks .` to inspect configured hooks. Arbitrary shell commands, JavaScript, network calls, and file writes are not supported as hook actions. Review project hook configuration before running agents.
+
 ## Deploy the public FORGE site
 
 The repository includes a Vercel configuration for the static product page in `public/index.html`. The current production deployment is [forge-ecc.vercel.app](https://forge-ecc.vercel.app).
