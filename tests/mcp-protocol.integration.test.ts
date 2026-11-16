@@ -21,6 +21,12 @@ describe("FORGE MCP stdio protocol integration", () => {
     await mkdir(path.join(workspace, "src"));
     await writeFile(path.join(workspace, "package.json"), JSON.stringify({ name: "mcp-fixture", scripts: {} }));
     await writeFile(path.join(workspace, "src", "index.ts"), "export const answer = 42;\n");
+    await mkdir(path.join(workspace, ".forge"));
+    await writeFile(path.join(workspace, ".forge", "permissions.json"), JSON.stringify({
+      version: 1,
+      mode: "restricted",
+      allowedTools: ["list-files"]
+    }));
     await writeFile(path.join(workspace, ".env"), "MCP_SENTINEL=must-not-be-listed\n");
 
     child = spawn(process.execPath, ["--import", "tsx", "src/mcp/server.ts"], {
