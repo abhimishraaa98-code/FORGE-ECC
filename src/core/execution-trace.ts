@@ -49,7 +49,8 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
   const mergedDocument: ExecutionTraceDocument = { version: 1, runId, createdAt, entries: combined, totals: mergedTotals };
   const temporary = path.join(directory, "." + randomUUID() + ".tmp");
   try {
-    await writeFile(temporary, JSON.stringify(mergedDocument, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });  } catch (error) {
+    await writeFile(temporary, JSON.stringify(mergedDocument, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);
     throw error;
   }
