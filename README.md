@@ -34,6 +34,8 @@ FORGE includes a local, read-only Model Context Protocol (MCP) server so compati
 | `forge_inspect_project` | Languages, frameworks, manifests, scripts and dependency counts | Read-only |
 | `forge_map_architecture` | Source-file map, imports, entry points and external packages | Read-only |
 | `forge_search_code` | Search source identifiers and text | Read-only |
+| `forge_quality_audit` | Static project-quality checks with evidence-backed findings | Read-only |
+| `forge_git_intelligence` | Working-tree changes, estimated impact, suggested tests and heuristic risk | Read-only |
 
 ### Run locally
 
@@ -50,7 +52,7 @@ The MCP process uses standard input/output (stdio), suitable for a local MCP hos
 ### Security boundaries
 
 - The configured workspace root is the maximum readable boundary; tool paths are resolved and rejected if they escape it.
-- The initial tools are read-only. They do not edit files, execute shell commands, install packages, or apply patches.
+- All five initial tools are read-only. They do not edit files, execute project scripts, install packages, or apply patches. Git intelligence invokes Git inspection commands only.
 - Project contents are untrusted input. An AI client must treat repository text and tool output as data, not as instructions.
 - This initial server does not provide remote HTTP hosting, authentication, multi-user access, or write-capable tools.
 - Review the permissions of the MCP client before connecting it to a repository.
