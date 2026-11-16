@@ -81,6 +81,22 @@ describe("FORGE orchestration engine", () => {
     expect(started.indexOf("child")).toBeGreaterThan(started.indexOf("root"));
   });
 
+  it("passes bounded project context to agent providers", async () => {
+    let receivedContext = "";
+    const contextProvider: AgentProvider = {
+      name: "context-test",
+      async complete(request) {
+        receivedContext = request.projectContext ?? "";
+        return { provider: "context-test", content: "done" };
+      },
+    };
+    const run = createRun("Use project memory", [
+      { id: "one", agent: "planner", title: "One", prompt: "Use context" },
+    ]);
+    await advanceRun(run, contextProvider, new Set(), { projectContext: "Relevant local project decision." });
+    expect(receivedContext).toContain("Relevant local project decision.");
+  });
+
   it("holds approval-gated work until explicit approval", async () => {
     const run = createRun("Review a change", [
       { id: "review", agent: "reviewer", title: "Review", prompt: "Review proposal", requiresApproval: true },
