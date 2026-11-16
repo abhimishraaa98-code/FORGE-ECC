@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promise
 import path from "node:path";
 import { loadAgentConfigVersion, type AgentConfigVersion } from "./agent-config-versioning.js";
 import type { BenchmarkRegressionReport } from "./benchmark-regression.js";
+import { fingerprintAgentConfig } from "./benchmark-matrix.js";
 
 export interface AgentConfigRelease {
   version: 1;
@@ -54,6 +55,8 @@ export async function prepareAgentConfigRelease(projectPath: string, input: {
   if (baseline.status !== "approved") throw new Error("Release baseline must be an approved configuration snapshot.");
   if (candidate.id === baseline.id) throw new Error("Candidate and baseline must be different snapshots.");
   if (input.regression.status !== "release-ready") throw new Error("Promotion blocked: benchmark regression status is " + input.regression.status + ". Resolve warnings/regressions and obtain a release-ready comparable benchmark first.");
+  const provenance = input.regression.candidateProvenance?.find(item => item.configVersionId === candidate.id);
+  if (!provenance || provenance.fingerprint !== fingerprintAgentConfig(candidate.files)) throw new Error("Promotion blocked: the release candidate does not match a configuration snapshot fingerprint recorded in the benchmark matrix. Re-run the matrix with candidate.configVersionId set to this snapshot.");
   const release: AgentConfigRelease = {
     version: 1, id: "rel-" + randomUUID().replace(/-/g, "").slice(0,12),
     createdAt: new Date().toISOString(), candidateVersionId: candidate.id, baselineVersionId: baseline.id,
