@@ -231,6 +231,11 @@ export async function advanceRun(
           })),
           ...(projectContext ? { projectContext } : {}),
         });
+        if (!result || typeof result.content !== "string" || !result.content.trim() ||
+            typeof result.provider !== "string" || !result.provider.trim() ||
+            (result.model !== undefined && typeof result.model !== "string")) {
+          throw new Error("Provider returned an invalid or empty agent proposal.");
+        }
         return { record, result } as const;
       } catch (error) {
         return { record, error: error instanceof Error ? error.message : String(error) } as const;
