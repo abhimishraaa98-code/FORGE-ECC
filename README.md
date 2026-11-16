@@ -484,7 +484,7 @@ Approval is recorded before resuming; a rejected task cannot be replayed automat
 
 The CLI can select a model tier per task. Configure `FORGE_MODEL_FAST`, `FORGE_MODEL_BALANCED`, and `FORGE_MODEL_REASONING`; unset tiers fall back to `FORGE_AI_MODEL` (or the CLI's provider default). Security, architecture, incident/debugging and release-sensitive tasks prefer the reasoning tier; focused documentation and small cleanup tasks prefer fast; other tasks use balanced. This is a heuristic, not a benchmark or guarantee of model quality.
 
-Set `FORGE_FALLBACK_MODEL` to enable one fallback attempt when the primary model request fails. The fallback uses the same configured provider and credentials. It does not bypass provider limits or retry indefinitely.
+Transient provider failures (HTTP 408/409/425/429/5xx, timeouts, and common network errors) are retried before fallback. Defaults are two retries with exponential backoff starting at 500 ms. Tune with `FORGE_MODEL_RETRY_ATTEMPTS` (0–5) and `FORGE_MODEL_RETRY_DELAY_MS` (0–10000). Authentication and other non-transient errors are not retried. Set `FORGE_FALLBACK_MODEL` to enable one fallback attempt after the primary retries are exhausted; fallback uses the same configured provider and credentials. Retries are bounded and do not bypass provider rate limits.
 
 Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, and approximate token counts estimated from character length (not provider-billed usage). Trace files are local and excluded from Git.
 
