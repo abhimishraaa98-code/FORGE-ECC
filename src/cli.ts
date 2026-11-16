@@ -180,7 +180,7 @@ async function main(args: string[]): Promise<void> {
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const provider = providerChoice === "claude-code"
-          ? new ClaudeCodeProvider(model ? { model } : {})
+          ? new ClaudeCodeProvider({ cwd: target, ...(model ? { model } : {}) })
           : (() => {
               const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
               const selectedModel = model ?? "gpt-4.1-mini";
@@ -189,7 +189,7 @@ async function main(args: string[]): Promise<void> {
               return new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
             })();
         const plan = createReviewPlan(goal);
-        process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\\n`);
+        process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\n`);
         const completed = await advanceRun(plan, provider);
         const saved = await saveRun(target, completed);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
