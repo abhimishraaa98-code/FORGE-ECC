@@ -156,7 +156,7 @@ export function formatAgentConfigVersion(version: AgentConfigVersion): string {
 export async function materializeAgentConfigVersion(projectPath: string, id: string, destination: string): Promise<AgentConfigVersion> {
   const version = await loadAgentConfigVersion(projectPath, id);
   const root = path.resolve(destination);
-  await mkdir(root, { recursive: false, mode: 0o700 });
+  await mkdir(root, { recursive: true, mode: 0o700 });
   try {
     for (const file of version.files) {
       if (!validateRelativePath(file.path) || file.sha256 !== digest(file.content)) throw new Error("Snapshot integrity check failed during materialization.");
