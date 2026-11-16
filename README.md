@@ -565,3 +565,23 @@ forge evaluate RUN_ID --suite engineering-basics --judge --path .
 The judge reviews each matching agent output against the case description and rubric, returns a score plus strengths/improvements, and must cite exact evidence copied from the candidate output. FORGE rejects fabricated or non-verbatim evidence quotes. The dashboard shows the judge's aggregate score separately from the deterministic rubric score.
 
 The judge is a model-based opinion, not ground truth. It can be inconsistent or biased; use the same judge model and rubric for comparisons, keep human review for consequential decisions, and account for the extra model/API usage. The deterministic evaluator remains available without any model call.
+
+
+## Benchmark Lab
+
+Record completed runs against the same evaluation suite and compare provider/model groups over time. Benchmarks aggregate **distinct saved runs**; they do not rerun tasks or treat repeated scoring of one run as a new trial.
+
+```bash
+# First evaluate a saved run
+forge evaluate RUN_ID --suite engineering-basics --path .
+
+# Record that run as a benchmark trial
+forge benchmark RUN_ID --suite engineering-basics --path .
+
+# Show all benchmark leaderboards
+forge benchmark --path .
+```
+
+The local dashboard includes a Benchmark Lab panel with average/best/worst score, pass rate, score standard deviation, average duration and estimated token use, retries and fallbacks. Each trial records the actual provider/model metadata from the execution trace. A run can be recorded only once per suite; recording it again replaces its previous trial. To compare models, run equivalent tasks independently with each model and record each distinct run.
+
+Benchmark token counts are estimates derived from trace data, not provider-billed usage. Results are only comparable when task inputs, evaluation suite, judge settings and environment are held reasonably constant. Model-judged scores should be tracked separately from deterministic rubric scores; human review remains important.
