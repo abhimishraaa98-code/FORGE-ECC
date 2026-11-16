@@ -4,6 +4,32 @@ import type { AgentProvider } from "../src/core/orchestrator.js";
 
 const models = { fastModel: "small-model", balancedModel: "mid-model", reasoningModel: "large-model" };
 
+describe("restored token budgets", () => {
+  it("applies previously persisted run and agent usage before any provider call", async () => {
+    let providerCalls = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxEstimatedTokensPerRun: 10,
+      maxEstimatedTokensPerAgent: { "documentation-writer": 10 },
+      initialEstimatedTokensUsed: 8,
+      initialEstimatedTokensByAgent: { "documentation-writer": 8 },
+      createProvider: model => ({
+        name: model,
+        async complete() {
+          providerCalls += 1;
+          return { provider: model, model, content: "proposal" };
+        },
+      }),
+    });
+    await expect(router.complete({
+      task: { id: "resume-task", agent: "documentation-writer", title: "Docs", prompt: "Write docs" },
+      completedDependencies: [],
+    })).rejects.toThrow("before provider call");
+    expect(providerCalls).toBe(0);
+    expect(router.traces[0]?.provider).toBe("not-started");
+  });
+});
+
 describe("task-aware model routing", () => {
   it("routes security and architecture work to reasoning tier", () => {
     expect(chooseModelRoute({ task: { id: "1", agent: "security-reviewer", title: "Review", prompt: "Review" }, completedDependencies: [] }, models).tier).toBe("reasoning");
