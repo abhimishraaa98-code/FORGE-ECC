@@ -27,10 +27,39 @@ function summarizeProviders(entries: readonly AgentTrace[]): ExecutionTraceDocum
   return [...providers.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+async function withTraceWriteLock<T>(directory: string, runId: string, action: () => Promise<T>): Promise<T> {
+  const lock = path.join(directory, "." + runId + ".lock");
+  const token = randomUUID();
+  try {
+    await mkdir(lock, { mode: 0o700 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      throw new Error("Execution trace is being updated by another or interrupted FORGE process. Inspect " + lock + " before manual recovery.");
+    }
+    throw error;
+  }
+  try {
+    await writeFile(path.join(lock, "owner.json"), JSON.stringify({
+      token, pid: process.pid, startedAt: new Date().toISOString(),
+    }) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return await action();
+  } finally {
+    try {
+      const owner: unknown = JSON.parse(await readFile(path.join(lock, "owner.json"), "utf8"));
+      if (owner && typeof owner === "object" && "token" in owner && owner.token === token) {
+        await rm(lock, { recursive: true, force: true });
+      }
+    } catch {
+      // Preserve an unverifiable lock for safe manual recovery.
+    }
+  }
+}
+
 export async function saveExecutionTrace(projectPath: string, runId: string, entries: readonly AgentTrace[]): Promise<string> {
   if (!/^forge-[a-z0-9-]{1,80}$/.test(runId) || runId.includes("..")) throw new Error("Invalid FORGE run identifier.");
   const directory = path.join(path.resolve(projectPath), ".forge", "traces");
   await mkdir(directory, { recursive: true });
+  return withTraceWriteLock(directory, runId, async () => {
   const totals = {
     tasks: entries.length,
     successes: entries.filter(entry => entry.outcome === "success").length,
@@ -72,6 +101,7 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
     throw error;
   }
   return destination;
+  });
 }
 
 export async function loadExecutionTrace(projectPath: string, runId: string): Promise<ExecutionTraceDocument> {
