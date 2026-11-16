@@ -231,4 +231,34 @@ describe("local run history", () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-store-"));
     await expect(loadRun(root, "../outside")).rejects.toThrow(/identifier/);
   });
+
+  it("rejects malformed persisted run events and duplicate task IDs", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-invalid-records-"));
+    const run = createRun("Validate run records", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft" },
+    ]);
+    await saveRun(root, run);
+    const file = path.join(root, ".forge", "runs", run.id + ".json");
+    await writeFile(file, JSON.stringify({ ...run, events: [{ at: "not-a-date", taskId: "draft", type: "started", message: "bad" }] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/invalid event record/);
+    await writeFile(file, JSON.stringify({ ...run, tasks: [run.tasks[0], run.tasks[0]] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/duplicate task identifiers/);
+  });
+
+  it("rejects invalid task results, approvals, and unknown dependencies", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-invalid-task-fields-"));
+    const run = createRun("Validate task fields", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft" },
+    ]);
+    await saveRun(root, run);
+    const file = path.join(root, ".forge", "runs", run.id + ".json");
+    const task = run.tasks[0]!;
+    await writeFile(file, JSON.stringify({ ...run, tasks: [{ ...task, result: { content: 42, provider: "test" } }] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/invalid task result/);
+    await writeFile(file, JSON.stringify({ ...run, tasks: [{ ...task, approval: { decision: "maybe", reviewer: "x", at: "bad" } }] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/invalid approval record/);
+    await writeFile(file, JSON.stringify({ ...run, tasks: [{ ...task, task: { ...task.task, dependsOn: ["missing"] } }] }));
+    await expect(loadRun(root, run.id)).rejects.toThrow(/unknown or self-referencing/);
+  });
+
 });
