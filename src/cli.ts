@@ -47,7 +47,7 @@ import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } f
 import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
 import { createSkillExperimentMatrix, formatSkillExperimentMatrix } from "./core/agent-experiment-studio.js";
 import { buildExperimentHistory, formatExperimentHistory } from "./core/experiment-history.js";
-import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
+import { captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
 
@@ -238,10 +238,8 @@ async function main(args: string[]): Promise<void> {
           const diff = compareAgentConfigVersions(before, after);
           process.stdout.write(["Agent configuration diff", "Added: " + (diff.added.join(", ") || "none"), "Changed: " + (diff.changed.join(", ") || "none"), "Removed: " + (diff.removed.join(", ") || "none"), "Unchanged: " + diff.unchanged.length].join("\\n") + "\\n");
         } else if (action === "approve") {
-          const id = ids[0]; if (!id) throw new Error("Usage: forge agent-config approve CONFIG_ID --reviewer NAME --path PROJECT");
-          const reviewer = option("--reviewer"); if (!reviewer?.trim()) throw new Error("Approval requires --reviewer NAME.");
-          process.stdout.write(formatAgentConfigVersion(await approveAgentConfigVersion(target, id, reviewer.trim())) + "\\nApproved snapshot pointer updated. This does not rewrite live agent or skill files.\\n");
-        } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
+          throw new Error("Direct snapshot approval is disabled. Use forge agent-release prepare with a release-ready benchmark matrix, then forge agent-release approve RELEASE_ID --reviewer NAME.");
+        } else throw new Error("Unknown action. Use snapshot, list, show or diff.");
       } catch (error) {
         process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
