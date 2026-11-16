@@ -16,7 +16,7 @@ export interface BenchmarkMatrixConfig {
   candidates: BenchmarkCandidate[];
   skillExperiment?: { baselineCandidateId: string; treatmentCandidateId: string; skillIds: string[] };
 }
-export interface AgentBenchmarkScore { agent: string; caseId: string; score: number; passed: boolean; skillIds: string[]; }
+export interface AgentBenchmarkScore { agent: string; caseId: string; score: number; passed: boolean; skillIds: string[]; failedCriteria?: Array<{ id: string; failedChecks: string[] }>; }
 export interface AgentBenchmarkSummary { candidateId: string; provider: string; model: string; agent: string; trials: number; completed: number; averageScore: number; passRate: number; skillsObserved: string[]; }
 export interface BenchmarkMatrixResult {
   candidateId: string;
