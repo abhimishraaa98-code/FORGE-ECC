@@ -486,6 +486,13 @@ The CLI can select a model tier per task. Configure `FORGE_MODEL_FAST`, `FORGE_M
 
 Transient provider failures (HTTP 408/409/425/429/5xx, timeouts, and common network errors) are retried before fallback. Defaults are two retries with exponential backoff starting at 500 ms. Tune with `FORGE_MODEL_RETRY_ATTEMPTS` (0–5) and `FORGE_MODEL_RETRY_DELAY_MS` (0–10000). Authentication and other non-transient errors are not retried. Set `FORGE_FALLBACK_MODEL` to enable one fallback attempt after the primary retries are exhausted; fallback uses the same configured provider and credentials. Retries are bounded and do not bypass provider rate limits.
 
+Optional token guardrails are available for both `forge run` and `forge resume`:
+- `FORGE_MAX_INPUT_TOKENS_PER_TASK` — reject a task before sending it when its estimated input exceeds this limit.
+- `FORGE_MAX_OUTPUT_TOKENS_PER_TASK` — reject a provider response whose estimated output exceeds this limit.
+- `FORGE_MAX_ESTIMATED_TOKENS_PER_RUN` — cap estimated input plus output across the run.
+
+These are character-based estimates (roughly four characters per token), not provider billing measurements. Input is checked before a request; output is checked after the provider responds. With parallel execution, already-started tasks in the same batch may finish before the budget breach is detected. Once detected, FORGE marks unstarted tasks blocked and does not schedule another batch. No provider request is forcibly interrupted.
+
 Every `forge run` saves a local trace under `.forge/traces/<run-id>.json`. Inspect it with `forge trace RUNID --path .`. Traces include per-agent model, provider, duration, outcome, fallback status, retry counts, and approximate token counts estimated from character length (not provider-billed usage). They also aggregate provider health for the run: request counts, successes, fallbacks, failures, retries, and cumulative duration. Inspect both views with `forge trace RUNID --path .`. Trace files are local and excluded from Git.
 
 Example:
