@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
-import { approveReviewPatch, revokePatchApproval, verifyPatchApproval } from "../src/core/patch-approval.js";
+import { approveReviewPatch, consumePatchApproval, revokePatchApproval, verifyPatchApproval } from "../src/core/patch-approval.js";
 import type { CodeReviewReport } from "../src/core/code-review.js";
 import type { AIReviewResult } from "../src/core/ai-code-review.js";
 
@@ -73,6 +73,16 @@ describe("patch approval records", () => {
     const result = await verifyPatchApproval(root, approval.id);
     expect(result.valid).toBe(false);
     expect(result.reason).toMatch(/revoked/);
+  });
+  it("allows an approval to be consumed only once", async () => {
+    const review = await fixture();
+    const approval = await approveReviewPatch(root, review.id, 1, "reviewer");
+    const consumed = await consumePatchApproval(root, approval.id);
+    expect(consumed.usedAt).toBeTruthy();
+    await expect(consumePatchApproval(root, approval.id)).rejects.toThrow(/already been used|already been used or claimed/);
+    const result = await verifyPatchApproval(root, approval.id);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toMatch(/already been used/);
   });
   it("rejects expired approvals", async () => {
     const review = await fixture();
