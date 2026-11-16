@@ -118,3 +118,13 @@ forge patch-stage PATCH_APPROVAL_ID --path .
 ```
 
 The staged copy is written under `.forge/patch-workspaces/<stage-id>/` and includes a stage manifest with the approval ID and source/staged SHA-256 digests. The original project file is not modified. Staging does not run tests, shell commands, or provider calls; it is not yet a sandboxed execution environment. Review the staged diff before any later integration step.
+
+### Review a staged diff
+
+After staging, inspect the exact change and verify that neither the original file nor staged copy has changed since its manifest was written:
+
+```bash
+forge patch-review PATCH_STAGE_ID --path .
+```
+
+The command prints a bounded unified-style diff and rechecks both SHA-256 fingerprints. It is read-only; it does not promote the staged file or execute tests.
