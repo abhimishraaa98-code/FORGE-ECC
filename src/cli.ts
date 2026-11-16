@@ -1008,12 +1008,13 @@ async function main(args: string[]): Promise<void> {
     case "patch-verify": {
       const pathIndex = rest.indexOf("--path");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
-      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1);
+      const installDependencies = rest.includes("--install-dependencies");
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && index !== pathIndex + 1 && arg !== "--install-dependencies");
       const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
       const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
       try {
-        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--path PROJECT]");
-        const result = await verifyStagedPatch(target, stageId, script);
+        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--path PROJECT]");
+        const result = await verifyStagedPatch(target, stageId, script, { installDependencies });
         process.stdout.write(
           "# FORGE Staged Patch Verification\n\n" +
           "- **Stage:** `" + result.stageId + "`\n" +
@@ -1021,6 +1022,7 @@ async function main(args: string[]): Promise<void> {
           "- **Staged SHA-256:** `" + result.stagedSha256 + "`\n" +
           "- **Snapshot files:** `" + result.snapshotFileCount + "`\n" +
           "- **Snapshot bytes:** `" + result.snapshotBytes + "`\n" +
+          (result.dependencyInstall ? "- **Dependencies:** **" + result.dependencyInstall.status.toUpperCase() + "** (`" + result.dependencyInstall.command + "`)\n" : "") +
           "- **Verification:** **" + result.verification.status.toUpperCase() + "**\n" +
           "- **Duration:** `" + result.verification.durationMs + " ms`\n\n" +
           "## Output\n\n```\n" + (result.verification.output || "(No output captured.)") + "\n```\n\n" +
