@@ -42,7 +42,7 @@ import { fingerprintAgentConfig } from "./core/benchmark-matrix.js";
 import { loadAgentConfigVersion } from "./core/agent-config-versioning.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
-import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions, loadAgentConfigVersion } from "./core/agent-config-versioning.js";
+import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
