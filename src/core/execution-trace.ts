@@ -9,6 +9,22 @@ export interface ExecutionTraceDocument {
   createdAt: string;
   entries: AgentTrace[];
   totals: { tasks: number; successes: number; fallbacks: number; failures: number; estimatedInputTokens: number; estimatedOutputTokens: number; durationMs: number };
+  providers: Array<{ name: string; requests: number; successes: number; fallbacks: number; failures: number; retries: number; durationMs: number }>;
+}
+
+function summarizeProviders(entries: readonly AgentTrace[]): ExecutionTraceDocument["providers"] {
+  const providers = new Map<string, ExecutionTraceDocument["providers"][number]>();
+  for (const entry of entries) {
+    const current = providers.get(entry.provider) ?? { name: entry.provider, requests: 0, successes: 0, fallbacks: 0, failures: 0, retries: 0, durationMs: 0 };
+    current.requests += 1;
+    current.successes += entry.outcome === "success" ? 1 : 0;
+    current.fallbacks += entry.outcome === "fallback" ? 1 : 0;
+    current.failures += entry.outcome === "failed" ? 1 : 0;
+    current.retries += entry.retries ?? 0;
+    current.durationMs += entry.durationMs;
+    providers.set(entry.provider, current);
+  }
+  return [...providers.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function saveExecutionTrace(projectPath: string, runId: string, entries: readonly AgentTrace[]): Promise<string> {
@@ -24,7 +40,7 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
     estimatedOutputTokens: entries.reduce((sum, entry) => sum + entry.outputTokensEstimate, 0),
     durationMs: entries.reduce((sum, entry) => sum + entry.durationMs, 0),
   };
-  const document: ExecutionTraceDocument = { version: 1, runId, createdAt: new Date().toISOString(), entries: [...entries], totals };
+  const document: ExecutionTraceDocument = { version: 1, runId, createdAt: new Date().toISOString(), entries: [...entries], totals, providers: summarizeProviders(entries) };
   const destination = path.join(directory, runId + ".json");
   let priorEntries: AgentTrace[] = [];
   let createdAt = document.createdAt;
@@ -46,7 +62,7 @@ export async function saveExecutionTrace(projectPath: string, runId: string, ent
     estimatedOutputTokens: combined.reduce((sum, entry) => sum + entry.outputTokensEstimate, 0),
     durationMs: combined.reduce((sum, entry) => sum + entry.durationMs, 0),
   };
-  const mergedDocument: ExecutionTraceDocument = { version: 1, runId, createdAt, entries: combined, totals: mergedTotals };
+  const mergedDocument: ExecutionTraceDocument = { version: 1, runId, createdAt, entries: combined, totals: mergedTotals, providers: summarizeProviders(combined) };
   const temporary = path.join(directory, "." + randomUUID() + ".tmp");
   try {
     await writeFile(temporary, JSON.stringify(mergedDocument, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
