@@ -6,7 +6,7 @@ export interface SkillExperimentStudioInput {
   name: string;
   baselineCandidateId: string;
   treatmentCandidateId: string;
-  provider: "openai" | "claude-code";
+  provider: "openai" | "claude-code" | "anthropic" | "google" | "ollama";
   model: string;
   repeats: number;
   skillIds: string[];
