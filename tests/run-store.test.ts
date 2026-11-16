@@ -261,4 +261,12 @@ describe("local run history", () => {
     await expect(loadRun(root, run.id)).rejects.toThrow(/unknown or self-referencing/);
   });
 
+  it("rejects run records that exceed the persistence size limit", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-oversized-"));
+    const run = createRun("Oversized run", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "x".repeat(5 * 1024 * 1024) },
+    ]);
+    await expect(saveRun(root, run)).rejects.toThrow(/maximum file size/);
+  });
+
 });
