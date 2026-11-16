@@ -108,31 +108,89 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
     await handle.close();
   }
   const parsed: unknown = JSON.parse(serialized);
-  if (!parsed || typeof parsed !== "object" ||
-      !("id" in parsed) || parsed.id !== runId ||
-      !("goal" in parsed) || typeof parsed.goal !== "string" ||
-      !("tasks" in parsed) || !Array.isArray(parsed.tasks) ||
-      !("events" in parsed) || !Array.isArray(parsed.events) ||
-      !("status" in parsed) || typeof parsed.status !== "string" ||
-      !("createdAt" in parsed) || typeof parsed.createdAt !== "string" ||
-      !("updatedAt" in parsed) || typeof parsed.updatedAt !== "string") {
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const isTimestamp = (value: unknown): value is string =>
+    typeof value === "string" && Number.isFinite(Date.parse(value));
+  const runStatuses = ["pending", "awaiting_approval", "running", "completed", "failed", "cancelled"];
+  const taskStatuses = ["pending", "awaiting_approval", "running", "completed", "failed", "blocked"];
+  const eventTypes = ["approval_required", "approved", "rejected", "started", "completed", "failed", "blocked", "budget_exceeded"];
+
+  if (!isObject(parsed) ||
+      parsed.id !== runId ||
+      typeof parsed.goal !== "string" || !parsed.goal.trim() ||
+      !runStatuses.includes(String(parsed.status)) ||
+      !isTimestamp(parsed.createdAt) || !isTimestamp(parsed.updatedAt) ||
+      !Array.isArray(parsed.tasks) || parsed.tasks.length > 1000 ||
+      !Array.isArray(parsed.events) || parsed.events.length > 10000) {
     throw new Error("Stored run file has an invalid format.");
   }
+
   if ("tokenUsage" in parsed) {
     const usage = parsed.tokenUsage;
-    if (!usage || typeof usage !== "object" ||
-        !("estimatedTokensUsed" in usage) || typeof usage.estimatedTokensUsed !== "number" || !Number.isSafeInteger(usage.estimatedTokensUsed) || usage.estimatedTokensUsed < 0 ||
-        !("estimatedTokensByAgent" in usage) || !usage.estimatedTokensByAgent || typeof usage.estimatedTokensByAgent !== "object" || Array.isArray(usage.estimatedTokensByAgent) ||
+    if (!isObject(usage) ||
+        !Number.isSafeInteger(usage.estimatedTokensUsed) || (usage.estimatedTokensUsed as number) < 0 ||
+        !isObject(usage.estimatedTokensByAgent) ||
         Object.entries(usage.estimatedTokensByAgent).some(([agent, value]) => !agent.trim() || !Number.isSafeInteger(value) || (value as number) < 0)) {
       throw new Error("Stored run file contains invalid token usage.");
     }
   }
-  for (const task of parsed.tasks) {
-    if (!task || typeof task !== "object" || !("task" in task) ||
-        !("status" in task) || typeof task.status !== "string" ||
-        !task.task || typeof task.task !== "object" ||
-        !("id" in task.task) || typeof task.task.id !== "string") {
+
+  const taskIds = new Set<string>();
+  for (const record of parsed.tasks) {
+    if (!isObject(record) || !isObject(record.task) ||
+        typeof record.task.id !== "string" || !record.task.id.trim() ||
+        typeof record.task.agent !== "string" || !record.task.agent.trim() ||
+        typeof record.task.title !== "string" || !record.task.title.trim() ||
+        typeof record.task.prompt !== "string" || !record.task.prompt.trim() ||
+        !taskStatuses.includes(String(record.status))) {
       throw new Error("Stored run file contains an invalid task record.");
+    }
+    if (taskIds.has(record.task.id)) throw new Error("Stored run file contains duplicate task identifiers.");
+    taskIds.add(record.task.id);
+    if ("dependsOn" in record.task &&
+        (!Array.isArray(record.task.dependsOn) ||
+         record.task.dependsOn.some((id: unknown) => typeof id !== "string" || !id.trim()) ||
+         new Set(record.task.dependsOn).size !== record.task.dependsOn.length)) {
+      throw new Error("Stored run file contains invalid task dependencies.");
+    }
+    if ("requiresApproval" in record.task && typeof record.task.requiresApproval !== "boolean") {
+      throw new Error("Stored run file contains invalid approval requirements.");
+    }
+    if ("result" in record &&
+        (!isObject(record.result) || typeof record.result.content !== "string" ||
+         typeof record.result.provider !== "string" || !record.result.provider.trim() ||
+         ("model" in record.result && typeof record.result.model !== "string"))) {
+      throw new Error("Stored run file contains an invalid task result.");
+    }
+    if ("error" in record && typeof record.error !== "string") {
+      throw new Error("Stored run file contains an invalid task error.");
+    }
+    if ("approval" in record) {
+      const approval = record.approval;
+      if (!isObject(approval) || !["approved", "rejected"].includes(String(approval.decision)) ||
+          typeof approval.reviewer !== "string" || !approval.reviewer.trim() ||
+          !isTimestamp(approval.at) ||
+          ("reason" in approval && typeof approval.reason !== "string")) {
+        throw new Error("Stored run file contains an invalid approval record.");
+      }
+    }
+  }
+  for (const record of parsed.tasks) {
+    const dependencies = record.task.dependsOn as string[] | undefined;
+    if (dependencies?.some(id => !taskIds.has(id) || id === record.task.id)) {
+      throw new Error("Stored run file contains an unknown or self-referencing task dependency.");
+    }
+  }
+  for (const event of parsed.events) {
+    if (!isObject(event) || !isTimestamp(event.at) ||
+        typeof event.taskId !== "string" ||
+        !eventTypes.includes(String(event.type)) ||
+        typeof event.message !== "string") {
+      throw new Error("Stored run file contains an invalid event record.");
+    }
+    if (event.taskId && !taskIds.has(event.taskId)) {
+      throw new Error("Stored run file contains an event for an unknown task.");
     }
   }
   return parsed as RunRecord;
