@@ -44,6 +44,18 @@ describe("hosted agent provider security and protocol handling", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("rejects redirects on credential-bearing provider requests", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.redirect).toBe("error");
+      return new Response(JSON.stringify({ content: [{ type: "text", text: "Safe response" }] }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new HostedAgentProvider({ provider: "anthropic", model: "claude-test", apiKey: "test-key" });
+    await expect(provider.complete(request)).resolves.toMatchObject({ content: "Safe response" });
+  });
+
   it("rejects provider timeouts outside the supported range", async () => {
     const provider = new HostedAgentProvider({ provider: "ollama", model: "llama3.2", timeoutMs: 999 });
     await expect(provider.complete(request)).rejects.toThrow("between 1000 and 180000");
