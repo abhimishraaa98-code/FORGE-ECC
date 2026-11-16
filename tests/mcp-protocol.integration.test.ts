@@ -25,7 +25,7 @@ describe("FORGE MCP stdio protocol integration", () => {
     await writeFile(path.join(workspace, ".forge", "permissions.json"), JSON.stringify({
       version: 1,
       mode: "restricted",
-      allowedTools: ["list-files"]
+      allowedTools: ["list-files", "read-file", "search-code"]
     }));
     await writeFile(path.join(workspace, ".env"), "MCP_SENTINEL=must-not-be-listed\n");
 
@@ -98,6 +98,23 @@ describe("FORGE MCP stdio protocol integration", () => {
     expect(sourceListing.result?.isError).not.toBe(true);
     const sourceListingText = sourceListing.result.content.find((part: { type: string }) => part.type === "text")?.text ?? "";
     expect(sourceListingText).toContain("src/index.ts");
+
+    const read = await request("tools/call", {
+      name: "forge_read_file",
+      arguments: { relativePath: "src/index.ts" }
+    });
+    expect(read.result?.isError).not.toBe(true);
+    const readText = read.result.content.find((part: { type: string }) => part.type === "text")?.text ?? "";
+    expect(readText).toContain("export const answer = 42");
+
+    const search = await request("tools/call", {
+      name: "forge_search_code",
+      arguments: { query: "answer" }
+    });
+    expect(search.result?.isError).not.toBe(true);
+    const searchText = search.result.content.find((part: { type: string }) => part.type === "text")?.text ?? "";
+    expect(searchText).toContain("src/index.ts");
+    expect(searchText).toContain("answer");
 
     const denied = await request("tools/call", {
       name: "forge_list_files",
