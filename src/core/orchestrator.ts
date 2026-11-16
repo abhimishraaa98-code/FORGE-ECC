@@ -32,7 +32,6 @@ export interface AgentRequest {
   task: AgentTask;
   completedDependencies: ReadonlyArray<{ id: string; fromAgent?: string; taskTitle?: string; result: string }>;
   projectContext?: string;
-  onUpdate?: (run: RunRecord) => void | Promise<void>;
 }
 
 export interface AgentProvider {
@@ -53,7 +52,7 @@ export interface RunRecord {
   goal: string;
   createdAt: string;
   updatedAt: string;
-  status: "pending" | "awaiting_approval" | "running" | "completed" | "failed";
+  status: "pending" | "awaiting_approval" | "running" | "completed" | "failed" | "cancelled";
   tasks: TaskRecord[];
   events: Array<{
     at: string;
@@ -137,6 +136,8 @@ export interface AdvanceRunOptions {
   /** Maximum number of independent agents to call at the same time. */
   maxConcurrency?: number;
   projectContext?: string;
+  onUpdate?: (run: RunRecord) => void | Promise<void>;
+  shouldCancel?: () => boolean | Promise<boolean>;
 }
 
 /**
@@ -165,6 +166,12 @@ export async function advanceRun(
 
   // Keep processing newly unblocked dependency layers until no task can start.
   while (true) {
+    if (await options.shouldCancel?.()) {
+      next.status = "cancelled"; next.updatedAt = timestamp();
+      appendEvent("*", "blocked", "Cancellation requested; no further tasks will be started.");
+      await options.onUpdate?.(next);
+      break;
+    }
     let changed = false;
 
     for (const record of next.tasks) {
@@ -234,10 +241,17 @@ export async function advanceRun(
         appendEvent(outcome.record.task.id, "failed", outcome.error);
       }
     }
-    next.status = "running"; next.updatedAt = timestamp();
+    if (await options.shouldCancel?.()) {
+      next.status = "cancelled"; next.updatedAt = timestamp();
+      appendEvent("*", "blocked", "Cancellation requested; the active batch has finished and no further tasks will be started.");
+    } else {
+      next.status = "running"; next.updatedAt = timestamp();
+    }
     await options.onUpdate?.(next);
+    if (next.status === "cancelled") break;
   }
 
+  if (next.status === "cancelled") { await options.onUpdate?.(next); return next; }
   const statuses = next.tasks.map(record => record.status);
   if (statuses.every(status => status === "completed")) next.status = "completed";
   else if (statuses.some(status => status === "failed" || status === "blocked")) next.status = "failed";
