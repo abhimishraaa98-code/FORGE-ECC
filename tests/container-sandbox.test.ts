@@ -244,6 +244,25 @@ describe("container runtime fail-closed behavior", () => {
     }
   });
 
+  it("rejects a conflicting direct-API security profile and policy", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-policy-profile-api-"));
+    try {
+      const project = await makeProject(root);
+      const runtime = await makeRuntime(root, "rootful");
+      const policy = {
+        version: 1 as const, profile: "balanced" as const, network: "none" as const,
+        readOnlyRoot: true as const, dropAllCapabilities: true as const,
+        noNewPrivileges: true as const, maxMemory: "512m", maxCpus: 1,
+        maxProcesses: 64, requireRootless: false, requireImageDigest: true as const,
+      };
+      await expect(runContainerVerification(project, "test", image, {
+        runtimePath: runtime, securityProfile: "hardened", sandboxPolicy: policy,
+      })).rejects.toThrow(/must match the profile declared in the sandbox policy/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed when the pinned image is not locally available", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-image-missing-"));
     try {
