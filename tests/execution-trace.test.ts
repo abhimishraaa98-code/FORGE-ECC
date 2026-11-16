@@ -19,6 +19,9 @@ describe("execution trace persistence", () => {
     expect(stored.totals.estimatedOutputTokens).toBe(60);
     expect(stored.entries).toHaveLength(2);
     expect(stored.entries[0]?.durationMs).toBe(125);
+    expect(stored.providers).toEqual([
+      { name: "test", requests: 2, successes: 2, fallbacks: 0, failures: 0, retries: 0, durationMs: 250 },
+    ]);
     expect(file).toContain(path.join(".forge", "traces"));
   });
   it("rejects invalid run identifiers", async () => {
