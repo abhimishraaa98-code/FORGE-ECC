@@ -790,6 +790,7 @@ async function main(args: string[]): Promise<void> {
         const permissions = await loadPermissionPolicy(target);
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         assertSupportedAgentPolicy(permissions, providerChoice, "FORGE resume");
+        await withRunExecutionLock(target, runId, async () => {
         const savedRun = await loadRun(target, runId);
         if (savedRun.status === "running") {
           const recovered = await recoverInterruptedRun(target, runId);
@@ -816,6 +817,7 @@ async function main(args: string[]): Promise<void> {
         const tracePath = await saveExecutionTrace(target, completed.id, router.traces.slice(persistedTraceEntries));
         process.stdout.write("Resumed " + runId + ": " + completed.status + "\n");
         process.stdout.write("Saved: " + path.relative(target, saved) + "\nTrace: " + path.relative(target, tracePath) + "\n");
+        });
       } catch (error) { process.stderr.write("Could not resume run: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
