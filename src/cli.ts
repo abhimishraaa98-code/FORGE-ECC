@@ -164,11 +164,11 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     case "benchmark-matrix": {
-      const configFile = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--suite" && rest[index - 1] !== "--goal" && rest[index - 1] !== "--path");
+      const configFile = rest.find(arg => !arg.startsWith("--"));
       const suiteIndex = rest.indexOf("--suite"), goalIndex = rest.indexOf("--goal"), pathIndex = rest.indexOf("--path");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
-      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, pathIndex >= 0 ? pathIndex : rest.length).join(" ").trim() : "";
+      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1).takeWhile(arg => !arg.startsWith("--")).join(" ").trim() : "";
       if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\\n"); process.exitCode = 1; return; }
       try {
         const config = await loadBenchmarkMatrix(path.resolve(configFile));
@@ -188,7 +188,7 @@ async function main(args: string[]): Promise<void> {
             retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500),
             createProvider,
           });
-          const run = createReviewPlan(goal + " (benchmark " + config.id + ", candidate " + candidate.id + ", repeat " + repeat + ")");
+          const run = createReviewPlan(goal);
           const skills = selectSkills(await loadSkillRegistry(target), goal);
           const hooks = await loadHooks(target);
           for (const record of run.tasks) {
