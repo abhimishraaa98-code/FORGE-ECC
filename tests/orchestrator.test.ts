@@ -252,4 +252,23 @@ describe("FORGE orchestration engine", () => {
     expect(result.tasks[0]?.status).toBe("failed");
     expect(result.tasks[1]?.status).toBe("blocked");
   });
+
+  it("persists each task as soon as its parallel provider call settles", async () => {
+    const settled: Array<{ taskId: string; completed: string[] }> = [];
+    const run = createRun("Persist individual settlements", [
+      { id: "first", agent: "planner", title: "First", prompt: "First" },
+      { id: "second", agent: "reviewer", title: "Second", prompt: "Second" },
+    ]);
+    const result = await advanceRun(run, provider, new Set(), {
+      maxConcurrency: 2,
+      onTaskSettled: snapshot => settled.push({
+        taskId: snapshot.events.filter(event => event.type === "completed").at(-1)?.taskId ?? "",
+        completed: snapshot.tasks.filter(task => task.status === "completed").map(task => task.task.id),
+      }),
+    });
+    expect(result.status).toBe("completed");
+    expect(settled).toHaveLength(2);
+    expect(settled.every(item => item.completed.includes(item.taskId))).toBe(true);
+    expect(new Set(settled.map(item => item.taskId))).toEqual(new Set(["first", "second"]));
+  });
 });
