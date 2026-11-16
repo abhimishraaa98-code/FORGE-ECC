@@ -30,7 +30,8 @@ export function buildContainerRunArgs(
     "--network=none", "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges", "--pids-limit=128",
     "--memory=1g", "--cpus=2",
-    "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+    "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+    "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp", "--ipc=private", "--uts=private", "--init", "--ulimit", "nofile=1024:1024",
     "--user", typeof process.getuid === "function" && typeof process.getgid === "function" ? process.getuid() + ":" + process.getgid() : "1000:1000",
     "--mount", "type=bind,source=" + workspace + ",target=/workspace,rw",
     "--workdir", "/workspace",
@@ -71,7 +72,7 @@ function runProcess(
     let settled = false;
     const windows = process.platform === "win32";
     const child = spawn(command, args, {
-      cwd, shell: windows && command.toLowerCase().endsWith(".exe") === false && command === "docker",
+      cwd, shell: false,
       windowsHide: true,
       env: {
         PATH: process.env.PATH ?? "",
@@ -138,8 +139,8 @@ export async function runContainerVerification(
   const startedAt = new Date();
   const containerName = "forge-verify-" + randomUUID().replace(/-/g, "").slice(0, 20);
   const args = buildContainerRunArgs(root, image, script, containerName);
-  const result = await runProcess(runtime, args, root, timeoutMs, () => {
-    void runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
+  const result = await runProcess(runtime, args, root, timeoutMs, async () => {
+    await runProcess(runtime, ["stop", "--time", "2", containerName], root, 5_000);
   });
   const finishedAt = new Date();
   if (result.error) result.output += "\\nFORGE could not start container runtime: " + result.error;
