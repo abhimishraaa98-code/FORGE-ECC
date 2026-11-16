@@ -42,4 +42,16 @@ describe("execution trace persistence", () => {
       entries: [expect.objectContaining({ taskId: expect.stringMatching(/^(a|b)$/) })],
     });
   });
+
+  it("rejects malformed persisted trace entries", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-trace-invalid-"));
+    const directory = path.join(root, ".forge", "traces");
+    await import("node:fs/promises").then(fs => fs.mkdir(directory, { recursive: true }));
+    await import("node:fs/promises").then(fs => fs.writeFile(path.join(directory, "forge-bad-trace.json"), JSON.stringify({
+      version: 1, runId: "forge-bad-trace", createdAt: new Date().toISOString(),
+      entries: [{ taskId: "bad", outcome: "success", inputTokensEstimate: "not-a-number" }],
+      totals: {}, providers: [],
+    })));
+    await expect(loadExecutionTrace(root, "forge-bad-trace")).rejects.toThrow("invalid format");
+  });
 });
