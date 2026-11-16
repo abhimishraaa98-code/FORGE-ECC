@@ -13,6 +13,14 @@ forge init ./my-project
 forge inspect ./my-project
 ```
 
+Start the live local dashboard for that project:
+
+```bash
+forge dashboard ./my-project
+```
+
+Then open the `http://127.0.0.1:<port>` address printed by FORGE. The dashboard reads that selected local workspace and its `.forge` history; it is not the static public website and does not upload your repository.
+
 To use the latest source without a global install, clone this repository and run:
 
 ```bash
