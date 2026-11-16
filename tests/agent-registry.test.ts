@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -44,6 +44,34 @@ describe("agent registry", () => {
     expect(planner?.name).toBe("Custom Planner");
     expect(planner?.source).toBe("workspace");
     expect(planner?.instructions).toContain("workspace-specific");
+  });
+
+  it("rejects a symlinked agent directory that points outside the project", async () => {
+    temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "forge-agents-"));
+    const outside = await mkdtemp(path.join(os.tmpdir(), "forge-agent-outside-"));
+    try {
+      await writeFile(path.join(outside, "planner.md"), "# Leaked Planner\\n\\nOutside instructions.\\n");
+      await mkdir(path.join(temporaryDirectory, ".forge"), { recursive: true });
+      await symlink(outside, path.join(temporaryDirectory, ".forge", "agents"), "dir");
+      await expect(loadAgentRegistry(temporaryDirectory)).rejects.toThrow(/real directory inside the project/);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores symlinked agent markdown files", async () => {
+    temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "forge-agents-"));
+    const outside = await mkdtemp(path.join(os.tmpdir(), "forge-agent-file-"));
+    try {
+      await writeFile(path.join(outside, "external.md"), "# External Agent\\n\\nOutside instructions.\\n");
+      const directory = path.join(temporaryDirectory, ".forge", "agents");
+      await mkdir(directory, { recursive: true });
+      await symlink(path.join(outside, "external.md"), path.join(directory, "planner.md"), "file");
+      const agents = await loadAgentRegistry(temporaryDirectory);
+      expect(agents.find(agent => agent.id === "planner")?.source).toBe("builtin");
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("ignores unsafe agent filenames and non-markdown entries", async () => {
