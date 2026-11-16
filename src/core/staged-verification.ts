@@ -1,15 +1,9 @@
 import { createHash } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { runVerification, type VerificationResult } from "./verification.js";
-import { fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
-
-const MAX_FILES = 20_000;
-const MAX_BYTES = 256 * 1024 * 1024;
-const EXCLUDED_DIRS = new Set([".git", ".forge", ".next", ".turbo", "coverage", "node_modules", "dist", "build", ".cache", ".vercel"]);
-const SECRET_FILE = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa|id_ed25519|credentials(?:\..*)?)$/i;
-const SECRET_EXTENSION = /\.(?:pem|key|p12|pfx)$/i;
+import { copyStagedWorkspaceSnapshot, fingerprintStagedWorkspace, type PatchStageRecord } from "./patch-application.js";
 
 export interface StagedVerificationResult {
   id: string;
@@ -106,9 +100,8 @@ export async function verifyStagedPatch(
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "forge-staged-verify-"));
   const snapshot = path.join(temporaryRoot, "workspace");
   try {
-    const counts = await copySnapshot(workspaceReal, snapshot);
-    const copiedFingerprint = await fingerprintStagedWorkspace(snapshot);
-    if (copiedFingerprint.sha256 !== manifest.workspaceSha256) throw new Error("Temporary verification copy does not match the approved staged snapshot.");
+    const counts = await copyStagedWorkspaceSnapshot(workspaceReal, snapshot);
+    if (counts.sha256 !== manifest.workspaceSha256) throw new Error("Temporary verification copy does not match the approved staged snapshot.");
     const verification = await runVerification(snapshot, script, options);
     const id = "patch-verify-" + verification.id.slice("verify-".length);
     return {
