@@ -5,6 +5,7 @@ import path from "node:path";
 import { saveReview } from "../src/core/review-history.js";
 import { approveReviewPatch } from "../src/core/patch-approval.js";
 import { stageApprovedPatch, reviewStagedPatch } from "../src/core/patch-application.js";
+import { verifyStagedPatch } from "../src/core/staged-verification.js";
 import type { CodeReviewReport } from "../src/core/code-review.js";
 import type { AIReviewResult } from "../src/core/ai-code-review.js";
 
@@ -62,6 +63,23 @@ describe("isolated approved patch staging", () => {
     const staged = await stageApprovedPatch(root, approval.id);
     await writeFile(path.join(root, staged.stagedFile), "tampered");
     await expect(reviewStagedPatch(root, staged.id)).rejects.toThrow(/changed after staging/);
+  });
+
+  it("verifies the staged patch in a temporary snapshot and excludes environment files", async () => {
+    const approval = await fixture();
+    await writeFile(path.join(root, "package.json"), JSON.stringify({
+      scripts: {
+        check: "node -e \\"const fs=require('node:fs');if(!fs.readFileSync('src/a.ts','utf8').includes('a = 2'))process.exit(1);if(fs.existsSync('.env'))process.exit(2)\\""
+      }
+    }));
+    await writeFile(path.join(root, ".env"), "SECRET=must-not-be-copied");
+    const staged = await stageApprovedPatch(root, approval.id);
+    const result = await verifyStagedPatch(root, staged.id, "check");
+    expect(result.verification.status).toBe("passed");
+    expect(result.file).toBe("src/a.ts");
+    expect(result.stagedSha256).toBe(staged.stagedSha256);
+    expect(result.snapshotFileCount).toBeGreaterThanOrEqual(2);
+    expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\\n");
   });
 
 });
