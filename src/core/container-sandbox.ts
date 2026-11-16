@@ -30,7 +30,7 @@ export function buildContainerRunArgs(
     "run", "--rm", "--pull=never", "--name", containerName,
     "--network=none", "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges", "--pids-limit=128",
-    "--memory=1g", "--cpus=2",
+    "--memory=1g", "--memory-swap=1g", "--cpus=2", "--ulimit", "nofile=1024:1024",
     "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
     "--tmpfs", "/workspace:rw,nosuid,nodev,size=1g,mode=1777",
     "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1", "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
