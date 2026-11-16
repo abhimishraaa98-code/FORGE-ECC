@@ -23,6 +23,28 @@ FORGE is an independent, open-source engineering workbench for developers. It is
 
 > FORGE is an original implementation. It is not a fork, rebrand, or continuation of another toolkit.
 
+## AI Provider Foundation — available (offline mock)
+
+FORGE's engineering core and MCP tools do not require Claude Pro, ChatGPT Plus, or any other consumer subscription. Provider API access is a separate, optional configuration.
+
+The initial provider contract and offline mock are available in `src/ai/provider.ts`. The mock supports tests and integration work without network access or API credentials. Hosted provider adapters for Anthropic, OpenAI, Google, and local Ollama are planned but are **not implemented yet**; selecting one currently returns an explicit adapter-not-installed error rather than silently pretending to call a model.
+
+### Current configuration
+
+```bash
+# Works without an AI account or API key
+FORGE_AI_PROVIDER=mock
+
+# Future hosted-provider configuration (adapter not yet available)
+FORGE_AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+
+# Optional model override once an adapter is implemented
+FORGE_AI_MODEL=...
+```
+
+A Claude Pro subscription does not automatically provide Anthropic API access. If/when you choose to use Anthropic from FORGE, API credentials and billing are handled separately by Anthropic. You can continue building and testing FORGE's repository intelligence, MCP server, and offline workflows without either.
+
 ## MCP Server — available (initial implementation)
 
 FORGE includes a local, read-only Model Context Protocol (MCP) server so compatible AI clients can call selected engineering-intelligence tools through a standard interface.
