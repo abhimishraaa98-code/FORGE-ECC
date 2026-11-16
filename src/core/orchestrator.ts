@@ -152,7 +152,11 @@ export async function advanceRun(
   approvedTaskIds: ReadonlySet<string> = new Set(),
   options: AdvanceRunOptions = {},
 ): Promise<RunRecord> {
-  const maxConcurrency = Math.max(1, Math.min(16, Math.floor(options.maxConcurrency ?? 4)));
+  const requestedConcurrency = options.maxConcurrency ?? 4;
+  if (!Number.isSafeInteger(requestedConcurrency) || requestedConcurrency < 1 || requestedConcurrency > 16) {
+    throw new PlanValidationError("Maximum agent concurrency must be an integer between 1 and 16.");
+  }
+  const maxConcurrency = requestedConcurrency;
   const next: RunRecord = {
     ...run,
     tasks: run.tasks.map(record => ({ ...record })),
