@@ -290,7 +290,7 @@ async function main(args: string[]): Promise<void> {
             const snapshot = await loadAgentConfigVersion(target, candidate.configVersionId);
             fingerprints.push({ candidateId: candidate.id, configVersionId: snapshot.id, fingerprint: fingerprintAgentConfig(snapshot.files) });
           }
-          const manifest = await captureExperimentManifest({ projectPath: target, matrixFile: path.resolve(matrixFile), matrixId, suiteId, suite, provider, model, baseUrl: process.env.FORGE_BASE_URL, agentConfigFingerprints: fingerprints });
+          const manifest = await captureExperimentManifest({ projectPath: target, matrixFile: path.resolve(matrixFile), matrixId, suiteId, suite, provider, model, ...(process.env.FORGE_BASE_URL ? { baseUrl: process.env.FORGE_BASE_URL } : {}), agentConfigFingerprints: fingerprints });
           const saved = await saveExperimentManifest(target, manifest);
           process.stdout.write(formatExperimentManifest(manifest) + "\\nSaved: " + path.relative(target, saved) + "\\n");
         } else if (action === "show") {
@@ -382,7 +382,7 @@ async function main(args: string[]): Promise<void> {
         const experimentManifest = await captureExperimentManifest({
           projectPath: target, matrixFile: path.resolve(configFile), matrixId: config.id, suiteId: suite.id, suite,
           provider: "matrix", model: "candidate-specific",
-          baseUrl: process.env.FORGE_BASE_URL,
+          ...(process.env.FORGE_BASE_URL ? { baseUrl: process.env.FORGE_BASE_URL } : {}),
           agentConfigFingerprints: report.candidateProvenance ?? []
         });
         const manifestPath = await saveExperimentManifest(target, experimentManifest);
