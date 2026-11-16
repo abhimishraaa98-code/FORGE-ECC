@@ -23,7 +23,17 @@ const DEFAULT_TIMEOUT = 120_000;
 const MAX_TIMEOUT = 10 * 60_000;
 const SCRIPT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,79}$/;
 
-async function verifiedProjectRoot(inputPath: string): Promise<string> {\n  const root = await realpath(path.resolve(inputPath));\n  const rootInfo = await lstat(root);\n  if (!rootInfo.isDirectory()) throw new Error("Verification target must be a real directory.");\n  const manifest = path.join(root, "package.json");\n  const manifestInfo = await lstat(manifest);\n  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("package.json must be a regular, non-symlink file.");\n  return root;\n}\n\nasync function packageScripts(root: string): Promise<Record<string,string>> {
+async function verifiedProjectRoot(inputPath: string): Promise<string> {
+  const root = await realpath(path.resolve(inputPath));
+  const rootInfo = await lstat(root);
+  if (!rootInfo.isDirectory()) throw new Error("Verification target must be a real directory.");
+  const manifest = path.join(root, "package.json");
+  const manifestInfo = await lstat(manifest);
+  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("package.json must be a regular, non-symlink file.");
+  return root;
+}
+
+async function packageScripts(root: string): Promise<Record<string,string>> {
   const parsed: unknown = JSON.parse(await readFile(path.join(root,"package.json"),"utf8"));
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("package.json must contain a JSON object.");
   const scripts = (parsed as {scripts?:unknown}).scripts;
@@ -82,7 +92,12 @@ export async function runVerification(
   child.stdout.on("data",append);
   child.stderr.on("data",append);
   let timedOut = false;
-  const timer = setTimeout(()=>{timedOut=true;\n    if (!windows && child.pid) { try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); } }\n    else child.kill("SIGTERM");\n  },timeoutMs);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    if (!windows && child.pid) {
+      try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); }
+    } else child.kill("SIGTERM");
+  }, timeoutMs);
   const outcome = await new Promise<{exitCode:number|null;signal:string|null;error?:string}>(resolve=>{
     child.once("error",error=>resolve({exitCode:null,signal:null,error:error.message}));
     child.once("close",(code,signal)=>resolve({exitCode:code,signal}));
