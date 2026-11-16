@@ -32,6 +32,9 @@ describe("local dashboard server", () => {
     expect(await page.text()).toContain("Execution telemetry");
     expect(await page.text()).toContain("Live event stream");
     expect(await page.text()).toContain("Create replay of retryable tasks");
+    expect(await page.text()).toContain("Compare with previous run");
+    expect(await page.text()).toContain("Cancel run");
+    expect(await page.text()).toContain("Retry this task and blocked dependants");
 
     await mkdir(path.join(root, "src"));
     await writeFile(path.join(root, "src", "demo.ts"), "export const demo = true;\\n");
@@ -186,6 +189,31 @@ describe("local dashboard server", () => {
     const replayDetail = await fetch(base + "/api/runs/" + replayResult.id);
     const replayJson = await replayDetail.json();
     expect(replayJson.tasks[0].status).toBe("pending");
+
+    const cancelResponse = await fetch(base + "/api/runs/" + pendingRun.id + "/cancel", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    });
+    expect(cancelResponse.status).toBe(200);
+    const cancelledDetail = await fetch(base + "/api/runs/" + pendingRun.id);
+    expect((await cancelledDetail.json()).status).toBe("cancelled");
+
+    const retrySource = createRun("Retry one task", [
+      { id: "done", agent: "architect", title: "Done", prompt: "Done" },
+      { id: "broken", agent: "reviewer", title: "Broken", prompt: "Broken", dependsOn: ["done"] },
+      { id: "next", agent: "planner", title: "Next", prompt: "Next", dependsOn: ["broken"] },
+    ]);
+    retrySource.tasks[0]!.status = "completed";
+    retrySource.tasks[0]!.result = { provider: "test", content: "kept" };
+    retrySource.tasks[1]!.status = "failed";
+    retrySource.tasks[2]!.status = "blocked";
+    await saveRun(root, retrySource);
+    const taskRetryResponse = await fetch(base + "/api/runs/" + retrySource.id + "/tasks/broken/retry", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    });
+    expect(taskRetryResponse.status).toBe(201);
+    const taskRetry = await taskRetryResponse.json();
+    const taskRetryDetail = await fetch(base + "/api/runs/" + taskRetry.id);
+    expect((await taskRetryDetail.json()).tasks.map((task: { status: string }) => task.status)).toEqual(["completed", "pending", "pending"]);
 
     const detail = await fetch(base + "/api/runs/" + pendingRun.id);
     const detailResult = await detail.json();
