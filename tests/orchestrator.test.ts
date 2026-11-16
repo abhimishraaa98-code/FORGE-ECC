@@ -42,6 +42,26 @@ describe("FORGE orchestration engine", () => {
     expect(result.status).toBe("completed");
   });
 
+  it("honors cooperative cancellation before starting another batch", async () => {
+    let calls = 0;
+    const cancelProvider: AgentProvider = {
+      name: "cancel-test",
+      async complete() { calls += 1; return { provider: "cancel-test", content: "done" }; },
+    };
+    const run = createRun("Cancel between batches", [
+      { id: "first", agent: "planner", title: "First", prompt: "First" },
+      { id: "second", agent: "reviewer", title: "Second", prompt: "Second" },
+    ]);
+    const result = await advanceRun(run, cancelProvider, new Set(), {
+      maxConcurrency: 1,
+      shouldCancel: () => calls > 0,
+    });
+    expect(calls).toBe(1);
+    expect(result.status).toBe("cancelled");
+    expect(result.tasks[0]?.status).toBe("completed");
+    expect(result.tasks[1]?.status).toBe("pending");
+  });
+
   it("runs dependency-ordered tasks and passes completed context", async () => {
     const run = createRun("Improve reliability", [
       { id: "inspect", agent: "architect", title: "Inspect", prompt: "Inspect structure" },
