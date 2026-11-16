@@ -69,8 +69,8 @@ describe("isolated approved patch staging", () => {
     const approval = await fixture();
     await writeFile(path.join(root, "package.json"), JSON.stringify({
       scripts: {
-        check: "node -e \\"const fs=require('node:fs');if(!fs.readFileSync('src/a.ts','utf8').includes('a = 2'))process.exit(1);if(fs.existsSync('.env'))process.exit(2)\\""
-      }
+        check: `node -e "const fs=require('node:fs');if(!fs.readFileSync('src/a.ts','utf8').includes('a = 2'))process.exit(1);if(fs.existsSync('.env'))process.exit(2)"`,
+      },
     }));
     await writeFile(path.join(root, ".env"), "SECRET=must-not-be-copied");
     const staged = await stageApprovedPatch(root, approval.id);
@@ -80,6 +80,6 @@ describe("isolated approved patch staging", () => {
     expect(result.stagedSha256).toBe(staged.stagedSha256);
     expect(result.snapshotFileCount).toBeGreaterThanOrEqual(2);
     expect(await readFile(path.join(root, "src/a.ts"), "utf8")).toBe("const a = 1;\\n");
-  });
+  });;
 
 });
