@@ -155,6 +155,28 @@ describe("FORGE orchestration engine", () => {
     expect(receivedContext).toContain("Relevant local project decision.");
   });
 
+  it("builds task-specific context independently for each agent", async () => {
+    const received = new Map<string, string>();
+    const contextProvider: AgentProvider = {
+      name: "task-context-test",
+      async complete(request) {
+        received.set(request.task.agent, request.projectContext ?? "");
+        return { provider: "task-context-test", content: "done" };
+      },
+    };
+    const run = createRun("Agent-specific guidance", [
+      { id: "secure", agent: "security-reviewer", title: "Review permissions", prompt: "Check auth" },
+      { id: "docs", agent: "documentation-writer", title: "Update guide", prompt: "Write docs" },
+    ]);
+    await advanceRun(run, contextProvider, new Set(), {
+      projectContext: "Shared project memory",
+      projectContextForTask: task => "Skill for " + task.agent,
+    });
+    expect(received.get("security-reviewer")).toContain("Skill for security-reviewer");
+    expect(received.get("documentation-writer")).toContain("Skill for documentation-writer");
+    expect(received.get("security-reviewer")).toContain("Shared project memory");
+  });
+
   it("passes source-agent provenance with completed dependency handoffs", async () => {
     let received: { id: string; fromAgent?: string; taskTitle?: string; result: string }[] = [];
     const handoffProvider: AgentProvider = {
