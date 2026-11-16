@@ -38,6 +38,20 @@ describe("local dashboard server", () => {
     expect(data.agents[0].skillsObserved).toContain("secure-changes");
   });
 
+  it("reports provider readiness without exposing credential values", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-provider-status-"));
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/providers`);
+    expect(response.status).toBe(200);
+    const providers = await response.json();
+    expect(providers).toHaveLength(5);
+    expect(providers.find((item: { id: string }) => item.id === "openai")).toMatchObject({ id: "openai", status: "needs-credentials", configured: false, selected: true });
+    expect(JSON.stringify(providers)).not.toContain("sk-");
+    expect(providers.every((item: { status: string }) => item.status !== "connected")).toBe(true);
+  });
+
   it("lists, reads and safely saves workspace agent and skill Markdown", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-config-studio-"));
     await mkdir(path.join(root, ".forge", "agents"), { recursive: true });
