@@ -35,7 +35,7 @@ export function buildContainerRunArgs(
     "--user", typeof process.getuid === "function" && typeof process.getgid === "function" ? process.getuid() + ":" + process.getgid() : "1000:1000",
     "--mount", "type=bind,source=" + workspace + ",target=/workspace,rw",
     "--workdir", "/workspace",
-    "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1",
+    "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1", "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
     image, "npm", "run-script", "--ignore-scripts", script,
   ];
 }
