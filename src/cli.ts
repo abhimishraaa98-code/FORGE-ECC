@@ -1018,6 +1018,7 @@ async function main(args: string[]): Promise<void> {
       try {
         if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]");
         if (sandboxImageIndex >= 0 && !sandboxImage) throw new Error("--sandbox-image requires an image pinned by sha256 digest.");
+        if (requireRootless && !sandboxImage) throw new Error("--require-rootless requires --sandbox-image container execution.");
         const result = await verifyStagedPatch(target, stageId, script, {
           installDependencies,
           ...(sandboxImage ? { sandboxImage } : {}),
