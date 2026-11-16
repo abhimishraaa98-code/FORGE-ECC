@@ -33,7 +33,7 @@ describe("experiment manifests", () => {
     expect(compatible.compatible).toBe(true);
     const changed = compareExperimentManifests(base, { ...base, id: "exp-cccccccccccc", source: { commit: "def", dirty: true }, inputs: { ...base.inputs, suiteSha256: "e".repeat(64) }, provider: { ...base.provider, model: "model-b" }, configuration: { agentConfigFingerprints: [] } });
     expect(changed.compatible).toBe(false);
-    expect(changed.differences).toHaveLength(4);
+    expect(changed.differences).toHaveLength(5);
   });
   it("rejects invalid manifest IDs", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-experiment-invalid-"));
