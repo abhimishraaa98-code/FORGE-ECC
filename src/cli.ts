@@ -34,7 +34,7 @@ import { analyzeDependencies, formatDependencyIntelligence } from "./core/depend
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
-import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
+import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";\nimport { loadPermissionPolicy } from "./core/permission-policy.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -524,6 +524,8 @@ async function main(args: string[]): Promise<void> {
             if (unknownSkills.length) throw new Error("Candidate " + candidate.id + " references unknown skill(s): " + unknownSkills.join(", "));
             const selectedSkillsForTask = (task: { agent: string; title: string; prompt: string }) => requestedSkillIds === undefined ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : skillRegistry.filter(skill => requestedSkillIds.includes(skill.id));
             const agentGuidanceForTask = (task: { agent: string }) => agentRegistry.find(agent => agent.id === task.agent)?.instructions ?? "";
+            const permissions = await loadPermissionPolicy(configRoot);
+            if (permissions.mode !== "proposal-only" || permissions.allowedTools.length > 0) throw new Error("Benchmark candidate " + candidate.id + " requests unsupported tool permissions. FORGE currently enforces proposal-only execution with no enabled tools.");
             const hooks = await loadHooks(configRoot);
             for (const record of run.tasks) {
               const applied = applyBeforeAgentHooks(record.task, hooks);
