@@ -21,36 +21,6 @@ function digest(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function excluded(name: string): boolean {
-  return EXCLUDED_DIRS.has(name) || SECRET_FILE.test(name) || SECRET_EXTENSION.test(name);
-}
-
-async function copySnapshot(source: string, destination: string): Promise<{ files: number; bytes: number }> {
-  let files = 0;
-  let bytes = 0;
-  async function walk(from: string, to: string): Promise<void> {
-    await mkdir(to, { recursive: true, mode: 0o700 });
-    for (const name of await readdir(from)) {
-      if (excluded(name)) continue;
-      const input = path.join(from, name);
-      const output = path.join(to, name);
-      const info = await lstat(input);
-      if (info.isSymbolicLink()) throw new Error("Staged verification does not support symbolic links; remove or replace the link before retrying.");
-      if (info.isDirectory()) {
-        await walk(input, output);
-      } else if (info.isFile()) {
-        files++;
-        bytes += info.size;
-        if (files > MAX_FILES) throw new Error("Project snapshot exceeds the 20,000-file limit.");
-        if (bytes > MAX_BYTES) throw new Error("Project snapshot exceeds the 256 MiB limit.");
-        await cp(input, output, { errorOnExist: true, force: false, preserveTimestamps: true });
-      }
-    }
-  }
-  await walk(source, destination);
-  return { files, bytes };
-}
-
 /**
  * Runs one explicitly selected npm script against a temporary copy of the fingerprinted staged workspace.
  * Project scripts still execute on the local host; this is not an OS-level sandbox.
