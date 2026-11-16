@@ -176,3 +176,8 @@ Run `forge sandbox-status` to inspect whether Docker is reachable, report its ve
 ### Sandbox lifecycle cleanup
 
 FORGE labels its verification containers with `com.forge.managed=true`. Run `forge sandbox-cleanup` to preview stopped containers carrying that label. Add `--apply` to remove only stopped/created/dead containers; active containers are never selected. Cleanup is dry-run by default.
+
+
+### Sandbox cleanup audit history
+
+Every successful `forge sandbox-cleanup` preview or apply records a local audit entry under `.forge/sandbox-cleanup-history.json`. Review it with `forge sandbox-cleanup-history [PROJECT_PATH]`. The history is capped at 200 entries and records timestamps, candidate container IDs, statuses, names, and removals. It is local project metadata, not a tamper-proof security log.
