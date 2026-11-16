@@ -27,6 +27,7 @@ import { formatPatchValidation, validateReviewPatch } from "./core/patch-validat
 import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.js";
 import { stageApprovedPatch, reviewStagedPatch } from "./core/patch-application.js";
 import { verifyStagedPatch } from "./core/staged-verification.js";
+import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "./core/sandbox-runtime.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -120,7 +121,7 @@ Commands:
   patch-check ID N  Dry-run validate AI patch N from a saved review
   regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
-  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace
+  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
@@ -1001,6 +1002,36 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE verification failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "sandbox-status": {
+      const runtime = "docker";
+      try {
+        const [version, security] = await Promise.all([
+          new Promise<string>((resolve, reject) => {
+            const child = (await import("node:child_process")).spawn(runtime, ["--version"], { shell: false, windowsHide: true });
+            let output = "";
+            child.stdout.on("data", chunk => { output += chunk.toString().slice(0, 4096); });
+            child.once("error", reject);
+            child.once("close", code => code === 0 ? resolve(output) : reject(new Error("Docker version probe failed.")));
+          }),
+          new Promise<string>((resolve, reject) => {
+            const child = (await import("node:child_process")).spawn(runtime, ["info", "--format", "{{json .SecurityOptions}}"], { shell: false, windowsHide: true });
+            let output = "";
+            child.stdout.on("data", chunk => { output += chunk.toString().slice(0, 4096); });
+            child.once("error", reject);
+            child.once("close", code => code === 0 ? resolve(output) : reject(new Error("Docker security-options probe failed.")));
+          }),
+        ]);
+        const report = parseSandboxRuntimeReport(runtime, version, security);
+        process.stdout.write(formatSandboxRuntimeReport(report) + "\\n");
+        if (!report.available) process.exitCode = 1;
+      } catch (error) {
+        const report = parseSandboxRuntimeReport(runtime, "", "");
+        report.warnings.push(error instanceof Error ? error.message : String(error));
+        process.stdout.write(formatSandboxRuntimeReport(report) + "\\n");
         process.exitCode = 1;
       }
       return;
