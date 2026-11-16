@@ -124,6 +124,20 @@ Safety boundaries:
 
 Run `forge git [path]` to compare the working tree with `HEAD`, include untracked non-ignored files, estimate downstream impact using the static import map, suggest candidate tests, and assign a heuristic risk label. Use `--base REV` to compare against another Git revision, `--path PROJECT` to select a project, and `--json` for structured output. The command does not modify files or execute tests. Risk labels and test suggestions are advisory; ignored files, renames, aliases, and runtime dependencies have known limitations.
 
+### Agent Configuration Versioning — available (early)
+
+Capture reviewable snapshots of workspace agent and skill instructions under `.forge/agents/` and `.forge/skills/`. Each snapshot stores the Markdown content, SHA-256 digest, author, timestamp and note under `.forge/config-versions/`. Compare snapshots, inspect their contents, and explicitly approve a candidate. Approval updates a local pointer in `.forge/config-versions/approved.json`; it does **not** silently rewrite active agent or skill files, deploy a configuration, or prove that a candidate performs better. Run controlled benchmark experiments before promoting a change operationally.
+
+```bash
+forge agent-config snapshot --note "baseline before prompt changes" --path .
+forge agent-config list --path .
+forge agent-config show cfg-0123456789ab --path .
+forge agent-config diff cfg-0123456789ab cfg-abcdef012345 --path .
+forge agent-config approve cfg-abcdef012345 --reviewer "reviewer" --path .
+```
+
+Snapshots are local project data and may contain proprietary instructions. Review them before sharing or committing. Snapshot files are limited to 128 KiB each and 100 files; only Markdown files in the agent and skill directories are captured.
+
 ### Regression Intelligence — available (early)
 
 Run `forge regression [path]` to compare the latest saved verification result for each script with its previous run, classify regressions, recoveries, persistent failures and stable checks, and inspect current Git changes, static downstream impact and suggested test targets. Use `--base REV` to select the Git comparison base and `--json` for machine-readable output.
