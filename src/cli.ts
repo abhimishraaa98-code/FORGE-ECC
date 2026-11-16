@@ -35,7 +35,7 @@ import { generateRemediationPlan, formatRemediationPlan } from "./core/remediati
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
-import { loadPermissionPolicy } from "./core/permission-policy.js";
+import { assertProposalOnlyPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -748,6 +748,7 @@ async function main(args: string[]): Promise<void> {
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
         if (!runId) throw new Error("Usage: forge resume RUN_ID [--path PROJECT]");
+        assertProposalOnlyPolicy(await loadPermissionPolicy(target), "FORGE resume");
         const savedRun = await loadRun(target, runId);
         if (savedRun.status !== "pending" && savedRun.status !== "awaiting_approval") throw new Error("Only pending or approval-cleared runs can be resumed. Use `forge replay` for a failed run.");
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
@@ -824,6 +825,7 @@ async function main(args: string[]): Promise<void> {
       const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd).join(" ").trim() : "";
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
+        assertProposalOnlyPolicy(await loadPermissionPolicy(target), "FORGE run");
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
