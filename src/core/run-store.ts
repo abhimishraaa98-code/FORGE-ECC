@@ -160,7 +160,7 @@ export async function decideTaskApproval(
 export async function recoverInterruptedRun(projectPath: string, runId: string): Promise<RunRecord> {
   validateRunId(runId);
   const directory = await safeRunsDirectory(projectPath);
-  const lock = path.join(directory, `${runId}.recovery.lock`);
+  const lock = path.join(directory, `${runId}.lock`);
   await mkdir(lock, { mode: 0o700 });
   try {
     const run = await loadRun(projectPath, runId);
