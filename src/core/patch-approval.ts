@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { validateReviewPatch } from "./patch-validation.js";
@@ -19,6 +19,20 @@ export interface PatchApprovalRecord {
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 function directory(root: string): string { return path.join(path.resolve(root), ".forge", "patch-approvals"); }
+async function ensureApprovalDirectory(root: string): Promise<string> {
+  const project = await import("node:fs/promises").then(fs => fs.realpath(path.resolve(root)));
+  let cursor = project;
+  for (const segment of [".forge", "patch-approvals"]) {
+    cursor = path.join(cursor, segment);
+    try { await mkdir(cursor, { mode: 0o700 }); }
+    catch (error) {
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+    }
+    const info = await lstat(cursor);
+    if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Patch approval storage must not contain symbolic links or non-directory components.");
+  }
+  return cursor;
+}
 function validateId(id: string): void { if (!ID.test(id) || id.includes("..")) throw new Error("Invalid patch approval identifier."); }
 function digest(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 
