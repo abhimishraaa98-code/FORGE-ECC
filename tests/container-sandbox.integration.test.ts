@@ -23,7 +23,7 @@ describe.skipIf(!image)("real Docker sandbox integration", () => {
       name: "forge-docker-integration",
       version: "1.0.0",
       scripts: {
-        test: "node -e \"const fs=require('node:fs');const checks={envFile:fs.existsSync('.env'),secretFile:fs.existsSync('src/private-token.txt'),symlink:fs.existsSync('src/external-link.txt'),hostEnv:process.env.FORGE_HOST_SECRET_SENTINEL!==undefined,uid:typeof process.getuid==='function'?process.getuid():0};console.log(JSON.stringify(checks));if(checks.envFile||checks.secretFile||checks.symlink||checks.hostEnv||checks.uid===0)process.exit(9)\""
+        test: "node -e \"const fs=require('node:fs');const canWrite=p=>{try{fs.writeFileSync(p,'probe');fs.unlinkSync(p);return true}catch{return false}};const checks={envFile:fs.existsSync('.env'),secretFile:fs.existsSync('src/private-token.txt'),symlink:fs.existsSync('src/external-link.txt'),hostEnv:process.env.FORGE_HOST_SECRET_SENTINEL!==undefined,uid:typeof process.getuid==='function'?process.getuid():0,rootWritable:canWrite('/etc/forge-write-probe'),tmpWritable:canWrite('/tmp/forge-write-probe'),workspaceWritable:canWrite('/workspace/forge-write-probe'),snapshotWritable:canWrite('/snapshot/package.json')};console.log(JSON.stringify(checks));if(checks.envFile||checks.secretFile||checks.symlink||checks.hostEnv||checks.uid===0||checks.rootWritable||!checks.tmpWritable||!checks.workspaceWritable||checks.snapshotWritable)process.exit(9)\""
       }
     }));
     await writeFile(path.join(project, ".env"), "FORGE_TEST_SECRET=do-not-copy");
@@ -40,6 +40,10 @@ describe.skipIf(!image)("real Docker sandbox integration", () => {
     expect(result.output).toContain('"secretFile":false');
     expect(result.output).toContain('"symlink":false');
     expect(result.output).toContain('"hostEnv":false');
+    expect(result.output).toContain('"rootWritable":false');
+    expect(result.output).toContain('"tmpWritable":true');
+    expect(result.output).toContain('"workspaceWritable":true');
+    expect(result.output).toContain('"snapshotWritable":false');
     expect(result.output).not.toContain('"uid":0');
     expect(result.output).toContain("network=none");
     expect(result.output).toContain("readOnlyRoot=true");
