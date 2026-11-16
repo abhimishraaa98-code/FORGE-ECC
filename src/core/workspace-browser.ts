@@ -1,9 +1,9 @@
 import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
+import { isExcludedScanDirectory } from "./workspace-scan-policy.js";
 
 const MAX_ENTRIES = 200;
 const MAX_PREVIEW_BYTES = 128 * 1024;
-const IGNORED_DIRECTORIES = new Set([".git", "node_modules", ".forge", "dist", "build", "coverage", ".next", ".turbo"]);
 const BLOCKED_NAME = /(^|[. _-])(env|secret|secrets|credential|credentials|private|token|password)([. _-]|$)/i;
 const PREVIEW_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx", ".txt",
@@ -59,12 +59,10 @@ function isBlocked(name: string): boolean {
   return BLOCKED_NAME.test(name) || /\.(pem|key|p12|pfx|keystore)$/i.test(name);
 }
 
-const EXCLUDED_DIRECTORIES = new Set([...IGNORED_DIRECTORIES]);
-
 export function assertWorkspacePathAllowed(relativePath: string): void {
   const segments = relativePath.replace(/\\/g, "/").split("/").filter(Boolean);
   if (segments.some(isBlocked)) throw new Error("Sensitive workspace paths are not browsable.");
-  if (segments.some(segment => segment.startsWith(".") || EXCLUDED_DIRECTORIES.has(segment))) {
+  if (segments.some(segment => segment.startsWith(".") || isExcludedScanDirectory(segment))) {
     throw new Error("Hidden or excluded workspace paths are not browsable.");
   }
 }
@@ -83,7 +81,7 @@ export async function listWorkspaceDirectory(projectPath: string, relativePath =
     try { childInfo = await lstat(childPath); } catch { continue; }
     const relative = [resolved.relative, dirent.name].filter(Boolean).join("/");
     if (childInfo.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(dirent.name)) entries.push({ name: dirent.name, path: relative, kind: "directory" });
+      if (!isExcludedScanDirectory(dirent.name)) entries.push({ name: dirent.name, path: relative, kind: "directory" });
     } else if (childInfo.isFile() && PREVIEW_EXTENSIONS.has(path.extname(dirent.name).toLowerCase())) {
       entries.push({ name: dirent.name, path: relative, kind: "file", size: childInfo.size, extension: path.extname(dirent.name).slice(1) });
     }
