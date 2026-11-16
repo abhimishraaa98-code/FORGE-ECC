@@ -30,6 +30,13 @@ describe("automated benchmark matrix", () => {
     expect(() => validateBenchmarkMatrix({ ...config, candidates: [{ ...config.candidates[0], configVersionId: "../escape" }, config.candidates[1]] })).toThrow(/configVersionId/);
   });
 
+  it("revalidates matrix config at execution time", async () => {
+    const invalid = { ...config, repeats: 0 };
+    await expect(executeBenchmarkMatrix(invalid, async () => ({
+      runId: "should-not-run", score: 100, passed: true, durationMs: 1, estimatedTokens: 1,
+    }))).rejects.toThrow(/repeats must be between 1 and 3/);
+  });
+
   it("runs each candidate for each repeat and continues after an isolated failure", async () => {
     const calls: string[] = [];
     const report = await executeBenchmarkMatrix(config, async (candidate, repeat) => {
