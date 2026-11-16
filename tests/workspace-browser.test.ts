@@ -47,6 +47,16 @@ describe("workspace browser", () => {
     await expect(readWorkspaceFile(root, "large.ts")).rejects.toThrow("128 KiB");
   });
 
+  it("rejects direct browsing of hidden and excluded directories", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-workspace-"));
+    for (const directory of [".forge", ".git", "node_modules", "dist", ".turbo"]) {
+      await mkdir(path.join(root, directory), { recursive: true });
+      await writeFile(path.join(root, directory, "notes.ts"), "private workspace data");
+      await expect(listWorkspaceDirectory(root, directory)).rejects.toThrow(/Hidden or excluded/);
+      await expect(readWorkspaceFile(root, directory + "/notes.ts")).rejects.toThrow(/Hidden or excluded/);
+    }
+  });
+
   it("blocks sensitive path segments even when the leaf filename looks harmless", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-workspace-"));
     await mkdir(path.join(root, "credentials"));
