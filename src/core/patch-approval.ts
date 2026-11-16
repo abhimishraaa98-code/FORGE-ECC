@@ -16,6 +16,7 @@ export interface PatchApprovalRecord {
   patchSha256: string;
   sourceSha256: string;
   revokedAt?: string;
+  usedAt?: string;
 }
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -119,9 +120,39 @@ export async function revokePatchApproval(root: string, id: string): Promise<Pat
   return revoked;
 }
 
+/** Atomically consumes an approval. The exclusive marker makes concurrent consumers fail closed. */
+export async function consumePatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
+  const verified = await verifyPatchApproval(root, id);
+  if (!verified.valid) throw new Error("Patch approval cannot be consumed: " + verified.reason);
+  const approval = await loadPatchApproval(root, id);
+  const dir = await safeApprovalDirectory(root);
+  const marker = path.join(dir, id + ".used");
+  try {
+    await mkdir(marker, { mode: 0o700 });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      throw new Error("Patch approval has already been used or claimed by another operation.");
+    }
+    throw error;
+  }
+  const consumed: PatchApprovalRecord = { ...approval, usedAt: new Date().toISOString() };
+  const destination = path.join(dir, id + ".json");
+  const temporary = path.join(dir, "." + id + "." + randomUUID() + ".tmp");
+  try {
+    await writeFile(temporary, JSON.stringify(consumed, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => undefined);
+    // Keep the marker: a partially completed consume must fail closed.
+    throw error;
+  }
+  return consumed;
+}
+
 export async function verifyPatchApproval(root: string, id: string): Promise<{ valid: boolean; reason: string }> {
   const approval = await loadPatchApproval(root, id);
   if (approval.revokedAt) return { valid: false, reason: "Approval has been revoked; request a new approval." };
+  if (approval.usedAt) return { valid: false, reason: "Approval has already been used; request a new approval." };
   if (Date.now() >= Date.parse(approval.expiresAt)) return { valid: false, reason: "Approval has expired; request a new review." };
   const review = await loadReview(root, approval.reviewId);
   const suggestion = review.ai?.suggestions[approval.suggestionNumber - 1];
