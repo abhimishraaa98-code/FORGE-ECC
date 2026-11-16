@@ -86,14 +86,13 @@ describe("local dashboard server", () => {
     const version = await snapshot.json();
     expect(version.status).toBe("candidate");
     expect(version.files).toHaveLength(2);
-    const approval = await fetch(base + "/api/config-snapshots/" + version.id + "/approve", {
+    const bypassApproval = await fetch(base + "/api/config-snapshots/" + version.id + "/approve", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ reviewer: "test-reviewer" })
     });
-    expect(approval.status).toBe(200);
-    expect((await approval.json()).status).toBe("approved");
+    expect(bypassApproval.status).toBe(405);
     const versions = await fetch(base + "/api/config-snapshots");
-    expect((await versions.json())[0].approvedBy).toBe("test-reviewer");
+    expect((await versions.json())[0].status).toBe("candidate");
     const releases = await fetch(base + "/api/config-releases");
     expect(releases.status).toBe(200);
     expect(await releases.json()).toEqual([]);
