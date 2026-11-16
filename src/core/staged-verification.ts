@@ -78,10 +78,17 @@ export async function verifyStagedPatch(
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as PatchStageRecord;
   if (manifest.id !== stageId || typeof manifest.workspacePath !== "string" ||
       typeof manifest.workspaceSha256 !== "string" || typeof manifest.stagedSha256 !== "string" ||
-      typeof manifest.file !== "string") throw new Error("Stage manifest does not contain a verified workspace snapshot.");
+      typeof manifest.file !== "string" || typeof manifest.stagedFile !== "string" ||
+      typeof manifest.sourceSha256 !== "string" || typeof manifest.snapshotFiles !== "number" ||
+      typeof manifest.snapshotBytes !== "number" || !Number.isSafeInteger(manifest.snapshotFiles) ||
+      !Number.isSafeInteger(manifest.snapshotBytes) || manifest.snapshotFiles < 1 || manifest.snapshotBytes < 0) {
+    throw new Error("Stage manifest does not contain a verified workspace snapshot.");
+  }
   const workspacePath = path.resolve(project, manifest.workspacePath);
   const workspaceRelative = path.relative(stageReal, workspacePath);
   if (!workspaceRelative || workspaceRelative.startsWith("..") || path.isAbsolute(workspaceRelative)) throw new Error("Staged workspace path escapes its stage directory.");
+  const workspaceInfo = await lstat(workspacePath);
+  if (workspaceInfo.isSymbolicLink() || !workspaceInfo.isDirectory()) throw new Error("Staged workspace must be a regular directory.");
   const workspaceReal = await realpath(workspacePath);
   if (!workspaceReal.startsWith(stageReal + path.sep)) throw new Error("Staged workspace resolves outside its stage directory.");
   const snapshotFingerprint = await fingerprintStagedWorkspace(workspaceReal);
