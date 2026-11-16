@@ -272,7 +272,7 @@ async function main(args: string[]): Promise<void> {
       const action = rest[0] ?? "create";
       const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
       if (action !== "create" && action !== "compare") {
-        process.stderr.write("Usage: forge experiment-studio compare --id ID --name NAME --candidates id:provider:model,id:provider:model [--repeats 2] [--path PROJECT]\\n");
+        process.stderr.write("Usage: forge experiment-studio compare --id ID --name NAME --candidates id:provider:model,id:provider:model [--config-versions id=cfg-id,id=cfg-id] [--repeats 2] [--path PROJECT]\\n");
         process.stderr.write("   or: forge experiment-studio create --id ID --name NAME --provider PROVIDER --model MODEL --skills skill-a,skill-b [--repeats 2] [--path PROJECT]\\n");
         process.exitCode = 1;
         return;
@@ -289,13 +289,21 @@ async function main(args: string[]): Promise<void> {
           process.exitCode = 1; return;
         }
         try {
-          const candidates = rawCandidates.split(",").map(item => {
+          const configVersions = new Map((option("--config-versions") ?? "").split(",").filter(Boolean).map(item => {
+          const separator = item.indexOf("=");
+          if (separator < 1 || separator === item.length - 1) throw new Error("Each config version must use candidate-id=cfg-xxxxxxxxxxxx format.");
+          return [item.slice(0, separator), item.slice(separator + 1)] as const;
+        }));
+        const candidates = rawCandidates.split(",").map(item => {
             const [candidateId, candidateProvider, ...modelParts] = item.split(":");
             const model = modelParts.join(":");
             if (!candidateId || !candidateProvider || !model) throw new Error("Each candidate must use id:provider:model format.");
             if (!["openai", "claude-code", "anthropic", "google", "ollama"].includes(candidateProvider)) throw new Error("Unsupported candidate provider: " + candidateProvider);
-            return { id: candidateId, provider: candidateProvider as "openai" | "claude-code" | "anthropic" | "google" | "ollama", model };
+            const configVersionId = configVersions.get(candidateId);
+            return { id: candidateId, provider: candidateProvider as "openai" | "claude-code" | "anthropic" | "google" | "ollama", model, ...(configVersionId ? { configVersionId } : {}) };
           });
+        for (const candidateId of configVersions.keys()) if (!candidates.some(candidate => candidate.id === candidateId)) throw new Error("Configuration snapshot references unknown candidate: " + candidateId);
+        for (const candidate of candidates) if (candidate.configVersionId) await loadAgentConfigVersion(target, candidate.configVersionId);
           const matrix = createModelComparisonMatrix({ id, name, repeats, candidates });
           const destination = path.join(target, ".forge", "experiments", id + ".json");
           const { mkdir, writeFile } = await import("node:fs/promises");
