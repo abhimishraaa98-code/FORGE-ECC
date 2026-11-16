@@ -56,6 +56,9 @@ describe("local dashboard server", () => {
     expect(html).toContain("Provider health");
     expect(html).toContain("Agent Performance");
     expect(html).toContain("Skill Experiments");
+    expect(html).toContain("Experiment History & Leaderboard");
+    expect(html).toContain("experimentLeaderboard");
+    expect(html).toContain("exportExperimentHistory");
     expect(html).toContain("Adaptive Agent Recommendations");
     expect(html).toContain("Per-agent scorecards");
     expect(html).toContain("Evaluation history");
@@ -168,6 +171,15 @@ describe("local dashboard server", () => {
     const optimization = await fetch(base + "/api/agent-optimization");
     expect(optimization.status).toBe(200);
     expect((await optimization.json()).status).toBe("insufficient-history");
+    const experimentHistory = await fetch(base + "/api/experiment-history");
+    expect(experimentHistory.status).toBe(200);
+    const experimentReport = await experimentHistory.json();
+    expect(experimentReport.entries).toEqual([]);
+    expect(experimentReport).toHaveProperty("reportsAnalyzed", 0);
+    const filteredExperimentHistory = await fetch(base + "/api/experiment-history?suite=engineering-basics&candidate=missing");
+    expect(filteredExperimentHistory.status).toBe(200);
+    expect((await filteredExperimentHistory.json()).entries).toEqual([]);
+
     const agentPerformance = await fetch(base + "/api/agent-performance");
     expect(agentPerformance.status).toBe(200);
     expect((await agentPerformance.json()).agents).toEqual([]);
