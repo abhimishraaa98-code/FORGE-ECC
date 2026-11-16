@@ -211,7 +211,7 @@ async function main(args: string[]): Promise<void> {
             createProvider,
           });
           const run = createReviewPlan(goal);
-          const skills = selectSkills(await loadSkillRegistry(target), goal);
+          const skillRegistry = await loadSkillRegistry(target);
           const hooks = await loadHooks(target);
           for (const record of run.tasks) {
             const applied = applyBeforeAgentHooks(record.task, hooks);
@@ -219,9 +219,9 @@ async function main(args: string[]): Promise<void> {
             if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
           }
           const memory = await buildProjectMemoryContext(target, goal);
-          const projectContext = [memory.text, formatSkillContext(skills)].filter(Boolean).join("\n\n");
+          const projectContext = memory.text;
           const started = Date.now();
-          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext });
+          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext, projectContextForTask: task => formatSkillContext(selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt)) });
           const durationMs = Date.now() - started;
           await saveRun(target, completed);
           await saveExecutionTrace(target, completed.id, router.traces);
@@ -231,7 +231,7 @@ async function main(args: string[]): Promise<void> {
             runId: completed.id, score: evaluation.score, passed: evaluation.passed,
             durationMs,
             estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
-            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => ({ agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: skills.map(skill => skill.id) })),
+            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => { const task = completed.tasks.find(record => record.task.id === item.taskId)?.task; const appliedSkills = task ? selectSkills(skillRegistry, task.agent + " " + task.title + " " + task.prompt) : []; return { agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: appliedSkills.map(skill => skill.id) }; }),
           };
         });
         report.suiteId = suite.id;
