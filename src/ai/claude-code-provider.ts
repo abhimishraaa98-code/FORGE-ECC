@@ -19,7 +19,7 @@ interface ClaudeJsonOutput {
 
 export function buildClaudeCodeArgs(prompt: string, model?: string): string[] {
   const args = ["-p", prompt, "--output-format", "json", "--permission-mode", "plan",
-    "--disallowedTools", "Bash,Edit,Write", "--max-turns", "3"];
+    "--disallowedTools", "Bash", "Edit", "Write", "--max-turns", "3"];
   if (model) args.push("--model", model);
   return args;
 }
