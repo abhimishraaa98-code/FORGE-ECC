@@ -6,6 +6,7 @@ import { startDashboard, type DashboardHandle } from "../src/core/dashboard-serv
 import { advanceRun, createRun, DemoAgentProvider } from "../src/core/orchestrator.js";
 import { saveRun } from "../src/core/run-store.js";
 import { saveExecutionTrace } from "../src/core/execution-trace.js";
+import { saveBenchmarkMatrix } from "../src/core/benchmark-matrix.js";
 
 let root = "";
 let dashboard: DashboardHandle | undefined;
@@ -18,6 +19,25 @@ afterEach(async () => {
 });
 
 describe("local dashboard server", () => {
+  it("serves the latest per-agent benchmark leaderboard", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-leaderboard-"));
+    const now = new Date().toISOString();
+    await saveBenchmarkMatrix(root, {
+      version: 1, matrixId: "agent-matrix", matrixName: "Agent comparison", suiteId: "engineering-basics", goal: "Review reliability", createdAt: now,
+      results: [{ candidateId: "candidate-a", provider: "openai", model: "test-model", repeat: 1, runId: "forge-test", score: 88, passed: true, durationMs: 100, estimatedTokens: 50, status: "completed", agentScores: [{ agent: "security-reviewer", caseId: "security", score: 88, passed: true, skillIds: ["secure-changes"] }] }],
+      summary: [],
+      agentSummary: [{ candidateId: "candidate-a", provider: "openai", model: "test-model", agent: "security-reviewer", trials: 1, completed: 1, averageScore: 88, passRate: 100, skillsObserved: ["secure-changes"] }],
+    });
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/agent-performance`);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.agents[0]).toMatchObject({ agent: "security-reviewer", averageScore: 88, passRate: 100 });
+    expect(data.agents[0].skillsObserved).toContain("secure-changes");
+  });
+
   it("serves the dashboard and read-only project APIs on loopback", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-dashboard-"));
     dashboard = await startDashboard({ projectPath: root, port: 0 });
