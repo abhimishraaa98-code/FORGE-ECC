@@ -36,6 +36,21 @@ describe("local run history", () => {
     });
   });
 
+  it("lists valid runs while skipping malformed history files", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-malformed-list-"));
+    const validRun = createRun("Keep valid history visible", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Draft a plan" },
+    ]);
+    await saveRun(root, validRun);
+    await writeFile(
+      path.join(root, ".forge", "runs", "run_malformed.json"),
+      "{ this is not valid JSON",
+    );
+
+    const history = await listRuns(root);
+    expect(history.map((run) => run.id)).toEqual([validRun.id]);
+  });
+
   it("rejects malformed persisted token usage", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-invalid-token-usage-"));
     const run = createRun("Reject corrupt budget", [
