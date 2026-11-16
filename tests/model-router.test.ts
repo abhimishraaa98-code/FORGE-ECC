@@ -24,7 +24,7 @@ describe("task-aware model routing", () => {
         name: model,
         async complete() {
           calls += 1;
-          if (calls < 3) throw new Error("AI provider request failed with HTTP 503.");
+          if (calls < 3) throw new Error("AI provider request failed with HTTP 429.");
           return { provider: model, model, content: "recovered proposal" };
         },
       }),
@@ -37,17 +37,17 @@ describe("task-aware model routing", () => {
     expect(router.traces[0]?.outcome).toBe("success");
   });
 
-  it("does not retry non-transient provider errors", async () => {
+  it("does not retry non-rate-limit provider errors, including ambiguous server failures", async () => {
     let calls = 0;
     const router = new ModelRouter({
       ...models,
       retryAttempts: 3,
       createProvider: model => ({
         name: model,
-        async complete() { calls += 1; throw new Error("HTTP 401 unauthorized"); },
+        async complete() { calls += 1; throw new Error("AI provider request failed with HTTP 503."); },
       }),
     });
-    await expect(router.complete({ task: { id: "docs", agent: "documentation-writer", title: "Docs", prompt: "Write docs" }, completedDependencies: [] })).rejects.toThrow("HTTP 401");
+    await expect(router.complete({ task: { id: "docs", agent: "documentation-writer", title: "Docs", prompt: "Write docs" }, completedDependencies: [] })).rejects.toThrow("HTTP 503");
     expect(calls).toBe(1);
     expect(router.traces[0]?.retries).toBe(0);
   });
