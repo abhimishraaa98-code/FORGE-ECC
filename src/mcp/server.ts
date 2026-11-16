@@ -1,13 +1,12 @@
 #!/usr/bin/env node
-import path from "node:path";
-import { realpath, stat } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { inspectProject } from "../core/project-inspector.js";
 import { mapArchitecture } from "../core/architecture-map.js";
 import { executeWorkspaceAgentTool } from "../core/workspace-tool-broker.js";
-import { assertWorkspacePathAllowed } from "../core/workspace-browser.js";
+import { createWorkspaceResolver } from "./workspace-path.js";
 import { loadPermissionPolicy } from "../core/permission-policy.js";
 import { auditProject } from "../core/quality-audit.js";
 import { analyzeGitChanges } from "../core/git-intelligence.js";
@@ -17,18 +16,7 @@ import { createReviewPlan } from "../core/review-planner.js";
 
 const WORKSPACE_ROOT = await realpath(process.env.FORGE_WORKSPACE ?? process.cwd());
 
-async function resolveWorkspace(input?: string): Promise<string> {
-  const candidate = await realpath(path.resolve(WORKSPACE_ROOT, input ?? "."));
-  const relative = path.relative(WORKSPACE_ROOT, candidate);
-  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
-    throw new Error("Requested project path is outside the configured FORGE workspace.");
-  }
-  assertWorkspacePathAllowed(relative.split(path.sep).join("/"));
-  const info = await stat(candidate);
-  if (!info.isDirectory()) throw new Error("Project path must be a directory.");
-  return candidate;
-}
-
+const resolveWorkspace = createWorkspaceResolver(WORKSPACE_ROOT);
 function result(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
 }
