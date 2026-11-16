@@ -173,4 +173,16 @@ describe("OpenAI-compatible provider", () => {
     }
   });
 
+  it("rejects provider URLs containing embedded credentials, queries, or fragments", () => {
+    for (const baseUrl of [
+      "https://user:pass@example.com/v1",
+      "https://api.example.com/v1?token=secret",
+      "https://api.example.com/v1#fragment",
+    ]) {
+      expect(() => new OpenAICompatibleProvider({
+        apiKey: "test-secret", model: "test-model", baseUrl,
+      })).toThrow("must not contain credentials, a query string, or a fragment");
+    }
+  });
+
 });
