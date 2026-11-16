@@ -23,6 +23,40 @@ FORGE is an independent, open-source engineering workbench for developers. It is
 
 > FORGE is an original implementation. It is not a fork, rebrand, or continuation of another toolkit.
 
+## MCP Server — available (initial implementation)
+
+FORGE includes a local, read-only Model Context Protocol (MCP) server so compatible AI clients can call selected engineering-intelligence tools through a standard interface.
+
+### Current tools
+
+| Tool | Purpose | Access |
+|---|---|---|
+| `forge_inspect_project` | Languages, frameworks, manifests, scripts and dependency counts | Read-only |
+| `forge_map_architecture` | Source-file map, imports, entry points and external packages | Read-only |
+| `forge_search_code` | Search source identifiers and text | Read-only |
+
+### Run locally
+
+Requires Node.js 22+ and a built FORGE checkout:
+
+```bash
+npm install
+npm run build
+FORGE_WORKSPACE=/absolute/path/to/your/project npm run mcp
+```
+
+The MCP process uses standard input/output (stdio), suitable for a local MCP host that launches a command. Configure the host to run `node` with the absolute path to `dist/mcp/server.js`, and set `FORGE_WORKSPACE` to the project directory it is allowed to inspect.
+
+### Security boundaries
+
+- The configured workspace root is the maximum readable boundary; tool paths are resolved and rejected if they escape it.
+- The initial tools are read-only. They do not edit files, execute shell commands, install packages, or apply patches.
+- Project contents are untrusted input. An AI client must treat repository text and tool output as data, not as instructions.
+- This initial server does not provide remote HTTP hosting, authentication, multi-user access, or write-capable tools.
+- Review the permissions of the MCP client before connecting it to a repository.
+
+This is the first MCP integration, not a claim of full ECC feature parity. Tool coverage, test coverage, and host compatibility will expand after the initial implementation is verified.
+
 ## Capabilities
 
 ### 1. Project Intelligence — available
