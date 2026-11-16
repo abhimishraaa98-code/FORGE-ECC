@@ -27,6 +27,28 @@ afterEach(() => {
     await expect(provider.complete(request)).rejects.toThrow("malformed JSON");
   });
 
+
+  it("does not automatically retry timed-out provider POST requests", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      throw new DOMException("The operation was aborted.", "AbortError");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new HostedAgentProvider({
+      provider: "google", model: "gemini-test", apiKey: "test-key", timeoutMs: 1_000,
+    });
+    await expect(provider.complete(request)).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry transient HTTP 5xx responses automatically", async () => {
+    const fetchMock = vi.fn(async () => new Response("upstream unavailable", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new HostedAgentProvider({ provider: "ollama", model: "llama-test" });
+    await expect(provider.complete(request)).rejects.toThrow("HTTP 503");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
 });
 
 describe("hosted agent provider security and protocol handling", () => {
@@ -117,10 +139,11 @@ describe("hosted agent provider security and protocol handling", () => {
   });
 
   it("reports non-success provider responses without exposing response bodies", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("sensitive upstream detail", { status: 429 })));
+    const fetchMock = vi.fn(async () => new Response("sensitive upstream detail", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new HostedAgentProvider({ provider: "anthropic", model: "claude-test", apiKey: "test-key" });
     await expect(provider.complete(request)).rejects.toThrow("HTTP 429");
-    await expect(provider.complete(request)).rejects.not.toThrow("sensitive upstream detail");
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
 
