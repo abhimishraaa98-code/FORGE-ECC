@@ -37,6 +37,16 @@ export async function validateReviewPatch(root:string,record:ReviewRecord,sugges
  let source:string;
  try {
   const realProject=await realpath(project);
+  const relative=path.relative(project,resolved);
+  const segments=relative.split(path.sep);
+  let cursor=project;
+  for(let index=0;index<segments.length;index++){
+   cursor=path.join(cursor,segments[index]!);
+   const segmentInfo=await lstat(cursor);
+   if(segmentInfo.isSymbolicLink())return {...base,file,hunks:parsed.hunks.length,reason:"Patch target path contains a symbolic link; symlinked files and parent directories are not allowed."};
+   if(index<segments.length-1&&!segmentInfo.isDirectory())return {...base,file,hunks:parsed.hunks.length,status:"stale",reason:"A parent directory in the patch path is missing or is not a directory."};
+   if(index===segments.length-1&&!segmentInfo.isFile())return {...base,file,hunks:parsed.hunks.length,reason:"Patch target must be a regular file, not a special file."};
+  }
   const info=await lstat(resolved);
   if(info.isSymbolicLink()||!info.isFile())return {...base,file,hunks:parsed.hunks.length,reason:"Patch target must be a regular file, not a symbolic link or special file."};
   const realTarget=await realpath(resolved);
