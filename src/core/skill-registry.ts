@@ -70,7 +70,7 @@ function parseSkill(id: string, content: string, filePath: string): SkillDefinit
 }
 
 async function collectSkillFiles(directory: string, root: string, depth: number, output: string[]): Promise<void> {
-  if (depth > MAX_SKILL_DEPTH || output.length >= MAX_SKILL_FILES) return;
+  if (depth > MAX_SKILL_DEPTH) return;
   let entries;
   try { entries = await readdir(directory, { withFileTypes: true }); }
   catch (error) {
@@ -79,7 +79,6 @@ async function collectSkillFiles(directory: string, root: string, depth: number,
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
-    if (output.length >= MAX_SKILL_FILES) break;
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
     const candidate = path.join(directory, entry.name);
     const info = await lstat(candidate);
@@ -91,7 +90,12 @@ async function collectSkillFiles(directory: string, root: string, depth: number,
     if (!info.isFile() || info.size > MAX_SKILL_BYTES) continue;
     if (entry.name === "SKILL.md" || (depth === 0 && entry.name.endsWith(".md"))) {
       const actual = await realpath(candidate);
-      if (isInside(root, actual)) output.push(actual);
+      if (isInside(root, actual)) {
+        if (output.length >= MAX_SKILL_FILES) {
+          throw new Error(`Workspace skill registry exceeds the maximum of ${MAX_SKILL_FILES} files.`);
+        }
+        output.push(actual);
+      }
     }
   }
 }
