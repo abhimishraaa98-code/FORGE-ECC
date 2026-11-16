@@ -128,6 +128,13 @@ export class ModelRouter implements AgentProvider {
       try {
         const fallback = this.options.createProvider(this.options.fallbackModel);
         const response = await fallback.complete(request);
+        const fallbackOutputEstimate = Math.ceil(response.content.length / 4);
+        if (maxOutput !== undefined && fallbackOutputEstimate > maxOutput) throw new Error(`FORGE budget exceeded: fallback output estimate ${fallbackOutputEstimate} exceeds per-task limit ${maxOutput}.`);
+        if (runLimit !== undefined && this.estimatedTokensUsed + fallbackOutputEstimate > runLimit) {
+          this.estimatedTokensUsed += fallbackOutputEstimate;
+          throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens after fallback response.`);
+        }
+        this.estimatedTokensUsed += fallbackOutputEstimate;
         const trace: AgentTrace = {
           taskId: request.task.id, agent: request.task.agent, tier: route.tier,
           model: response.model ?? this.options.fallbackModel, provider: response.provider,
