@@ -30,6 +30,8 @@ import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntellige
 import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
+import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
+import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 
 const VERSION = "0.34.0";
 
@@ -60,7 +62,7 @@ Commands:
   verify SCRIPT    Explicitly run one selected npm script and record its result
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
-  agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)
+  agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
   runs [path]      List locally saved run history
@@ -122,6 +124,29 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE could not load agents: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "skills": {
+      const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
+      try {
+        const skills = await loadSkillRegistry(target);
+        process.stdout.write("FORGE skill registry\n\n");
+        for (const skill of skills) process.stdout.write("  " + skill.id.padEnd(24) + " " + skill.name + " [" + skill.source + "]\n    " + skill.description + "\n");
+      } catch (error) {
+        process.stderr.write("Could not load skills: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "hooks": {
+      const target = path.resolve(rest.find(arg => !arg.startsWith("--")) ?? ".");
+      try {
+        const hooks = await loadHooks(target);
+        process.stdout.write(hooks.length ? hooks.map(hook => hook.id + " [" + hook.event + "] " + hook.action + ": " + hook.message).join("\n") + "\n" : "No lifecycle hooks configured.\n");
+      } catch (error) {
+        process.stderr.write("Could not load hooks: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
@@ -225,9 +250,20 @@ async function main(args: string[]): Promise<void> {
               return new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
             })();
         const plan = createReviewPlan(goal);
-        process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\n`);
+        const skills = selectSkills(await loadSkillRegistry(target), goal);
+        const skillContext = formatSkillContext(skills);
+        const hooks = await loadHooks(target);
+        for (const record of plan.tasks) {
+          const applied = applyBeforeAgentHooks(record.task, hooks);
+          record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\n\nHook guidance:\n" + applied.context.join("\n") : applied.task.prompt };
+          if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
+        }
+        process.stdout.write("Starting " + plan.id + " with provider " + provider.name + (model ? " (model " + model + ")" : "") + "\n");
+        if (skills.length) process.stdout.write("Selected skills: " + skills.map(skill => skill.id).join(", ") + "\n");
+        if (hooks.length) process.stdout.write("Loaded policy hooks: " + hooks.length + "\n");
         const memory = await buildProjectMemoryContext(target, goal);
-        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext: memory.text });
+        const projectContext = [memory.text, skillContext].filter(Boolean).join("\n\n");
+        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext });
         const saved = await saveRun(target, completed);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
         for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\n`);
