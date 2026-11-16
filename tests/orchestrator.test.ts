@@ -10,6 +10,17 @@ import {
 const provider = new DemoAgentProvider();
 
 describe("FORGE orchestration engine", () => {
+  it("rejects invalid concurrency limits instead of stalling", async () => {
+    const run = createRun("Invalid concurrency", [
+      { id: "one", agent: "planner", title: "One", prompt: "One" },
+    ]);
+    for (const maxConcurrency of [0, -1, 1.5, 17, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(advanceRun(run, provider, new Set(), { maxConcurrency }))
+        .rejects.toThrow("Maximum agent concurrency must be an integer between 1 and 16.");
+    }
+  });
+
+
   it("validates duplicate, missing, and cyclic dependencies", () => {
     expect(() => createRun("goal", [
       { id: "a", agent: "planner", title: "A", prompt: "Do A" },
