@@ -62,4 +62,25 @@ npm run build
 
 When a benchmark candidate specifies `configVersionId`, FORGE now materializes that verified snapshot into a fresh temporary workspace for the candidate run. Workspace agent and skill Markdown are loaded from that snapshot and passed as task guidance; the temporary configuration workspace is removed after the trial. The source project's configuration files are not overwritten.
 
-This isolates the candidate's agent/skill Markdown, declarative `.forge/hooks.json` policy and `.forge/permissions.json` policy in a temporary configuration workspace. The permission policy is validated and benchmark execution currently fails closed unless it is `proposal-only` with an empty `allowedTools` list; FORGE does not grant candidate-configured tools. Missing policy files resolve to this safe default, and snapshots record the default explicitly. Project memory remains shared, and agents still inspect the original project working tree (including its code). Provider credentials, environment variables and the execution host are not snapshotted or isolated. This is not a hermetic execution sandbox or a security boundary. The report records the snapshot ID and content fingerprint so configuration inputs can be traced. The same policy is enforced at the normal `forge run` and `forge resume` entry points: malformed policies fail closed, and any non-empty tool allowlist or `restricted` mode is rejected until a real audited executor exists. This is intentionally stricter than merely recording candidate permissions.\n\nExperiment manifests also record an allowlist of non-secret runtime settings (`CI`, `NODE_ENV`, locale/time-zone values and FORGE retry/token/duration limits) plus hashes for detected npm, pnpm, Yarn and Bun lockfiles. Manifest comparison reports when these values differ. Environment variables outside this allowlist—including API keys, tokens and arbitrary custom variables—are deliberately excluded. These records improve reproducibility but do not freeze the host, operating system packages, network responses, provider-side model versions or external services.
+This isolates the candidate's agent/skill Markdown, declarative `.forge/hooks.json` policy and `.forge/permissions.json` policy in a temporary configuration workspace. The permission policy is validated and benchmark execution currently fails closed unless it is `proposal-only` with an empty `allowedTools` list; FORGE does not grant candidate-configured tools. Missing policy files resolve to this safe default, and snapshots record the default explicitly. Project memory remains shared, and agents still inspect the original project working tree (including its code). Provider credentials, environment variables and the execution host are not snapshotted or isolated. This is not a hermetic execution sandbox or a security boundary. The report records the snapshot ID and content fingerprint so configuration inputs can be traced. The same policy is enforced at the normal `forge run` and `forge resume` entry points: malformed policies fail closed, and any non-empty tool allowlist or `restricted` mode is rejected until a real audited executor exists. This is intentionally stricter than merely recording candidate permissions.
+
+Experiment manifests also record an allowlist of non-secret runtime settings (`CI`, `NODE_ENV`, locale/time-zone values and FORGE retry/token/duration limits) plus hashes for detected npm, pnpm, Yarn and Bun lockfiles. Manifest comparison reports when these values differ. Environment variables outside this allowlist—including API keys, tokens and arbitrary custom variables—are deliberately excluded. These records improve reproducibility but do not freeze the host, operating system packages, network responses, provider-side model versions or external services.
+
+
+## MCP read-only workspace tools
+
+Build FORGE and launch its stdio MCP server:
+
+```bash
+npm run build
+FORGE_WORKSPACE=/absolute/path/to/project npm run mcp
+```
+
+The server exposes bounded, read-only tools for project inspection, architecture mapping, code search, quality auditing, Git change analysis, specialist discovery, review-plan creation, and workspace browsing:
+
+- `forge_list_files` lists supported source/documentation files (maximum 200 entries); hidden paths, dependency/generated directories, secret-like filenames and symlinks are excluded.
+- `forge_read_file` reads supported text files up to 128 KiB; traversal, symlinks, secret-like filenames and binary content are rejected.
+- `forge_search_code`, `forge_inspect_project`, `forge_map_architecture`, `forge_quality_audit`, and `forge_git_intelligence` provide static, read-only project intelligence.
+- `forge_create_review_plan` creates a workflow draft; it does not execute it.
+
+All project paths are resolved under `FORGE_WORKSPACE`. These MCP tools do not write project files, run project scripts, or provide shell access. The current MCP surface is intentionally read-only; write-capable tools will require a separately reviewed executor, explicit per-tool permissions, approval controls and audit records.
