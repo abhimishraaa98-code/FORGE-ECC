@@ -103,7 +103,8 @@ export class OpenAICompatibleProvider implements AgentProvider {
       });
       if (!response.ok) {
         // Do not include response bodies: providers may echo sensitive request data.
-        await discardProviderResponse(response);\n        throw new Error(`AI provider request failed with HTTP ${response.status}.`);
+        await discardProviderResponse(response);
+        throw new Error(`AI provider request failed with HTTP ${response.status}.`);
       }
       const payload: unknown = await readProviderJson(response);
       if (!payload || typeof payload !== "object" || !("choices" in payload) || !Array.isArray(payload.choices)) {
