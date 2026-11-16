@@ -25,18 +25,21 @@ function validPatch(patch:string,file:string):boolean{
  if(lines.some(line=>line.startsWith("--- /")||line.startsWith("+++ /")||line.includes("../")))return false;
  return lines.some(line=>line.startsWith("@@ "));
 }
-function parseSuggestions(value:unknown,files:Set<string>):AIReviewSuggestion[]{
+function parseSuggestions(value:unknown,fileLineCounts:Map<string,number>):AIReviewSuggestion[]{
  if(!Array.isArray(value))throw new Error("AI review response must contain a suggestions array.");
- const output:AIReviewSuggestion[]=[];
- for(const item of value.slice(0,40)){
-  if(!item||typeof item!=="object")continue;
+ const output:AIReviewSuggestion[]=[];const seen=new Set<string>();
+ for(const item of value.slice(0,80)){
+  if(!item||typeof item!=="object"||Array.isArray(item))continue;
   const x=item as Record<string,unknown>;
-  if(typeof x.file!=="string"||!files.has(x.file)||!Number.isInteger(x.line)||Number(x.line)<1)continue;
-  if(!["high","medium","low"].includes(String(x.severity)))continue;
-  if(!["low","medium","high"].includes(String(x.confidence)))continue;
-  if(typeof x.title!=="string"||typeof x.explanation!=="string"||typeof x.recommendation!=="string")continue;
+  if(typeof x.file!=="string"||!fileLineCounts.has(x.file))continue;
+  if(typeof x.line!=="number"||!Number.isSafeInteger(x.line)||x.line<1||x.line>(fileLineCounts.get(x.file)??0))continue;
+  if(x.severity!=="high"&&x.severity!=="medium"&&x.severity!=="low")continue;
+  if(x.confidence!=="low"&&x.confidence!=="medium"&&x.confidence!=="high")continue;
+  if(typeof x.title!=="string"||!x.title.trim()||typeof x.explanation!=="string"||!x.explanation.trim()||typeof x.recommendation!=="string"||!x.recommendation.trim())continue;
+  const title=x.title.trim().slice(0,180);const key=[x.file,x.line,title.toLowerCase().replace(/\s+/g," ")].join(":");
+  if(seen.has(key))continue;seen.add(key);
   const patch=typeof x.patch==="string"&&x.patch.length<=12000&&validPatch(x.patch,x.file)?x.patch:undefined;
-  output.push({file:x.file,line:Number(x.line),severity:x.severity as AIReviewSuggestion["severity"],title:x.title.slice(0,180),explanation:x.explanation.slice(0,1200),recommendation:x.recommendation.slice(0,1200),confidence:x.confidence as AIReviewSuggestion["confidence"],...(patch?{patch}:{})});
+  output.push({file:x.file,line:x.line,severity:x.severity,title,explanation:x.explanation.trim().slice(0,1200),recommendation:x.recommendation.trim().slice(0,1200),confidence:x.confidence,...(patch?{patch}:{})});
  }
  return output;
 }
@@ -70,8 +73,10 @@ export async function generateAIReview(report:CodeReviewReport,provider:AgentPro
   "Files: "+JSON.stringify(excerpts)
  ].join("\n\n")},completedDependencies:[]});
  let parsed:unknown;try{parsed=JSON.parse(response.content);}catch{throw new Error("AI provider response was not valid JSON. No AI findings were accepted.");}
- const suggestions=parseSuggestions((parsed as {suggestions?:unknown})?.suggestions,new Set(excerpts.map(x=>x.file)));
- return {provider:response.provider,...(response.model ? {model:response.model} : {}),suggestions,warnings:excerpts.length<report.filesReviewed.length?["AI review context was capped; not every reviewed file was sent to the provider."]:[]};
+ const fileLineCounts=new Map(excerpts.map(x=>[x.file,x.content.split(/\r?\n/).length]));
+ const suggestions=parseSuggestions((parsed as {suggestions?:unknown})?.suggestions,fileLineCounts);
+ const warnings=[...(skippedFiles.length?[skippedFiles.length+" file path(s) were skipped because they were missing, invalid, or outside the project root."]:[]),...(excerpts.length+skippedFiles.length<report.filesReviewed.length?["AI review context was capped; not every reviewed file was sent to the provider."]:[])];
+ return {provider:response.provider,...(response.model ? {model:response.model} : {}),suggestions,warnings};
 }
 export function formatAIReview(result:AIReviewResult):string{
  return ["## AI review suggestions","- Provider: "+result.provider+(result.model?" ("+result.model+")":""),...(result.suggestions.length?result.suggestions.map(s=>"- **AI "+s.severity.toUpperCase()+"** — `"+s.file+":"+s.line+"`: "+s.title+"\n  "+s.explanation+"\n  Suggested next step: "+s.recommendation+"\n  Confidence: "+s.confidence+(s.patch?"\n  Patch preview (not applied):\n```diff\n"+s.patch+"\n```":"")):["- No valid AI suggestions returned."]),...result.warnings.map(w=>"- "+w),"- AI output is advisory and may be incorrect. Verify each finding before acting."].join("\n");

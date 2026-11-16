@@ -28,6 +28,18 @@ describe("AI code review",()=>{
   }finally{await rm(parent,{recursive:true,force:true});}
  });
 
+ it("rejects out-of-range lines, invalid fields, and duplicate findings",async()=>{
+  const provider:AgentProvider={name:"strict",complete:vi.fn(async()=>({provider:"strict",content:JSON.stringify({suggestions:[
+   {file:"package.json",line:99999,severity:"high",title:"Out of range",explanation:"x",recommendation:"x",confidence:"high"},
+   {file:"package.json",line:1,severity:"critical",title:"Invalid severity",explanation:"x",recommendation:"x",confidence:"high"},
+   {file:"package.json",line:1,severity:"low",title:" ",explanation:"x",recommendation:"x",confidence:"high"},
+   {file:"package.json",line:1,severity:"low",title:"Duplicate",explanation:"First",recommendation:"Verify",confidence:"medium"},
+   {file:"package.json",line:1,severity:"low",title:" duplicate ",explanation:"Second",recommendation:"Verify",confidence:"medium"}
+  ]})}))};
+  const result=await generateAIReview(base,provider);
+  expect(result.suggestions).toHaveLength(1);
+  expect(result.suggestions[0]?.title).toBe("Duplicate");
+ });
  it("rejects malformed provider output",async()=>{
   const provider:AgentProvider={name:"bad",complete:vi.fn(async()=>({provider:"bad",content:"not json"}))};
   await expect(generateAIReview(base,provider)).rejects.toThrow("not valid JSON");
