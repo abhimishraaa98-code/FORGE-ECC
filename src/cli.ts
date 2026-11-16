@@ -36,7 +36,7 @@ import { generateRemediationPlan, formatRemediationPlan } from "./core/remediati
 import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
-import { assertProposalOnlyPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
+import { assertProposalOnlyPolicy, assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -749,16 +749,19 @@ async function main(args: string[]): Promise<void> {
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
         if (!runId) throw new Error("Usage: forge resume RUN_ID [--path PROJECT]");
-        assertProposalOnlyPolicy(await loadPermissionPolicy(target), "FORGE resume");
+        const permissions = await loadPermissionPolicy(target);
+        const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
+        assertSupportedAgentPolicy(permissions, providerChoice, "FORGE resume");
         const savedRun = await loadRun(target, runId);
         if (savedRun.status !== "pending" && savedRun.status !== "awaiting_approval") throw new Error("Only pending or approval-cleared runs can be resumed. Use `forge replay` for a failed run.");
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
+        assertSupportedAgentPolicy(permissions, providerChoice, "FORGE run");
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
         const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
         if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code or FORGE_API_KEY before resuming.");
-        const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+        const createProvider = (selectedModel: string) => providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model: selectedModel }) : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel, { workspacePath: target, permissionPolicy: permissions });
         const router = new ModelRouter({ fastModel: process.env.FORGE_MODEL_FAST ?? baseModel, balancedModel: process.env.FORGE_MODEL_BALANCED ?? baseModel, reasoningModel: process.env.FORGE_MODEL_REASONING ?? baseModel, ...(process.env.FORGE_FALLBACK_MODEL ? { fallbackModel: process.env.FORGE_FALLBACK_MODEL } : {}), retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2), retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500), ...(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK ? { maxInputTokensPerTask: Number(process.env.FORGE_MAX_INPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK ? { maxOutputTokensPerTask: Number(process.env.FORGE_MAX_OUTPUT_TOKENS_PER_TASK) } : {}), ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN ? { maxEstimatedTokensPerRun: Number(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_RUN) } : {}),
           ...(process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT ? { maxEstimatedTokensPerAgent: readAgentTokenBudgets()! } : {}),
           ...(process.env.FORGE_MAX_TASK_DURATION_MS ? { maxTaskDurationMs: Number(process.env.FORGE_MAX_TASK_DURATION_MS) } : {}),
@@ -826,7 +829,7 @@ async function main(args: string[]): Promise<void> {
       const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd).join(" ").trim() : "";
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       try {
-        assertProposalOnlyPolicy(await loadPermissionPolicy(target), "FORGE run");
+        const permissions = await loadPermissionPolicy(target);
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
         const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
@@ -835,7 +838,7 @@ async function main(args: string[]): Promise<void> {
         const createProvider = (selectedModel: string) => {
           if (providerChoice === "claude-code") return new ClaudeCodeProvider({ cwd: target, model: selectedModel });
           if (["openai", "anthropic", "google", "ollama"].includes(providerChoice)) {
-            return createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel);
+            return createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: providerChoice }, selectedModel, { workspacePath: target, permissionPolicy: permissions });
           }
           throw new Error("Unsupported FORGE_AI_PROVIDER. Choose claude-code, openai, anthropic, google or ollama.");
         };
