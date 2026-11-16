@@ -625,3 +625,12 @@ forge benchmark-regression model-comparison --path .
 The report compares matching provider/model candidates against the most recent earlier comparable matrix. A score drop of at least 5 points or pass-rate drop of at least 20 percentage points blocks the report (exit code 2). A 25% or greater increase in wall-clock time or estimated token use, score standard deviation of at least 15, or failed trials produces warnings. Missing or incomparable baselines are reported as insufficient history rather than release-ready.
 
 The local dashboard exposes the same analysis in Regression Intelligence. These thresholds are configurable in source for now. The report is a signal, not a release guarantee: use identical code snapshots, prompts, suite definitions, model versions and runtime conditions. Token comparisons are estimated, not billed usage.
+
+
+### Agent Evaluation Intelligence
+
+Automated benchmark-matrix trials now retain per-agent evaluation cases alongside each candidate's overall score. The matrix report includes agent scorecards grouped by candidate and agent, with average rubric score, pass rate, completed evaluation count and the skill IDs actually selected for that task.
+
+Skills are selected per task (agent, title and prompt) and supplied as task-specific context, rather than applying one global skill bundle to every agent. The latest matrix leaderboard is available in the local dashboard under **Agent Performance**. Historical comparisons also flag per-agent score drops of at least 5 points or pass-rate drops of at least 20 percentage points.
+
+Skill IDs are recorded as observed context. A scorecard does not establish that a skill caused a score change; meaningful skill-effectiveness experiments require controlled runs that vary the skill while holding model, task, suite and environment constant. Only agents represented by cases in the selected evaluation suite receive scorecards.
