@@ -226,7 +226,8 @@ async function main(args: string[]): Promise<void> {
             })();
         const plan = createReviewPlan(goal);
         process.stdout.write(`Starting ${plan.id} with provider ${provider.name}...${model ? ` (model ${model})` : ""}\n`);
-        const memory = await buildProjectMemoryContext(target, goal);\n        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext: memory.text });
+        const memory = await buildProjectMemoryContext(target, goal);
+        const completed = await advanceRun(plan, provider, new Set(), { maxConcurrency: 4, projectContext: memory.text });
         const saved = await saveRun(target, completed);
         process.stdout.write(`Run status: ${completed.status}\nSaved history: ${path.relative(target, saved)}\n`);
         for (const task of completed.tasks) process.stdout.write(`  ${task.status.padEnd(18)} ${task.task.agent}: ${task.task.title}\n`);
