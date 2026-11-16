@@ -168,7 +168,8 @@ async function main(args: string[]): Promise<void> {
       const suiteIndex = rest.indexOf("--suite"), goalIndex = rest.indexOf("--goal"), pathIndex = rest.indexOf("--path");
       const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
       const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
-      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1).takeWhile(arg => !arg.startsWith("--")).join(" ").trim() : "";
+      const goalEnd = goalIndex >= 0 ? rest.findIndex((arg, index) => index > goalIndex && arg.startsWith("--")) : -1;
+      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, goalEnd >= 0 ? goalEnd : rest.length).join(" ").trim() : "";
       if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\\n"); process.exitCode = 1; return; }
       try {
         const config = await loadBenchmarkMatrix(path.resolve(configFile));
