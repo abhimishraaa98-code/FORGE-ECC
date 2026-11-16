@@ -294,7 +294,7 @@ async function main(args: string[]): Promise<void> {
       }
       try {
         const skillIds = skills.split(",").map(item => item.trim()).filter(Boolean);
-        const matrix = createSkillExperimentMatrix({ id, name, baselineCandidateId: "baseline", treatmentCandidateId: "treatment", provider, model, repeats, skillIds });
+        const matrix = createSkillExperimentMatrix({ id, name, baselineCandidateId: "baseline", treatmentCandidateId: "treatment", provider: provider as "openai" | "claude-code" | "anthropic" | "google" | "ollama", model, repeats, skillIds });
         const registry = await loadSkillRegistry(target);
         const unknown = skillIds.filter(skillId => !registry.some(skill => skill.id === skillId));
         if (unknown.length) throw new Error("Unknown workspace/built-in skill(s): " + unknown.join(", "));
