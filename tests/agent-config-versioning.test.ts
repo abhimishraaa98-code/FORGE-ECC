@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, unlink, writeFile } from "node:f
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadHooks } from "../src/core/hook-engine.js";\nimport { loadPermissionPolicy } from "../src/core/permission-policy.js";
+import { loadHooks } from "../src/core/hook-engine.js";\nimport { loadPermissionPolicy, validatePermissionPolicy } from "../src/core/permission-policy.js";
 import {
   approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions,
   listAgentConfigVersions, loadAgentConfigVersion, materializeAgentConfigVersion
@@ -80,6 +80,11 @@ describe("agent configuration versioning", () => {
     await mkdir(isolated);
     await materializeAgentConfigVersion(root, version.id, isolated);
     await expect(loadHooks(isolated)).resolves.toEqual([]);
+  });
+  it("rejects benchmark permission policies that enable tools or unknown fields", () => {
+    expect(() => validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["shell"] })).not.toThrow();
+    expect(() => validatePermissionPolicy({ version: 1, mode: "proposal-only", allowedTools: ["shell"] })).not.toThrow();
+    expect(() => validatePermissionPolicy({ version: 1, mode: "proposal-only", allowedTools: [], execute: true })).toThrow("unsupported fields");
   });
   it("requires a workspace configuration to snapshot", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "forge-agent-config-empty-"));
