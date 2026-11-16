@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
+import { createSandboxComplianceReport, formatSandboxComplianceReport } from "../src/core/sandbox-compliance.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -150,5 +151,30 @@ describe("container verification profile policy", () => {
   });
   it("keeps balanced profile explicit about rootless being optional", () => {
     expect(getSandboxSecurityProfile("balanced").requireRootless).toBe(false);
+  });
+});
+
+describe("sandbox compliance reporting", () => {
+  it("reports all configured controls and observed runtime facts", () => {
+    const report = createSandboxComplianceReport(getSandboxSecurityProfile("balanced"), {
+      available: true, rootless: true, imageDigestPinned: true,
+    });
+    expect(report.status).toBe("compliant");
+    expect(report.checks.every(check => check.status === "pass")).toBe(true);
+    expect(formatSandboxComplianceReport(report)).toContain("Immutable image reference");
+  });
+  it("marks unavailable runtime as non-compliant", () => {
+    const report = createSandboxComplianceReport(getSandboxSecurityProfile("balanced"), {
+      available: false, rootless: null, imageDigestPinned: false,
+    });
+    expect(report.status).toBe("non-compliant");
+    expect(report.checks.some(check => check.id === "runtime" && check.status === "fail")).toBe(true);
+  });
+  it("fails hardened compliance when rootless mode is unknown", () => {
+    const report = createSandboxComplianceReport(getSandboxSecurityProfile("hardened"), {
+      available: true, rootless: null, imageDigestPinned: true,
+    });
+    expect(report.status).toBe("non-compliant");
+    expect(report.checks.some(check => check.id === "rootless" && check.status === "fail")).toBe(true);
   });
 });
