@@ -43,6 +43,7 @@ import { loadAgentConfigVersion } from "./core/agent-config-versioning.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
 import { buildAgentEvaluationIntelligence, formatAgentEvaluationIntelligence } from "./core/agent-evaluation-intelligence.js";
+import { assessAgentEvolution, formatAgentEvolutionAssessment } from "./core/agent-evolution.js";
 import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions } from "./core/agent-config-versioning.js";
 import { decideAgentConfigRelease, formatAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./core/agent-config-release.js";
 import { captureExperimentManifest, compareExperimentManifests, formatExperimentManifest, loadExperimentManifest, saveExperimentManifest } from "./core/experiment-manifest.js";
@@ -88,6 +89,7 @@ Commands:
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
   agent-intelligence [--suite ID] [--candidate ID] [--limit N] [--path PROJECT]  Score agent effectiveness across benchmark history
+  agent-evolution MATRIX_ID [--path PROJECT]  Evaluate a controlled baseline/treatment experiment
   agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   agent-release <prepare|list|show|approve|reject> [options]  Gate agent configuration promotion
   experiment <capture|show|compare> [options]  Capture and compare reproducible benchmark manifests
@@ -237,6 +239,28 @@ async function main(args: string[]): Promise<void> {
         } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
       } catch (error) {
         process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "agent-evolution": {
+      const matrixId = rest[0];
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      if (!matrixId || matrixId.startsWith("--")) {
+        process.stderr.write("Usage: forge agent-evolution MATRIX_ID --path PROJECT\\n");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const history = await listBenchmarkMatrices(target);
+        const report = history.filter(item => item.matrixId === matrixId).sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0];
+        if (!report) throw new Error("Benchmark matrix not found: " + matrixId);
+        const assessment = assessAgentEvolution(report);
+        process.stdout.write(formatAgentEvolutionAssessment(assessment) + "\\n");
+        if (assessment.status !== "eligible-for-review") process.exitCode = assessment.status === "insufficient-evidence" ? 2 : 1;
+      } catch (error) {
+        process.stderr.write("FORGE agent evolution failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
