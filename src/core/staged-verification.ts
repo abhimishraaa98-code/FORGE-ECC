@@ -86,7 +86,7 @@ export async function verifyStagedPatch(
   if (!workspaceReal.startsWith(stageReal + path.sep)) throw new Error("Staged workspace resolves outside its stage directory.");
   const snapshotFingerprint = await fingerprintStagedWorkspace(workspaceReal);
   if (snapshotFingerprint.sha256 !== manifest.workspaceSha256 ||
-      snapshotFingerprint.files !== manifest.snapshotFiles) {
+      snapshotFingerprint.files !== manifest.snapshotFiles || snapshotFingerprint.bytes !== manifest.snapshotBytes) {
     throw new Error("Staged workspace changed after staging; refusing verification.");
   }
   const stagedSource = path.resolve(project, manifest.stagedFile);
