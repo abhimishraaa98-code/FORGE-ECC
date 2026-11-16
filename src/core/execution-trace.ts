@@ -41,7 +41,7 @@ async function withTraceWriteLock<T>(directory: string, runId: string, action: (
   try {
     await writeFile(path.join(lock, "owner.json"), JSON.stringify({
       token, pid: process.pid, startedAt: new Date().toISOString(),
-    }) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    }) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
     return await action();
   } finally {
     try {
