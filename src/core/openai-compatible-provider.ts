@@ -1,3 +1,4 @@
+import { readProviderJson } from "./provider-response.js";
 import type { AgentProvider, AgentRequest, AgentResponse } from "./orchestrator.js";
 import { executeWorkspaceAgentTool, WORKSPACE_AGENT_TOOLS, type WorkspaceAgentToolName } from "./workspace-tool-broker.js";
 import type { ForgePermissionPolicy } from "./permission-policy.js";
@@ -100,7 +101,7 @@ export class OpenAICompatibleProvider implements AgentProvider {
         // Do not include response bodies: providers may echo sensitive request data.
         throw new Error(`AI provider request failed with HTTP ${response.status}.`);
       }
-      const payload: unknown = await response.json();
+      const payload: unknown = await readProviderJson(response);
       if (!payload || typeof payload !== "object" || !("choices" in payload) || !Array.isArray(payload.choices)) {
         throw new Error("AI provider returned an unexpected response format.");
       }
