@@ -36,12 +36,12 @@ function parseFrontmatter(content: string): { metadata: Map<string, string>; bod
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
   if (!match) return { metadata: new Map(), body: content.trim() };
   const metadata = new Map<string, string>();
-  for (const line of match[1].split(/\r?\n/)) {
+  for (const line of (match[1] ?? "").split(/\r?\n/)) {
     const entry = line.match(/^([a-zA-Z][a-zA-Z0-9_-]*):\s*(.*?)\s*$/);
     if (!entry) continue;
-    let value = entry[2].trim();
+    let value = (entry[2] ?? "").trim();
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
-    metadata.set(entry[1].toLowerCase(), value);
+    metadata.set((entry[1] ?? "").toLowerCase(), value);
   }
   return { metadata, body: content.slice(match[0].length).trim() };
 }
