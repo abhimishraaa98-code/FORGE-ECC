@@ -41,6 +41,12 @@ describe("isolated approved patch staging", () => {
     expect(await readFile(path.join(root, staged.stagedFile), "utf8")).toBe("const a = 2;\n");
     expect(staged.stagedFile).toContain(".forge/patch-workspaces/");
   });
+  it("does not allow the same approval to stage a second time", async () => {
+    const approval = await fixture();
+    const first = await stageApprovedPatch(root, approval.id);
+    expect(await readFile(path.join(root, first.stagedFile), "utf8")).toBe("const a = 2;\\n");
+    await expect(stageApprovedPatch(root, approval.id)).rejects.toThrow(/already been used|already claimed/);
+  });
   it("refuses staging when the source changed after approval", async () => {
     const approval = await fixture();
     await writeFile(path.join(root, "src/a.ts"), "const a = 3;\n");
