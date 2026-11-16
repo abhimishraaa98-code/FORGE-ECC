@@ -294,7 +294,7 @@ async function main(args: string[]): Promise<void> {
           const saved = await saveExperimentManifest(target, manifest);
           process.stdout.write(formatExperimentManifest(manifest) + "\\nSaved: " + path.relative(target, saved) + "\\n");
         } else if (action === "show") {
-          const id = args[0]; if (!id) throw new Error("Usage: forge experiment show EXPERIMENT_ID --path PROJECT");
+          const id = rest[1]; if (!id) throw new Error("Usage: forge experiment show EXPERIMENT_ID --path PROJECT");
           process.stdout.write(formatExperimentManifest(await loadExperimentManifest(target, id)) + "\\n");
         } else if (action === "compare") {
           const ids = rest.slice(1).filter((arg,index,all) => !arg.startsWith("--") && all[index-1] !== "--path");
