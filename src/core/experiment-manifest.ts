@@ -75,8 +75,7 @@ export async function saveExperimentManifest(projectPath: string, manifest: Expe
   const directory = path.join(path.resolve(projectPath), ".forge", "experiment-manifests");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const destination = path.join(directory, manifest.id + ".json");
-  await writeFile(destination, JSON.stringify(manifest, null, 2) + "
-", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  await writeFile(destination, JSON.stringify(manifest, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
   return destination;
 }
 export async function loadExperimentManifest(projectPath: string, id: string): Promise<ExperimentManifest> {
@@ -85,9 +84,9 @@ export async function loadExperimentManifest(projectPath: string, id: string): P
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid experiment manifest.");
   const item = value as ExperimentManifest;
   if (item.version !== 1 || item.id !== id || typeof item.fingerprint !== "string" || !/^[a-f0-9]{64}$/.test(item.fingerprint) || !item.source || !item.inputs || !item.provider || !item.runtime || !item.configuration) throw new Error("Malformed experiment manifest.");
+  item.environment ??= { variables: [], lockfiles: [] };
   return item;
 }
 export function formatExperimentManifest(item: ExperimentManifest): string {
-  return ["FORGE Experiment Manifest " + item.id, "Fingerprint: sha256:" + item.fingerprint, "Git: " + (item.source.commit ?? "unavailable") + " · working tree " + (item.source.dirty === null ? "unknown" : item.source.dirty ? "dirty" : "clean"), "Runtime: " + item.runtime.node + " · " + item.runtime.platform + "/" + item.runtime.architecture, "Environment variables recorded: " + item.environment.variables.length, "Dependency lockfiles recorded: " + item.environment.lockfiles.map(file => file.name).join(", "), "Matrix: " + item.inputs.matrixId + " · " + item.inputs.matrixSha256, "Suite: " + item.inputs.suiteId + " · " + item.inputs.suiteSha256, "Lockfile: " + (item.inputs.packageLockSha256 ?? "not found"), "Provider: " + item.provider.provider + " / " + item.provider.model + " · " + (item.provider.baseUrlHost ?? "default endpoint"), "Pinned configs: " + item.configuration.agentConfigFingerprints.length].join("
-");
+  return ["FORGE Experiment Manifest " + item.id, "Fingerprint: sha256:" + item.fingerprint, "Git: " + (item.source.commit ?? "unavailable") + " · working tree " + (item.source.dirty === null ? "unknown" : item.source.dirty ? "dirty" : "clean"), "Runtime: " + item.runtime.node + " · " + item.runtime.platform + "/" + item.runtime.architecture, "Environment variables recorded: " + item.environment.variables.length, "Dependency lockfiles recorded: " + item.environment.lockfiles.map(file => file.name).join(", "), "Matrix: " + item.inputs.matrixId + " · " + item.inputs.matrixSha256, "Suite: " + item.inputs.suiteId + " · " + item.inputs.suiteSha256, "Lockfile: " + (item.inputs.packageLockSha256 ?? "not found"), "Provider: " + item.provider.provider + " / " + item.provider.model + " · " + (item.provider.baseUrlHost ?? "default endpoint"), "Pinned configs: " + item.configuration.agentConfigFingerprints.length].join("\n");
 }
