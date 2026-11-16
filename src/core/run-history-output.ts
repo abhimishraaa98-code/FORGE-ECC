@@ -40,6 +40,10 @@ export function formatRunHistoryJson(runs: readonly RunRecord[]): string {
           case "completed": counts.completedTaskCount += 1; break;
           case "failed": counts.failedTaskCount += 1; break;
           case "blocked": counts.blockedTaskCount += 1; break;
+          default: {
+            const exhaustiveStatus: never = task.status;
+            throw new Error(`Unsupported task status: ${String(exhaustiveStatus)}`);
+          }
         }
         return counts;
       }, {
