@@ -64,6 +64,22 @@ describe("local dashboard server", () => {
     });
     expect(invalid.status).toBe(500);
     expect(await readFile(path.join(root, ".forge", "skills", "api-safety.md"), "utf8")).toContain("Validate every boundary");
+    const snapshot = await fetch(base + "/api/config-snapshots", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ note: "dashboard studio test" })
+    });
+    expect(snapshot.status).toBe(201);
+    const version = await snapshot.json();
+    expect(version.status).toBe("candidate");
+    expect(version.files).toHaveLength(2);
+    const approval = await fetch(base + "/api/config-snapshots/" + version.id + "/approve", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reviewer: "test-reviewer" })
+    });
+    expect(approval.status).toBe(200);
+    expect((await approval.json()).status).toBe("approved");
+    const versions = await fetch(base + "/api/config-snapshots");
+    expect((await versions.json())[0].approvedBy).toBe("test-reviewer");
   });
 
   it("serves the dashboard and read-only project APIs on loopback", async () => {
