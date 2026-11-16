@@ -51,8 +51,11 @@ export function chooseModelRoute(request: AgentRequest, models: Pick<ModelRouter
 
 
 function isRetryableProviderError(error: unknown): boolean {
+  // Retry only an explicit rate-limit response. A timeout, connection loss, or
+  // server error can happen after the provider accepted and billed the request;
+  // replaying it automatically could duplicate paid generation work.
   const message = error instanceof Error ? error.message : String(error);
-  return /HTTP (408|409|425|429|5\d\d)\b|timed? ?out|timeout|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|network error/i.test(message);
+  return /HTTP 429\\b/i.test(message);
 }
 
 export class ModelRouter implements AgentProvider {
