@@ -30,6 +30,7 @@ import { stageApprovedPatch, reviewStagedPatch } from "./core/patch-application.
 import { verifyStagedPatch } from "./core/staged-verification.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "./core/sandbox-runtime.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "./core/sandbox-lifecycle.js";
+import { getSandboxSecurityProfile, listSandboxSecurityProfiles } from "./core/sandbox-security-profiles.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "./core/sandbox-cleanup-audit.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
@@ -150,7 +151,7 @@ Commands:
   patch-check ID N  Dry-run validate AI patch N from a saved review
   regression [path] Compare verification history with Git changes and impact
   verify --list    Discover available npm scripts without running them
-  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them\n  sandbox-cleanup-history [PATH] Show recorded cleanup activity
+  verify SCRIPT    Explicitly run one selected npm script and record its result\n  patch-verify ID SCRIPT  Verify an approved staged patch in a temporary workspace\n  sandbox-status         Inspect Docker availability and advertised security options\n  sandbox-profiles [NAME] List or inspect built-in sandbox security profiles\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them\n  sandbox-cleanup-history [PATH] Show recorded cleanup activity
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
@@ -1031,6 +1032,28 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE verification failed: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "sandbox-profiles": {
+      const selected = rest[0];
+      try {
+        const profiles = selected ? [getSandboxSecurityProfile(selected)] : listSandboxSecurityProfiles();
+        for (const profile of profiles) {
+          process.stdout.write([
+            profile.name + " — " + profile.description,
+            "  network=" + profile.network + ", readOnlyRoot=" + profile.readOnlyRoot +
+              ", dropAllCapabilities=" + profile.dropAllCapabilities +
+              ", noNewPrivileges=" + profile.noNewPrivileges,
+            "  memory=" + profile.maxMemory + ", cpus=" + profile.maxCpus +
+              ", processes=" + profile.maxProcesses +
+              ", requireRootless=" + profile.requireRootless,
+            "",
+          ].join("\\n"));
+        }
+      } catch (error) {
+        process.stderr.write("FORGE sandbox profiles failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
