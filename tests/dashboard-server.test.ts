@@ -56,6 +56,7 @@ describe("local dashboard server", () => {
     expect(html).toContain("Provider health");
     expect(html).toContain("Agent Performance");
     expect(html).toContain("Skill Experiments");
+    expect(html).toContain("Adaptive Agent Recommendations");
     expect(html).toContain("Per-agent scorecards");
     expect(html).toContain("Evaluation history");
     expect(html).toContain("Live event stream");
@@ -164,7 +165,7 @@ describe("local dashboard server", () => {
     const benchmarkRegression = await fetch(base + "/api/benchmark-regression");
     expect(benchmarkRegression.status).toBe(200);
     expect((await benchmarkRegression.json()).status).toBe("insufficient-history");
-    const agentPerformance = await fetch(base + "/api/agent-performance");
+    const optimization = await fetch(base + "/api/agent-optimization");\n    expect(optimization.status).toBe(200);\n    expect((await optimization.json()).status).toBe("insufficient-history");\n    const agentPerformance = await fetch(base + "/api/agent-performance");
     expect(agentPerformance.status).toBe(200);
     expect((await agentPerformance.json()).agents).toEqual([]);
 
