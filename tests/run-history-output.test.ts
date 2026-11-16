@@ -13,10 +13,14 @@ describe("run history JSON contract", () => {
       { id: "approval", agent: "reviewer", title: "Approval", prompt: "Private review", requiresApproval: true },
       { id: "running", agent: "builder", title: "Running", prompt: "Active work" },
       { id: "done", agent: "builder", title: "Done", prompt: "Internal work" },
+      { id: "failed", agent: "tester", title: "Failed", prompt: "Failure case" },
+      { id: "blocked", agent: "reviewer", title: "Blocked", prompt: "Blocked case" },
     ]);
     run.tasks[1]!.status = "awaiting_approval";
     run.tasks[2]!.status = "running";
     run.tasks[3]!.status = "completed";
+    run.tasks[4]!.status = "failed";
+    run.tasks[5]!.status = "blocked";
     run.events.push({ at: run.updatedAt, taskId: "done", type: "completed", message: "Finished" });
     run.tokenUsage = { estimatedTokensUsed: 19, estimatedTokensByAgent: { builder: 19 } };
 
@@ -29,13 +33,13 @@ describe("run history JSON contract", () => {
         status: run.status,
         createdAt: run.createdAt,
         updatedAt: run.updatedAt,
-        taskCount: 4,
+        taskCount: 6,
         pendingTaskCount: 1,
         awaitingApprovalTaskCount: 1,
         runningTaskCount: 1,
         completedTaskCount: 1,
-        failedTaskCount: 0,
-        blockedTaskCount: 0,
+        failedTaskCount: 1,
+        blockedTaskCount: 1,
         eventCount: 1,
       }],
     });
