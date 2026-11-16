@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
+import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -124,5 +125,20 @@ describe("sandbox cleanup audit history", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("sandbox security profiles", () => {
+  it("exposes immutable baseline controls for every built-in profile", () => {
+    const profiles = listSandboxSecurityProfiles();
+    expect(profiles.map(profile => profile.name)).toEqual(["balanced", "hardened", "rootless-required"]);
+    for (const profile of profiles) expect(validateSandboxSecurityProfile(profile)).toBe(true);
+  });
+  it("requires rootless mode for hardened profiles", () => {
+    expect(getSandboxSecurityProfile("hardened").requireRootless).toBe(true);
+    expect(getSandboxSecurityProfile("balanced").requireRootless).toBe(false);
+  });
+  it("rejects unknown profile names", () => {
+    expect(() => getSandboxSecurityProfile("permissive")).toThrow(/Unknown sandbox security profile/);
   });
 });
