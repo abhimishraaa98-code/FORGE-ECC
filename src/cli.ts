@@ -884,19 +884,28 @@ async function main(args: string[]): Promise<void> {
     }
     case "runs": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge runs [path] [--json] [--limit N]\nLists valid saved run records. Use --json for the versioned machine-readable summary and --limit N to return the newest N runs.\n");
+        process.stdout.write("Usage: forge runs [path] [--json] [--limit N] [--status STATUS]\nLists valid saved run records. Use --json for the versioned machine-readable summary, --limit N for the newest N runs, and --status to filter by run state.\n");
         return;
       }
       const limitIndex = rest.indexOf("--limit");
+      const statusIndex = rest.indexOf("--status");
       const rawLimit = limitIndex >= 0 ? rest[limitIndex + 1] : undefined;
+      const rawStatus = statusIndex >= 0 ? rest[statusIndex + 1] : undefined;
       const limit = limitIndex < 0 ? undefined : Number(rawLimit);
-      const target = rest.find((arg, index) => !arg.startsWith("--") && index !== limitIndex + 1) ?? ".";
+      const target = rest.find((arg, index) =>
+        !arg.startsWith("--") && index !== limitIndex + 1 && index !== statusIndex + 1
+      ) ?? ".";
       try {
         if (limitIndex >= 0 && (!rawLimit || !Number.isSafeInteger(limit) || limit! < 1)) {
           throw new Error("--limit requires a positive safe integer.");
         }
+        const validStatuses = ["pending", "awaiting_approval", "running", "completed", "failed", "cancelled"] as const;
+        if (statusIndex >= 0 && (!rawStatus || !validStatuses.includes(rawStatus as typeof validStatuses[number]))) {
+          throw new Error(`--status requires one of: ${validStatuses.join(", ")}.`);
+        }
         const allRuns = await listRuns(path.resolve(target));
-        const runs = limit === undefined ? allRuns : allRuns.slice(0, limit);
+        const filteredRuns = rawStatus ? allRuns.filter(run => run.status === rawStatus) : allRuns;
+        const runs = limit === undefined ? filteredRuns : filteredRuns.slice(0, limit);
         if (rest.includes("--json")) {
           process.stdout.write(formatRunHistoryJson(runs));
         } else {
