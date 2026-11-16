@@ -134,7 +134,7 @@ async function main(args: string[]): Promise<void> {
       try {
         if (action === "list") {
           const entries = await listProjectMemory(target);
-          process.stdout.write(entries.length ? entries.map(entry => `${entry.id} [${entry.kind}] ${entry.content}`).join("\\n") + "\\n" : "No project memory entries.\\n");
+          process.stdout.write(entries.length ? entries.map(entry => `${entry.id} [${entry.kind}] ${entry.content}`).join("\n") + "\n" : "No project memory entries.\\n");
         } else if (action === "add") {
           const kind = option("--kind") as ProjectMemoryKind | undefined;
           const content = option("--content");
@@ -156,7 +156,7 @@ async function main(args: string[]): Promise<void> {
           throw new Error("Memory actions: add, list, remove, context.");
         }
       } catch (error) {
-        process.stderr.write("FORGE memory command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.stderr.write("FORGE memory command failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
@@ -248,9 +248,9 @@ async function main(args: string[]): Promise<void> {
       try {
         const auditReport=option("--audit-report"),outdatedReport=option("--outdated-report");
         const report=await analyzeDependencies(target,{...(auditReport?{auditReport}:{}),...(outdatedReport?{outdatedReport}:{})});
-        process.stdout.write(rest.includes("--json")?JSON.stringify(report,null,2)+"\\n":formatDependencyIntelligence(report)+"\\n");
+        process.stdout.write(rest.includes("--json")?JSON.stringify(report,null,2)+"\n":formatDependencyIntelligence(report)+"\n");
       } catch(error) {
-        process.stderr.write("FORGE dependency analysis failed: "+(error instanceof Error?error.message:String(error))+"\\n");
+        process.stderr.write("FORGE dependency analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
       }
       return;
@@ -485,9 +485,9 @@ async function main(args: string[]): Promise<void> {
       try {
         const auditReport = option("--audit-report"), outdatedReport = option("--outdated-report");
         const plan = await generateRemediationPlan(target, { ...(auditReport ? { auditReport } : {}), ...(outdatedReport ? { outdatedReport } : {}) });
-        process.stdout.write(rest.includes("--json") ? JSON.stringify(plan, null, 2) + "\\n" : formatRemediationPlan(plan) + "\\n");
+        process.stdout.write(rest.includes("--json") ? JSON.stringify(plan, null, 2) + "\n" : formatRemediationPlan(plan) + "\n");
       } catch (error) {
-        process.stderr.write("FORGE remediation planning failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.stderr.write("FORGE remediation planning failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
