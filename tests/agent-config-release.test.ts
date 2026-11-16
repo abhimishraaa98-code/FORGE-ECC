@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { captureAgentConfigVersion } from "../src/core/agent-config-versioning.js";
 import { decideAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "../src/core/agent-config-release.js";
 import type { BenchmarkRegressionReport } from "../src/core/benchmark-regression.js";
+import { fingerprintAgentConfig } from "../src/core/benchmark-matrix.js";
 
 const roots: string[] = [];
 async function setup() {
@@ -21,7 +22,7 @@ async function setup() {
   const regression: BenchmarkRegressionReport = {
     status: "release-ready", matrixId: "matrix-one", matrixName: "Matrix", suiteId: "engineering-basics",
     baselineAt: "2026-01-01T00:00:00.000Z", currentAt: "2026-01-02T00:00:00.000Z",
-    candidates: [], agents: [], summary: ["Comparable benchmark passed."]
+    candidates: [], candidateProvenance: [{ candidateId: "candidate-a", configVersionId: candidate.id, fingerprint: fingerprintAgentConfig(candidate.files) }], agents: [], summary: ["Comparable benchmark passed."]
   };
   return { root, baseline, candidate, regression };
 }
@@ -38,6 +39,10 @@ describe("agent config release pipeline", () => {
     const pointer = JSON.parse(await readFile(path.join(root, ".forge", "config-versions", "approved.json"), "utf8"));
     expect(pointer.activeApprovedVersionId).toBe(candidate.id);
     expect(pointer.releaseId).toBe(pending.id);
+  });
+  it("blocks a release when benchmark provenance does not match the candidate snapshot", async () => {
+    const { root, baseline, candidate, regression } = await setup();
+    await expect(prepareAgentConfigRelease(root, { candidateVersionId: candidate.id, baselineVersionId: baseline.id, regression: { ...regression, candidateProvenance: [] } })).rejects.toThrow("does not match a configuration snapshot fingerprint");
   });
   it("blocks warning or insufficient-history reports", async () => {
     const { root, baseline, candidate, regression } = await setup();
