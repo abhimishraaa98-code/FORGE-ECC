@@ -2,6 +2,31 @@
 
 FORGE is a local-first AI engineering workbench for planning, coordinating, reviewing and evaluating software changes. It combines specialized agents, controlled workflows, project memory, skills, policy hooks, provider routing, execution traces and reproducible benchmark experiments.
 
+## Quick start
+
+Requirements: Node.js 22 or newer. From a terminal:
+
+```bash
+npm install -g forge-engineering-workbench
+forge --version
+forge init ./my-project
+forge inspect ./my-project
+```
+
+To use the latest source without a global install, clone this repository and run:
+
+```bash
+npm install
+npm run build
+node dist/cli.js --help
+node dist/cli.js init ./my-project
+node dist/cli.js inspect ./my-project
+```
+
+The first commands initialize and inspect a local workspace; they do not require an AI provider key. Provider-backed agent runs require a supported provider configuration and credentials. Review the permission policy before enabling tools. The default workflow is deliberately restrictive: most providers produce proposals rather than directly changing project files.
+
+**Current capability boundaries:** the MCP workspace tools are read-only. Native model tool-calling is currently limited to bounded read-only workspace tools for the OpenAI-compatible provider. Claude Code, Anthropic, Google and Ollama use proposal-only behavior in the normal run path. Patch staging and review are separate from promotion; promotion/rollback are library APIs, not CLI shortcuts. Local script verification runs project-controlled code on the host and is not an OS sandbox. Docker verification is opt-in and still depends on the host kernel, Docker daemon and image.
+
 ## Model comparison experiments
 
 Create a matrix that compares two or more providers/models against the same evaluation suite and task:
