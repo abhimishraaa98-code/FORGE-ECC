@@ -34,7 +34,7 @@ function digest(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 function validateRelativePath(value: string): boolean {
-  return value === "hooks.json" || /^(agents|skills)\/[a-z0-9][a-z0-9-]{0,63}\.md$/.test(value);
+  return value === "hooks.json" || value === "permissions.json" || /^(agents|skills)\/[a-z0-9][a-z0-9-]{0,63}\.md$/.test(value);
 }
 function validateVersion(value: unknown): AgentConfigVersion {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid agent configuration version.");
@@ -108,6 +108,20 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
       files.push({ path: "hooks.json", sha256: digest(content), content });
     } else throw error;
   }
+  const permissionsFile = path.join(root, ".forge", "permissions.json");
+  try {
+    const info = await (await import("node:fs/promises")).lstat(permissionsFile);
+    if (info.isSymbolicLink() || !info.isFile()) throw new Error("The .forge/permissions.json policy file must be a regular file, not a symbolic link.");
+    const content = await readFile(permissionsFile, "utf8");
+    if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) throw new Error("Configuration file exceeds 128 KiB: permissions.json");
+    files.push({ path: "permissions.json", sha256: digest(content), content });
+    if (files.length > MAX_FILES) throw new Error("Agent configuration snapshot exceeds 100 files.");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      const content = JSON.stringify({ version: 1, mode: "proposal-only", allowedTools: [] }) + "\\n";
+      files.push({ path: "permissions.json", sha256: digest(content), content });
+    } else throw error;
+  }
   files.sort((a,b) => a.path.localeCompare(b.path));
   if (!files.length) throw new Error("No workspace agent or skill Markdown files found under .forge/agents or .forge/skills.");
   const version: AgentConfigVersion = {
@@ -174,7 +188,7 @@ export async function materializeAgentConfigVersion(projectPath: string, id: str
   try {
     for (const file of version.files) {
       if (!validateRelativePath(file.path) || file.sha256 !== digest(file.content)) throw new Error("Snapshot integrity check failed during materialization.");
-      const target = file.path === "hooks.json" ? path.join(root, ".forge", "hooks.json") : path.join(root, ".forge", file.path);
+      const target = (file.path === "hooks.json" || file.path === "permissions.json") ? path.join(root, ".forge", file.path) : path.join(root, ".forge", file.path);
       await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
       await writeFile(target, file.content, { encoding: "utf8", flag: "wx", mode: 0o600 });
     }
