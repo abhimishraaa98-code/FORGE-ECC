@@ -201,11 +201,10 @@ export async function advanceRun(
     }
 
     const batch = approved.slice(0, maxConcurrency);
+    for (const record of batch) { record.status = "running"; appendEvent(record.task.id, "started", `Sent to provider "${provider.name}".`); }
     next.status = "running"; next.updatedAt = timestamp();
     await options.onUpdate?.(next);
     const batchResults = await Promise.all(batch.map(async record => {
-      record.status = "running";
-      appendEvent(record.task.id, "started", `Sent to provider "${provider.name}".`);
       const dependencies = (record.task.dependsOn ?? []).map(id => records.get(id)!);
       try {
         const result = await provider.complete({
