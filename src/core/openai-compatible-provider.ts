@@ -57,6 +57,7 @@ export class OpenAICompatibleProvider implements AgentProvider {
               taskTitle: request.task.title,
               taskPrompt: request.task.prompt,
               completedDependencies: request.completedDependencies,
+              projectContext: request.projectContext ?? "",
             }),
           },
         ],
