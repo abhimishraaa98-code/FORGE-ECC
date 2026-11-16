@@ -116,8 +116,13 @@ async function collectSkillFiles(directory: string, root: string, depth: number,
       await collectSkillFiles(candidate, root, depth + 1, output, visited);
       continue;
     }
-    if (!info.isFile() || info.size > MAX_SKILL_BYTES) continue;
-    if (entry.name === "SKILL.md" || (depth === 0 && entry.name.endsWith(".md"))) {
+    if (!info.isFile()) continue;
+    const isSkillFile = entry.name === "SKILL.md" || (depth === 0 && entry.name.endsWith(".md"));
+    if (!isSkillFile) continue;
+    if (info.size > MAX_SKILL_BYTES) {
+      throw new Error(`Workspace skill file exceeds the maximum size of ${MAX_SKILL_BYTES} bytes: ${candidate}`);
+    }
+    {
       const actual = await realpath(candidate);
       if (isInside(root, actual)) {
         if (output.length >= MAX_SKILL_FILES) {
