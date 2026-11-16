@@ -47,7 +47,7 @@ describe("OpenAI-compatible provider", () => {
     })).toThrow(/HTTPS/);
   });
 
-  it("does not expose provider response bodies in errors", async () => {
+  it("allows IPv6 loopback HTTP endpoints for local compatible providers", () => {\n    expect(() => new OpenAICompatibleProvider({ apiKey: "key", model: "model", baseUrl: "http://[::1]:1234/v1" })).not.toThrow();\n  });\n\n  it("does not expose provider response bodies in errors", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("secret-bearing response", { status: 500 })));
     const provider = new OpenAICompatibleProvider({ apiKey: "test-secret", model: "test-model" });
     await expect(provider.complete({
