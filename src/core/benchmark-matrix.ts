@@ -4,7 +4,7 @@ import path from "node:path";
 
 export interface BenchmarkCandidate {
   id: string;
-  provider: "openai" | "claude-code";
+  provider: "openai" | "claude-code" | "anthropic" | "google" | "ollama";
   model: string;
   /** undefined = normal auto-selection; [] = no skills; ids = force this skill set. */
   skillIds?: string[];
@@ -72,7 +72,7 @@ export function validateBenchmarkMatrix(value: unknown): BenchmarkMatrixConfig {
   for (const candidate of config.candidates) {
     if (!candidate || !SAFE_ID.test(candidate.id) || ids.has(candidate.id)) throw new Error("Every benchmark candidate needs a unique valid id.");
     ids.add(candidate.id);
-    if (candidate.provider !== "openai" && candidate.provider !== "claude-code") throw new Error("Benchmark candidates support openai and claude-code providers.");
+    if (!["openai", "claude-code", "anthropic", "google", "ollama"].includes(candidate.provider)) throw new Error("Unsupported benchmark candidate provider.");
     if (typeof candidate.model !== "string" || !candidate.model.trim() || candidate.model.length > 160) throw new Error("Every benchmark candidate needs a model name.");
     if (candidate.configVersionId !== undefined && !/^cfg-[a-f0-9]{12}$/.test(candidate.configVersionId)) throw new Error("Candidate configVersionId must be a valid agent configuration snapshot ID.");
   }
