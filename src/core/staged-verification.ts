@@ -75,12 +75,12 @@ export async function verifyStagedPatch(
     if (counts.sha256 !== manifest.workspaceSha256) throw new Error("Temporary verification copy does not match the approved staged snapshot.");
     let dependencyInstall: DependencyInstallResult | null = null;
     if (options.installDependencies) {
-      dependencyInstall = await installVerificationDependencies(snapshot, { timeoutMs: options.installTimeoutMs });
+      dependencyInstall = await installVerificationDependencies(snapshot, options.installTimeoutMs === undefined ? {} : { timeoutMs: options.installTimeoutMs });
       if (dependencyInstall.status !== "passed") {
         throw new Error("Dependency preparation " + dependencyInstall.status + " (exit code " + dependencyInstall.exitCode + "). " + dependencyInstall.output);
       }
     }
-    const verification = await runVerification(snapshot, script, { timeoutMs: options.timeoutMs });
+    const verification = await runVerification(snapshot, script, options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs });
     const id = "patch-verify-" + verification.id.slice("verify-".length);
     return {
       id, stageId, file: manifest.file,
