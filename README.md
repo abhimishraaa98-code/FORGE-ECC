@@ -185,4 +185,7 @@ Every successful `forge sandbox-cleanup` preview or apply records a local audit 
 
 ### Sandbox security profiles
 
-Run `forge sandbox-profiles` to list built-in profiles, or `forge sandbox-profiles hardened` to inspect one. Profiles describe supported baseline controls and rootless requirements; they do not yet automatically configure every runtime option. Use `--require-rootless` explicitly on `patch-verify` when rootless enforcement is required.
+Run `forge sandbox-profiles` to list built-in profiles, or `forge sandbox-profiles hardened` to inspect one. Profiles now feed the staged container verification path. The selected profile is reported in the verification output; `hardened` and `rootless-required` fail closed unless Docker reports rootless mode. The container command applies the common profile controls (network disabled, read-only root, dropped capabilities, no-new-privileges and bounded CPU, memory and processes). Choose a profile with `--profile balanced|hardened|rootless-required` on `patch-verify`.
+
+
+Example: `forge patch-verify PATCH_STAGE_ID test --sandbox-image node:22-alpine@sha256:VERIFIED_DIGEST --profile hardened --path .`.
