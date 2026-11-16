@@ -25,6 +25,7 @@ import { generateAIReview, formatAIReview } from "./core/ai-code-review.js";
 import { compareReviews, formatReviewRecord, listReviews, loadReview, saveReview } from "./core/review-history.js";
 import { formatPatchValidation, validateReviewPatch } from "./core/patch-validation.js";
 import { approveReviewPatch, verifyPatchApproval } from "./core/patch-approval.js";
+import { stageApprovedPatch } from "./core/patch-application.js";
 import { formatRegressionReport, generateRegressionReport } from "./core/regression-intelligence.js";
 import { searchWorkspace } from "./core/code-search.js";
 import { buildAgentWorkspaceContext } from "./core/agent-workspace-context.js";
@@ -1075,6 +1076,20 @@ async function main(args: string[]): Promise<void> {
       } catch(error) {
         process.stderr.write("FORGE regression analysis failed: "+(error instanceof Error?error.message:String(error))+"\n");
         process.exitCode=1;
+      }
+      return;
+    }
+    case "patch-stage": {
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const approvalId = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--path") ?? "";
+      try {
+        if (!approvalId) throw new Error("Usage: forge patch-stage APPROVAL_ID --path PROJECT");
+        const staged = await stageApprovedPatch(target, approvalId);
+        process.stdout.write(["# FORGE Isolated Patch Stage", "- Stage: " + staged.id, "- Approval: " + staged.approvalId, "- File: " + staged.file, "- Staged copy: " + staged.stagedFile, "- SHA-256: " + staged.stagedSha256, "", "The original project file was not modified.", "No tests or commands were executed."].join("\n") + "\n");
+      } catch (error) {
+        process.stderr.write("FORGE patch staging failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
       }
       return;
     }
