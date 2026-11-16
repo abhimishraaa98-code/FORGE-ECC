@@ -104,7 +104,7 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
     if (files.length > MAX_FILES) throw new Error("Agent configuration snapshot exceeds 100 files.");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      const content = "[]\\n";
+      const content = "[]\n";
       files.push({ path: "hooks.json", sha256: digest(content), content });
     } else throw error;
   }
