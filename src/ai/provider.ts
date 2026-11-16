@@ -102,7 +102,7 @@ export class MockAIProvider implements AIProvider {
  */
 export function createAIProvider(config: AIProviderConfig): AIProvider {
   if (config.provider === "mock") return new MockAIProvider();
-  if (config.provider === "claude-code") return new ClaudeCodeProvider({ ...(config.model ? { } : {}) });
+  if (config.provider === "claude-code") return new ClaudeCodeProvider(config.model ? { model: config.model } : {});
   throw new Error(
     `The ${config.provider} provider adapter is not installed yet. FORGE core and MCP work without it; use FORGE_AI_PROVIDER=mock until an adapter is configured.`,
   );
