@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 
 export interface BenchmarkCandidate {
@@ -8,6 +8,8 @@ export interface BenchmarkCandidate {
   model: string;
   /** undefined = normal auto-selection; [] = no skills; ids = force this skill set. */
   skillIds?: string[];
+  /** Immutable workspace configuration snapshot used for this candidate. */
+  configVersionId?: string;
 }
 export interface BenchmarkMatrixConfig {
   id: string;
@@ -39,6 +41,7 @@ export interface BenchmarkMatrixReport {
   suiteId: string;
   goal: string;
   createdAt: string;
+  candidateProvenance?: Array<{ candidateId: string; configVersionId: string; fingerprint: string }>;
   results: BenchmarkMatrixResult[];
   agentSummary?: AgentBenchmarkSummary[];
   skillExperiment?: { baselineCandidateId: string; treatmentCandidateId: string; skillIds: string[]; baselineScore: number; treatmentScore: number; scoreDelta: number; baselinePassRate: number; treatmentPassRate: number; passRateDelta: number; baselineDurationMs: number; treatmentDurationMs: number; durationChangePercent: number; baselineEstimatedTokens: number; treatmentEstimatedTokens: number; tokenChangePercent: number; agentDeltas: Array<{ agent: string; baselineScore: number; treatmentScore: number; scoreDelta: number; baselinePassRate: number; treatmentPassRate: number; passRateDelta: number }> };
@@ -70,6 +73,7 @@ export function validateBenchmarkMatrix(value: unknown): BenchmarkMatrixConfig {
     ids.add(candidate.id);
     if (candidate.provider !== "openai" && candidate.provider !== "claude-code") throw new Error("Benchmark candidates support openai and claude-code providers.");
     if (typeof candidate.model !== "string" || !candidate.model.trim() || candidate.model.length > 160) throw new Error("Every benchmark candidate needs a model name.");
+    if (candidate.configVersionId !== undefined && !/^cfg-[a-f0-9]{12}$/.test(candidate.configVersionId)) throw new Error("Candidate configVersionId must be a valid agent configuration snapshot ID.");
   }
   for (const candidate of config.candidates) {
     if (candidate.skillIds !== undefined && (!Array.isArray(candidate.skillIds) || candidate.skillIds.some(id => typeof id !== "string" || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) || new Set(candidate.skillIds).size !== candidate.skillIds.length)) throw new Error("Candidate skillIds must be unique valid skill IDs.");
@@ -84,6 +88,12 @@ export function validateBenchmarkMatrix(value: unknown): BenchmarkMatrixConfig {
     if (!Array.isArray(baseline.skillIds) || baseline.skillIds.length !== 0 || !Array.isArray(treatment.skillIds) || [...treatment.skillIds].sort().join(",") !== [...experiment.skillIds].sort().join(",")) throw new Error("Baseline must set skillIds to [] and treatment skillIds must exactly match skillExperiment.skillIds.");
   }
   return config;
+}
+
+export function fingerprintAgentConfig(files: Array<{ path: string; sha256: string }>): string {
+  const canonical = [...files].sort((a,b) => a.path.localeCompare(b.path))
+    .map(file => file.path + ":" + file.sha256).join("\\n");
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
 export async function loadBenchmarkMatrix(file: string): Promise<BenchmarkMatrixConfig> {
@@ -143,7 +153,7 @@ export async function executeBenchmarkMatrix(
       skillExperiment = { baselineCandidateId, treatmentCandidateId, skillIds: [...skillIds], baselineScore: baseline.averageScore, treatmentScore: treatment.averageScore, scoreDelta: Math.round((treatment.averageScore - baseline.averageScore) * 10) / 10, baselinePassRate: baseline.passRate, treatmentPassRate: treatment.passRate, passRateDelta: Math.round((treatment.passRate - baseline.passRate) * 10) / 10, baselineDurationMs: baseline.averageDurationMs, treatmentDurationMs: treatment.averageDurationMs, durationChangePercent: change(baseline.averageDurationMs, treatment.averageDurationMs), baselineEstimatedTokens: baseline.averageEstimatedTokens, treatmentEstimatedTokens: treatment.averageEstimatedTokens, tokenChangePercent: change(baseline.averageEstimatedTokens, treatment.averageEstimatedTokens), agentDeltas };
     }
   }
-  return { version: 1, matrixId: config.id, matrixName: config.name, suiteId: "", goal: "", createdAt: new Date().toISOString(), results, summary, agentSummary, ...(skillExperiment ? { skillExperiment } : {}) };
+  return { version: 1, matrixId: config.id, matrixName: config.name, suiteId: "", goal: "", createdAt: new Date().toISOString(), results, summary, agentSummary, ...(config.candidates.some(candidate => candidate.configVersionId) ? { candidateProvenance: config.candidates.filter(candidate => candidate.configVersionId).map(candidate => ({ candidateId: candidate.id, configVersionId: candidate.configVersionId!, fingerprint: "" })) } : {}), ...(skillExperiment ? { skillExperiment } : {}) };
 }
 
 export async function saveBenchmarkMatrix(projectPath: string, report: BenchmarkMatrixReport): Promise<string> {
@@ -169,6 +179,7 @@ export function formatBenchmarkMatrix(report: BenchmarkMatrixReport): string {
   }
   lines.push("", "Trial details:");
   for (const item of report.results) lines.push("  " + item.candidateId + " #" + item.repeat + " · " + (item.status === "completed" ? item.score + "/100 · " + (item.passed ? "PASS" : "REVIEW") : "FAILED · " + item.error));
+  if (report.candidateProvenance?.length) { lines.push("", "Configuration provenance:"); for (const item of report.candidateProvenance) lines.push("  " + item.candidateId + " · " + item.configVersionId + " · sha256 " + item.fingerprint); }
   lines.push("", "All model usage figures are estimates. Candidate comparisons are meaningful only when task, suite, settings and environment are held constant.");
   return lines.join("\n");
 }
