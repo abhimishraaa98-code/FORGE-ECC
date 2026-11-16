@@ -28,9 +28,14 @@ export async function analyzeGitChanges(inputPath:string,base="HEAD"):Promise<Gi
  const root=path.resolve(inputPath);
  const warnings:string[]=[];
  const branch=(await git(root,["branch","--show-current"])).trim()||"(detached HEAD)";
+ if(typeof base!=="string"||!base.trim()||base.length>200)throw new Error("Base revision must be a non-empty Git revision up to 200 characters.");
  let diff:string;
- try{diff=await git(root,["diff","--name-status","-M",base]);}
- catch{throw new Error("Git diff failed. Ensure this directory is a Git repository and the base revision exists.");}
+ try{
+  const revision=(await git(root,["rev-parse","--verify","--end-of-options",base+"^{commit}"])).trim();
+  if(!/^[0-9a-f]{40,64}$/i.test(revision))throw new Error("Invalid resolved revision.");
+  diff=await git(root,["diff","--name-status","-M",revision]);
+ }
+ catch{throw new Error("Git diff failed. Ensure the base is a valid commit revision in this repository.");}
  const changes:GitChange[]=diff.split(/\r?\n/).filter(Boolean).map(line=>{
   const [status,...names]=line.split("\t");
   return {status:status??"?",file:names.at(-1)??""};
