@@ -35,7 +35,7 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
-import { evaluateRun, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport } from "./core/evaluation-engine.js";
+import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport } from "./core/evaluation-engine.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -170,9 +170,24 @@ async function main(args: string[]): Promise<void> {
         const suite = suiteId ? suites.find(item => item.id === suiteId) : suites[0];
         if (!suite) throw new Error(suiteId ? "Evaluation suite not found: " + suiteId : "No evaluation suite found. Add one under .forge/evals/.");
         const run = await loadRun(target, runId);
-        const report = evaluateRun(run, suite);
+        const judgeEnabled = rest.includes("--judge");
+        let report;
+        if (judgeEnabled) {
+          const providerChoice = process.env.FORGE_AI_PROVIDER ?? "openai";
+          const model = process.env.FORGE_EVAL_JUDGE_MODEL ?? process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1");
+          const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+          const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+          if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_API_KEY or OPENAI_API_KEY to use model-judged evaluation.");
+          const judgeProvider = providerChoice === "claude-code" ? new ClaudeCodeProvider({ cwd: target, model }) : new OpenAICompatibleProvider({ apiKey, model, baseUrl });
+          report = await evaluateRunWithJudge(run, suite, judgeProvider);
+        } else report = evaluateRun(run, suite);
         const reportPath = await saveEvaluationReport(target, report);
-        process.stdout.write(formatEvaluationReport(report) + "\nSaved: " + reportPath + "\n");
+        process.stdout.write(formatEvaluationReport(report) + "\n");
+        if ("judgedCases" in report) {
+          process.stdout.write("Model judge: " + report.judge.provider + (report.judge.model ? " / " + report.judge.model : "") + " · " + report.judge.evaluatedCases + " cases\n");
+          for (const item of report.judgedCases) process.stdout.write("  " + item.caseId + " · " + item.result.score + "/100 · " + item.result.rationale + "\n");
+        }
+        process.stdout.write("Saved: " + reportPath + "\n");
         if (!report.passed) process.exitCode = 2;
       } catch (error) { process.stderr.write("FORGE evaluation failed: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
