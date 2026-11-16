@@ -55,6 +55,7 @@ describe("local dashboard server", () => {
     expect(html).toContain("Per-agent utilization");
     expect(html).toContain("Provider health");
     expect(html).toContain("Agent Performance");
+    expect(html).toContain("Skill Experiments");
     expect(html).toContain("Per-agent scorecards");
     expect(html).toContain("Evaluation history");
     expect(html).toContain("Live event stream");
