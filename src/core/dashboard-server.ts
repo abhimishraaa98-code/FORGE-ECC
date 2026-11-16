@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { captureAgentConfigVersion, listAgentConfigVersions, approveAgentConfigVersion } from "./agent-config-versioning.js";
+import { captureAgentConfigVersion, listAgentConfigVersions } from "./agent-config-versioning.js";
 import { decideAgentConfigRelease, listAgentConfigReleases, prepareAgentConfigRelease } from "./agent-config-release.js";
 import { mkdir, readFile, readdir, lstat, writeFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -121,13 +121,8 @@ el("prepareConfigRelease").addEventListener("click",async()=>{
  try{const response=await fetch("/api/config-releases",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({candidateVersionId,baselineVersionId,matrixId})});const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not prepare release.");el("releaseMessage").textContent="Prepared "+data.id+" · benchmark gate "+data.benchmarkStatus+" · human approval required.";await loadConfigReleases();}catch(error){el("releaseMessage").textContent=error.message;}
 });
 async function loadConfigVersions(){
- try{const versions=await api("/api/config-snapshots");el("configVersions").innerHTML=versions.length?versions.map(item=>'<div class="rowitem"><div><b>'+esc(item.id)+' · '+esc(item.status)+'</b><div class="run-meta">'+esc(item.createdAt)+' · '+esc(item.files.length)+' files · '+esc(item.note||"No note")+'</div></div>'+(item.status==="candidate"?'<button class="btn" data-approve-config="'+esc(item.id)+'">Approve snapshot</button>':'<span class="pill">APPROVED</span>')+'</div>').join(""):'<div class="empty">No snapshots yet. Capture one after editing agent or skill instructions.</div>';
- el("configVersions").querySelectorAll("[data-approve-config]").forEach(button=>button.addEventListener("click",()=>approveConfigSnapshot(button.dataset.approveConfig)));
+ try{const versions=await api("/api/config-snapshots");el("configVersions").innerHTML=versions.length?versions.map(item=>'<div class="rowitem"><div><b>'+esc(item.id)+' · '+esc(item.status)+'</b><div class="run-meta">'+esc(item.createdAt)+' · '+esc(item.files.length)+' files · '+esc(item.note||"No note")+'</div></div><span class="pill">'+(item.status==="approved"?"APPROVED":"CANDIDATE — BENCHMARK REQUIRED")+'</span></div>').join(""):'<div class="empty">No snapshots yet. Capture one after editing agent or skill instructions.</div>';
  }catch(error){el("configVersions").innerHTML='<div class="error">'+esc(error.message)+'</div>';}
-}
-async function approveConfigSnapshot(id){
- const reviewer=window.prompt("Reviewer label for this local configuration approval:","local-user");if(!reviewer)return;
- try{const response=await fetch("/api/config-snapshots/"+encodeURIComponent(id)+"/approve",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reviewer})});const data=await response.json();if(!response.ok)throw new Error(data.error||"Approval failed.");el("configMessage").textContent="Approved "+data.id+" by "+data.approvedBy+". This records a local approval pointer; it does not deploy or execute the agent.";await loadConfigVersions();}catch(error){el("configMessage").textContent=error.message;}
 }
 el("captureConfigSnapshot").addEventListener("click",async()=>{
  const note=window.prompt("Short note describing this configuration snapshot:","Agent configuration update");if(note===null)return;
@@ -437,7 +432,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
         response.writeHead(405, { "content-type": "application/json" }).end(JSON.stringify({ error: "Method not allowed." }));
         return;
       }
-      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || /^\/api\/config-snapshots\/[^/]+\/approve$/.test(requestUrl.pathname) || requestUrl.pathname === "/api/config-releases" || /^\/api\/config-releases\/rel-[a-f0-9]{12}\/(?:approve|reject)$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
+      if (request.method === "POST" && (requestUrl.pathname === "/api/workflows" || requestUrl.pathname === "/api/config-files" || requestUrl.pathname === "/api/config-snapshots" || requestUrl.pathname === "/api/config-releases" || /^\/api\/config-releases\/rel-[a-f0-9]{12}\/(?:approve|reject)$/.test(requestUrl.pathname) || requestUrl.pathname.endsWith("/run") && requestUrl.pathname.startsWith("/api/workflows/") || /^\/api\/runs\/[^/]+\/(?:replay|cancel)$/.test(requestUrl.pathname) || /^\/api\/runs\/[^/]+\/tasks\/[^/]+\/retry$/.test(requestUrl.pathname))) {
         const origin = request.headers.origin;
         if (origin && new URL(origin).host !== request.headers.host) {
           response.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "Cross-origin requests are not allowed." }));
@@ -471,14 +466,6 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           if (input?.note !== undefined && typeof input.note !== "string") throw new Error("Snapshot note must be text.");
           const version = await captureAgentConfigVersion(projectPath, { note: typeof input.note === "string" ? input.note : "" });
           response.writeHead(201, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: version.id, status: version.status, files: version.files.map(file => ({ path: file.path, sha256: file.sha256 })), createdAt: version.createdAt }));
-          return;
-        }
-        const configApproval = requestUrl.pathname.match(/^\/api\/config-snapshots\/(cfg-[a-f0-9]{12})\/approve$/);
-        if (configApproval) {
-          const input = body as { reviewer?: unknown };
-          if (typeof input?.reviewer !== "string" || !input.reviewer.trim() || input.reviewer.length > 80) throw new Error("Reviewer label must contain 1–80 characters.");
-          const version = await approveAgentConfigVersion(projectPath, configApproval[1]!, input.reviewer.trim());
-          response.writeHead(200, { "content-type": "application/json; charset=utf-8" }).end(JSON.stringify({ id: version.id, status: version.status, approvedBy: version.approvedBy }));
           return;
         }
         if (requestUrl.pathname === "/api/config-files") {
