@@ -885,7 +885,11 @@ async function main(args: string[]): Promise<void> {
       const target = rest.find(arg => !arg.startsWith("--")) ?? ".";
       try {
         const runs = await listRuns(path.resolve(target));
-        process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
+        if (rest.includes("--json")) {
+          process.stdout.write(JSON.stringify(runs, null, 2) + "\n");
+        } else {
+          process.stdout.write(runs.length ? runs.map(run => `${run.id}  ${run.status.padEnd(18)} ${run.goal}`).join("\n") + "\n" : "No saved FORGE runs.\n");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`Could not list run history: ${message}\n`);
