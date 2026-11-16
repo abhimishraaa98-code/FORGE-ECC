@@ -37,6 +37,7 @@ import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.j
 import { createReplayRun } from "./core/run-replay.js";
 import { evaluateRun, evaluateRunWithJudge, formatEvaluationReport, loadEvaluationSuites, saveEvaluationReport, loadEvaluationReport, type EvaluationReport, type JudgedEvaluationReport } from "./core/evaluation-engine.js";
 import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkTrial } from "./core/benchmark-engine.js";
+import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -77,6 +78,7 @@ Commands:
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
+  benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -159,6 +161,62 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "benchmark-matrix": {
+      const configFile = rest.find((arg, index) => !arg.startsWith("--") && rest[index - 1] !== "--suite" && rest[index - 1] !== "--goal" && rest[index - 1] !== "--path");
+      const suiteIndex = rest.indexOf("--suite"), goalIndex = rest.indexOf("--goal"), pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const suiteId = suiteIndex >= 0 ? rest[suiteIndex + 1] : undefined;
+      const goal = goalIndex >= 0 ? rest.slice(goalIndex + 1, pathIndex >= 0 ? pathIndex : rest.length).join(" ").trim() : "";
+      if (!configFile || !suiteId || !goal) { process.stderr.write("Usage: forge benchmark-matrix CONFIG.json --suite SUITE_ID --goal \"engineering task\" [--path PROJECT]\\n"); process.exitCode = 1; return; }
+      try {
+        const config = await loadBenchmarkMatrix(path.resolve(configFile));
+        const suites = await loadEvaluationSuites(target);
+        const suite = suites.find(item => item.id === suiteId);
+        if (!suite) throw new Error("Evaluation suite not found: " + suiteId);
+        const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+        const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
+        const report = await executeBenchmarkMatrix(config, async (candidate, repeat) => {
+          if (candidate.provider === "openai" && !apiKey) throw new Error("Candidate " + candidate.id + " requires FORGE_API_KEY or OPENAI_API_KEY.");
+          const createProvider = (selectedModel: string) => candidate.provider === "claude-code"
+            ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
+            : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+          const router = new ModelRouter({
+            fastModel: candidate.model, balancedModel: candidate.model, reasoningModel: candidate.model,
+            retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2),
+            retryDelayMs: Number(process.env.FORGE_MODEL_RETRY_DELAY_MS ?? 500),
+            createProvider,
+          });
+          const run = createReviewPlan(goal + " (benchmark " + config.id + ", candidate " + candidate.id + ", repeat " + repeat + ")");
+          const skills = selectSkills(await loadSkillRegistry(target), goal);
+          const hooks = await loadHooks(target);
+          for (const record of run.tasks) {
+            const applied = applyBeforeAgentHooks(record.task, hooks);
+            record.task = { ...applied.task, prompt: applied.context.length ? applied.task.prompt + "\\n\\nHook guidance:\\n" + applied.context.join("\\n") : applied.task.prompt };
+            if (applied.blockedReason) { record.status = "blocked"; record.error = "Blocked by policy hook: " + applied.blockedReason; }
+          }
+          const memory = await buildProjectMemoryContext(target, goal);
+          const projectContext = [memory.text, formatSkillContext(skills)].filter(Boolean).join("\\n\\n");
+          const started = Date.now();
+          const completed = await advanceRun(run, router, new Set(), { maxConcurrency: 4, projectContext });
+          const durationMs = Date.now() - started;
+          await saveRun(target, completed);
+          await saveExecutionTrace(target, completed.id, router.traces);
+          const evaluation = evaluateRun(completed, suite);
+          await saveEvaluationReport(target, evaluation);
+          return {
+            runId: completed.id, score: evaluation.score, passed: evaluation.passed,
+            durationMs,
+            estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
+          };
+        });
+        report.suiteId = suite.id;
+        report.goal = goal;
+        const saved = await saveBenchmarkMatrix(target, report);
+        process.stdout.write(formatBenchmarkMatrix(report) + "\\nSaved: " + path.relative(target, saved) + "\\n");
+        if (report.results.some(item => item.status === "failed") || report.results.some(item => !item.passed)) process.exitCode = 2;
+      } catch (error) { process.stderr.write("FORGE benchmark matrix failed: " + (error instanceof Error ? error.message : String(error)) + "\\n"); process.exitCode = 1; }
       return;
     }
     case "benchmark": {
