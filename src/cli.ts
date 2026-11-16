@@ -33,7 +33,7 @@ import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeP
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { ModelRouter } from "./core/model-router.js";
-import { saveExecutionTrace } from "./core/execution-trace.js";
+import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 
 const VERSION = "0.34.0";
 
@@ -67,7 +67,7 @@ Commands:
   agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
-  runs [path]      List locally saved run history
+  runs [path]      List locally saved run history\n  trace RUNID      Show per-agent execution telemetry
   show-run ID      Display one saved run (use --path for project directory)
   dashboard [path] Start the local read-only web dashboard
   version          Print the installed version
@@ -204,6 +204,19 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write(`FORGE could not create a plan: ${message}\n`);
         process.exitCode = 1;
       }
+      return;
+    }
+    case "trace": {
+      const runId = rest[0];
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      if (!runId) { process.stderr.write("Usage: forge trace RUNID [--path PROJECT]\n"); process.exitCode = 1; return; }
+      try {
+        const trace = await loadExecutionTrace(target, runId);
+        process.stdout.write("FORGE execution trace: " + runId + "\n");
+        for (const entry of trace.entries) process.stdout.write("  " + entry.taskId + " [" + entry.tier + "] " + entry.model + " | " + entry.durationMs + " ms | " + entry.outcome + " | ~" + entry.inputTokensEstimate + "/" + entry.outputTokensEstimate + " tokens\n");
+        process.stdout.write("Totals: " + trace.totals.tasks + " tasks, " + trace.totals.estimatedInputTokens + " input tokens, " + trace.totals.estimatedOutputTokens + " output tokens, " + trace.totals.fallbacks + " fallbacks, " + trace.totals.failures + " failures\n");
+      } catch (error) { process.stderr.write("Could not read execution trace: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
       return;
     }
     case "runs": {
