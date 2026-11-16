@@ -898,11 +898,19 @@ async function main(args: string[]): Promise<void> {
         !(statusIndex >= 0 && index === statusIndex + 1)
       ) ?? ".";
       try {
-        if (limitIndex >= 0 && (!rawLimit || !Number.isSafeInteger(limit) || limit! < 1)) {
+        for (const option of ["--json", "--limit", "--status"]) {
+          if (rest.filter(arg => arg === option).length > 1) {
+            throw new Error(`${option} may only be specified once.`);
+          }
+        }
+        const allowedOptions = new Set(["--json", "--limit", "--status"]);
+        const unknownOption = rest.find(arg => arg.startsWith("--") && !allowedOptions.has(arg));
+        if (unknownOption) throw new Error(`Unknown option: ${unknownOption}.`);
+        if (limitIndex >= 0 && (!rawLimit || rawLimit.startsWith("--") || !Number.isSafeInteger(limit) || limit! < 1)) {
           throw new Error("--limit requires a positive safe integer.");
         }
         const validStatuses = ["pending", "awaiting_approval", "running", "completed", "failed", "cancelled"] as const;
-        if (statusIndex >= 0 && (!rawStatus || !validStatuses.includes(rawStatus as typeof validStatuses[number]))) {
+        if (statusIndex >= 0 && (!rawStatus || rawStatus.startsWith("--") || !validStatuses.includes(rawStatus as typeof validStatuses[number]))) {
           throw new Error(`--status requires one of: ${validStatuses.join(", ")}.`);
         }
         const allRuns = await listRuns(path.resolve(target));
