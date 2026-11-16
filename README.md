@@ -181,3 +181,8 @@ FORGE labels its verification containers with `com.forge.managed=true`. Run `for
 ### Sandbox cleanup audit history
 
 Every successful `forge sandbox-cleanup` preview or apply records a local audit entry under `.forge/sandbox-cleanup-history.json`. Review it with `forge sandbox-cleanup-history [PROJECT_PATH]`. The history is capped at 200 entries and records timestamps, candidate container IDs, statuses, names, and removals. It is local project metadata, not a tamper-proof security log.
+
+
+### Sandbox security profiles
+
+Run `forge sandbox-profiles` to list built-in profiles, or `forge sandbox-profiles hardened` to inspect one. Profiles describe supported baseline controls and rootless requirements; they do not yet automatically configure every runtime option. Use `--require-rootless` explicitly on `patch-verify` when rootless enforcement is required.
