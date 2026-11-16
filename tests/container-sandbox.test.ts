@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildContainerRunArgs, detectDockerRootless } from "../src/core/container-sandbox.js";
+import { buildContainerRunArgs, detectDockerRootless, runContainerVerification } from "../src/core/container-sandbox.js";
 import { formatSandboxRuntimeReport, parseSandboxRuntimeReport } from "../src/core/sandbox-runtime.js";
 import { getSandboxSecurityProfile, listSandboxSecurityProfiles, validateSandboxSecurityProfile } from "../src/core/sandbox-security-profiles.js";
 import { createSandboxComplianceReport, formatSandboxComplianceReport } from "../src/core/sandbox-compliance.js";
@@ -7,7 +7,7 @@ import { loadSandboxPolicy, validateSandboxPolicy } from "../src/core/sandbox-po
 import { verifyStagedPatch } from "../src/core/staged-verification.js";
 import { formatSandboxCleanupReport, parseManagedContainers, selectStoppedManagedContainers } from "../src/core/sandbox-lifecycle.js";
 import { appendSandboxCleanupAudit, formatSandboxCleanupHistory, readSandboxCleanupAudit } from "../src/core/sandbox-cleanup-audit.js";
-import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, symlink, chmod, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -76,6 +76,48 @@ describe("custom sandbox policy runtime enforcement", () => {
     expect(args).toContain("--memory=1g");
     expect(args).toContain("--cpus=2");
     expect(args).toContain("--pids-limit=128");
+  });
+});
+
+describe("mocked container runtime policy execution", () => {
+  it("passes loaded policy limits to the runtime and reports effective limits", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "forge-mock-runtime-"));
+    try {
+      const project = path.join(root, "project");
+      const runtime = path.join(root, "mock-runtime.mjs");
+      const argsPath = path.join(root, "runtime-args.json");
+      await import("node:fs/promises").then(fs => fs.mkdir(project));
+      await writeFile(path.join(project, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }), "utf8");
+      const runtimeSource = [
+        "#!/usr/bin/env node",
+        "const fs = require('node:fs');",
+        "const args = process.argv.slice(2);",
+        "if (args[0] === 'image' && args[1] === 'inspect') process.exit(0);",
+        "if (args[0] === 'info') { process.stdout.write('[\\\"name=rootless\\\"]'); process.exit(0); }",
+        "if (args[0] === 'run') { fs.writeFileSync(" + JSON.stringify(argsPath) + ", JSON.stringify(args)); process.exit(0); }",
+        "process.exit(2);",
+      ].join("\n");
+      await writeFile(runtime, runtimeSource, "utf8");
+      await chmod(runtime, 0o755);
+      const policy = {
+        version: 1 as const, profile: "balanced" as const, network: "none" as const,
+        readOnlyRoot: true as const, dropAllCapabilities: true as const,
+        noNewPrivileges: true as const, maxMemory: "512m", maxCpus: 1,
+        maxProcesses: 64, requireRootless: false, requireImageDigest: true as const,
+      };
+      const result = await runContainerVerification(project, "test", image, {
+        runtimePath: runtime, sandboxPolicy: policy,
+      });
+      const args = JSON.parse(await readFile(argsPath, "utf8")) as string[];
+      expect(args).toContain("--memory=512m");
+      expect(args).toContain("--memory-swap=512m");
+      expect(args).toContain("--cpus=1");
+      expect(args).toContain("--pids-limit=64");
+      expect(result.status).toBe("passed");
+      expect(result.output).toContain("memory=512m, cpus=1, pids=64");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 
