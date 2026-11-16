@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, access } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import os from "node:os";
@@ -23,6 +23,18 @@ describe("Git intelligence",()=>{
   expect(report.changes.map(c=>c.file)).toContain("src/new.ts");
   expect(report.suggestedTests.length).toBeGreaterThan(0);
  });
+ it("rejects option-like and invalid base revisions before invoking git diff",async()=>{
+  root=await mkdtemp(path.join(os.tmpdir(),"forge-git-base-"));
+  await writeFile(path.join(root,"README.md"),"sample\\n");
+  await run("git",["init",root]); await run("git",["-C",root,"config","user.email","forge@example.invalid"]);
+  await run("git",["-C",root,"config","user.name","FORGE Tests"]);
+  await run("git",["-C",root,"add","."]); await run("git",["-C",root,"commit","-m","initial"]);
+  const marker=path.join(root,"should-not-be-created.txt");
+  await expect(analyzeGitChanges(root,"--output="+marker)).rejects.toThrow(/valid commit revision/);
+  await expect(access(marker)).rejects.toThrow();
+  await expect(analyzeGitChanges(root,"not-a-real-revision")).rejects.toThrow(/valid commit revision/);
+ });
+
  it("flags deleted files as high risk",async()=>{
   root=await mkdtemp(path.join(os.tmpdir(),"forge-git-delete-"));
   await writeFile(path.join(root,"package.json"),'{"name":"sample"}');
