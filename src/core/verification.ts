@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export type VerificationStatus = "passed" | "failed" | "timed_out" | "spawn_error";
@@ -23,7 +23,7 @@ const DEFAULT_TIMEOUT = 120_000;
 const MAX_TIMEOUT = 10 * 60_000;
 const SCRIPT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,79}$/;
 
-async function packageScripts(root: string): Promise<Record<string,string>> {
+async function verifiedProjectRoot(inputPath: string): Promise<string> {\n  const root = await realpath(path.resolve(inputPath));\n  const rootInfo = await lstat(root);\n  if (!rootInfo.isDirectory()) throw new Error("Verification target must be a real directory.");\n  const manifest = path.join(root, "package.json");\n  const manifestInfo = await lstat(manifest);\n  if (manifestInfo.isSymbolicLink() || !manifestInfo.isFile()) throw new Error("package.json must be a regular, non-symlink file.");\n  return root;\n}\n\nasync function packageScripts(root: string): Promise<Record<string,string>> {
   const parsed: unknown = JSON.parse(await readFile(path.join(root,"package.json"),"utf8"));
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("package.json must contain a JSON object.");
   const scripts = (parsed as {scripts?:unknown}).scripts;
@@ -31,7 +31,7 @@ async function packageScripts(root: string): Promise<Record<string,string>> {
   return Object.fromEntries(Object.entries(scripts).filter((entry): entry is [string,string] => typeof entry[1] === "string"));
 }
 export async function discoverChecks(inputPath: string): Promise<AvailableCheck[]> {
-  const root = path.resolve(inputPath);
+  const root = await verifiedProjectRoot(inputPath);
   const scripts = await packageScripts(root);
   return Object.entries(scripts)
     .filter(([name]) => SCRIPT_NAME.test(name) && !/^pre|^post/.test(name))
@@ -43,7 +43,7 @@ export async function runVerification(
   script: string,
   options: { timeoutMs?: number } = {},
 ): Promise<VerificationResult> {
-  const root = path.resolve(inputPath);
+  const root = await verifiedProjectRoot(inputPath);
   if (!SCRIPT_NAME.test(script) || /^pre|^post/.test(script)) throw new Error("Choose a valid, explicit package script name (pre/post lifecycle scripts are not selectable).");
   const scripts = await packageScripts(root);
   if (!(script in scripts)) throw new Error(`Script "${script}" is not defined in package.json.`);
@@ -64,13 +64,25 @@ export async function runVerification(
     if (value.length > remaining) outputTruncated = true;
   };
   const windows = process.platform === "win32";
+  // Do not forward provider/API credentials or arbitrary parent-process variables to project scripts.
+  const env: NodeJS.ProcessEnv = {
+    PATH: process.env.PATH ?? "",
+    CI: "1",
+    NODE_ENV: "test",
+    FORGE_VERIFICATION: "1",
+    ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    ...(process.env.WINDIR ? { WINDIR: process.env.WINDIR } : {}),
+    ...(process.env.TEMP ? { TEMP: process.env.TEMP } : {}),
+    ...(process.env.TMP ? { TMP: process.env.TMP } : {}),
+    ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+  };
   const child = spawn(windows ? "npm.cmd" : "npm", ["run-script","--ignore-scripts",script], {
-    cwd:root, shell:windows, windowsHide:true, env:process.env, stdio:["ignore","pipe","pipe"],
+    cwd:root, shell:windows, windowsHide:true, env, stdio:["ignore","pipe","pipe"], detached: !windows,
   });
   child.stdout.on("data",append);
   child.stderr.on("data",append);
   let timedOut = false;
-  const timer = setTimeout(()=>{timedOut=true;child.kill("SIGTERM");},timeoutMs);
+  const timer = setTimeout(()=>{timedOut=true;\n    if (!windows && child.pid) { try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); } }\n    else child.kill("SIGTERM");\n  },timeoutMs);
   const outcome = await new Promise<{exitCode:number|null;signal:string|null;error?:string}>(resolve=>{
     child.once("error",error=>resolve({exitCode:null,signal:null,error:error.message}));
     child.once("close",(code,signal)=>resolve({exitCode:code,signal}));
