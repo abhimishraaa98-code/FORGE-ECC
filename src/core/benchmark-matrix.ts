@@ -42,6 +42,7 @@ export interface BenchmarkMatrixReport {
   goal: string;
   createdAt: string;
   candidateProvenance?: Array<{ candidateId: string; configVersionId: string; fingerprint: string }>;
+  experimentManifest?: { id: string; fingerprint: string };
   results: BenchmarkMatrixResult[];
   agentSummary?: AgentBenchmarkSummary[];
   skillExperiment?: { baselineCandidateId: string; treatmentCandidateId: string; skillIds: string[]; baselineScore: number; treatmentScore: number; scoreDelta: number; baselinePassRate: number; treatmentPassRate: number; passRateDelta: number; baselineDurationMs: number; treatmentDurationMs: number; durationChangePercent: number; baselineEstimatedTokens: number; treatmentEstimatedTokens: number; tokenChangePercent: number; agentDeltas: Array<{ agent: string; baselineScore: number; treatmentScore: number; scoreDelta: number; baselinePassRate: number; treatmentPassRate: number; passRateDelta: number }> };
