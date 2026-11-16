@@ -198,23 +198,23 @@ async function main(args: string[]): Promise<void> {
           if (!candidateVersionId || !baselineVersionId || !matrixId) throw new Error("Usage: forge agent-release prepare CANDIDATE_CONFIG_ID BASELINE_CONFIG_ID --matrix MATRIX_ID --path PROJECT");
           const regression = await loadBenchmarkRegression(target, matrixId);
           const release = await prepareAgentConfigRelease(target, { candidateVersionId, baselineVersionId, regression });
-          process.stdout.write(formatAgentConfigRelease(release) + "\\nHuman approval is still required. No live files were changed.\\n");
+          process.stdout.write(formatAgentConfigRelease(release) + "\nHuman approval is still required. No live files were changed.\n");
         } else if (action === "list") {
           const items = await listAgentConfigReleases(target);
-          process.stdout.write(items.length ? items.map(item => item.id + "  " + item.status.padEnd(17) + "  " + item.candidateVersionId + "  " + item.benchmarkStatus).join("\\n") + "\\n" : "No agent configuration releases found.\\n");
+          process.stdout.write(items.length ? items.map(item => item.id + "  " + item.status.padEnd(17) + "  " + item.candidateVersionId + "  " + item.benchmarkStatus).join("\n") + "\n" : "No agent configuration releases found.\n");
         } else if (action === "show") {
           const id = args[0]; if (!id) throw new Error("Usage: forge agent-release show RELEASE_ID --path PROJECT");
           const item = (await listAgentConfigReleases(target)).find(entry => entry.id === id);
           if (!item) throw new Error("Release not found: " + id);
-          process.stdout.write(formatAgentConfigRelease(item) + "\\n");
+          process.stdout.write(formatAgentConfigRelease(item) + "\n");
         } else if (action === "approve" || action === "reject") {
           const id = args[0]; if (!id) throw new Error("Usage: forge agent-release approve|reject RELEASE_ID --reviewer NAME --path PROJECT");
           const reviewer = option("--reviewer"); if (!reviewer?.trim()) throw new Error("A reviewer is required via --reviewer NAME.");
           const item = await decideAgentConfigRelease(target, id, reviewer, action);
-          process.stdout.write(formatAgentConfigRelease(item) + "\\n");
+          process.stdout.write(formatAgentConfigRelease(item) + "\n");
         } else throw new Error("Unknown action. Use prepare, list, show, approve or reject.");
       } catch (error) {
-        process.stderr.write("FORGE agent release failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.stderr.write("FORGE agent release failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
