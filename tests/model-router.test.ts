@@ -80,6 +80,25 @@ describe("task-aware model routing", () => {
     expect(observed).toEqual(["failed"]);
   });
 
+  it("records preflight budget rejections without calling the provider", async () => {
+    const observed: string[] = [];
+    let calls = 0;
+    const router = new ModelRouter({
+      ...models,
+      maxInputTokensPerTask: 2,
+      onTrace(trace) { observed.push(trace.outcome); },
+      createProvider: model => ({
+        name: model,
+        async complete() { calls += 1; return { provider: model, content: "unused" }; },
+      }),
+    });
+    await expect(router.complete({ task: { id: "large", agent: "planner", title: "Large", prompt: "This prompt is deliberately too large" }, completedDependencies: [] })).rejects.toThrow("FORGE budget exceeded");
+    expect(calls).toBe(0);
+    expect(router.traces).toHaveLength(1);
+    expect(router.traces[0]).toMatchObject({ taskId: "large", outcome: "failed", provider: "not-started", outputTokensEstimate: 0 });
+    expect(observed).toEqual(["failed"]);
+  });
+
   it("rejects an oversized task input before calling the provider", async () => {
     let calls = 0;
     const router = new ModelRouter({
