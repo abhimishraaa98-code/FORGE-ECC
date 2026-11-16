@@ -1,9 +1,11 @@
-import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { RunRecord } from "./orchestrator.js";
 
 const RUN_ID_PATTERN = /^forge-[a-z0-9-]{1,80}$/;
+const MAX_RUN_FILE_BYTES = 5 * 1024 * 1024;
 
 function validateRunId(id: string): void {
   if (!RUN_ID_PATTERN.test(id) || id.includes("..")) {
@@ -48,9 +50,35 @@ export async function saveRun(projectPath: string, run: RunRecord): Promise<stri
 export async function loadRun(projectPath: string, runId: string): Promise<RunRecord> {
   validateRunId(runId);
   const filePath = path.join(await safeRunsDirectory(projectPath), `${runId}.json`);
-  const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
-  if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== runId || !("tasks" in parsed) || !Array.isArray(parsed.tasks)) {
+  const handle = await open(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  let serialized: string;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > MAX_RUN_FILE_BYTES) {
+      throw new Error("Stored run file is not a regular file or exceeds the size limit.");
+    }
+    serialized = await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+  const parsed: unknown = JSON.parse(serialized);
+  if (!parsed || typeof parsed !== "object" ||
+      !("id" in parsed) || parsed.id !== runId ||
+      !("goal" in parsed) || typeof parsed.goal !== "string" ||
+      !("tasks" in parsed) || !Array.isArray(parsed.tasks) ||
+      !("events" in parsed) || !Array.isArray(parsed.events) ||
+      !("status" in parsed) || typeof parsed.status !== "string" ||
+      !("createdAt" in parsed) || typeof parsed.createdAt !== "string" ||
+      !("updatedAt" in parsed) || typeof parsed.updatedAt !== "string") {
     throw new Error("Stored run file has an invalid format.");
+  }
+  for (const task of parsed.tasks) {
+    if (!task || typeof task !== "object" || !("task" in task) ||
+        !("status" in task) || typeof task.status !== "string" ||
+        !task.task || typeof task.task !== "object" ||
+        !("id" in task.task) || typeof task.task.id !== "string") {
+      throw new Error("Stored run file contains an invalid task record.");
+    }
   }
   return parsed as RunRecord;
 }
@@ -87,6 +115,11 @@ export async function decideTaskApproval(
   reviewer: string,
   reason?: string,
 ): Promise<RunRecord> {
+  validateRunId(runId);
+  const directory = await safeRunsDirectory(projectPath);
+  const lock = path.join(directory, `${runId}.lock`);
+  await mkdir(lock, { mode: 0o700 });
+  try {
   const run = await loadRun(projectPath, runId);
   const record = run.tasks.find(item => item.task.id === taskId);
   if (!record) throw new Error("Task not found in this run.");
@@ -113,4 +146,7 @@ export async function decideTaskApproval(
   });
   await saveRun(projectPath, run);
   return run;
+  } finally {
+    await rm(lock, { recursive: true, force: true });
+  }
 }
