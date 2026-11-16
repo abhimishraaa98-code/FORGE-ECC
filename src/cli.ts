@@ -255,7 +255,7 @@ async function main(args: string[]): Promise<void> {
       try {
         const model = process.env.FORGE_AI_MODEL ?? process.env.FORGE_MODEL;
         const providerChoice = (process.env.FORGE_AI_PROVIDER ?? "openai").toLowerCase();
-        const baseModel = model ?? "gpt-4.1-mini";
+        const baseModel = model ?? (providerChoice === "claude-code" ? "sonnet" : "gpt-4.1-mini");
         const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
         const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
         if (providerChoice !== "claude-code" && !apiKey) throw new Error("Set FORGE_AI_PROVIDER=claude-code to use your configured Claude Code CLI, or set FORGE_API_KEY for an OpenAI-compatible provider.");
