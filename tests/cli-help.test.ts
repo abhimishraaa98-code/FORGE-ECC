@@ -103,6 +103,8 @@ describe("run-history CLI help", () => {
     for (const args of [
       ["--limit", "1", "--limit", "2"], ["--status", "completed", "--status", "failed"],
       ["--json", "--json"], ["--unexpected"],
+      ["first-project", "second-project"],
+      ["--limit", "1", "first-project", "second-project"],
     ]) {
       expect(() => runCli("runs", directory, ...args)).toThrow();
     }
