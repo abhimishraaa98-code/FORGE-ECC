@@ -40,6 +40,7 @@ import { createBenchmarkTrial, formatBenchmark, listBenchmarks, recordBenchmarkT
 import { executeBenchmarkMatrix, formatBenchmarkMatrix, loadBenchmarkMatrix, listBenchmarkMatrices, saveBenchmarkMatrix } from "./core/benchmark-matrix.js";
 import { formatBenchmarkRegression, loadBenchmarkRegression } from "./core/benchmark-regression.js";
 import { buildAgentOptimizationPlan, formatAgentOptimizationPlan } from "./core/agent-optimization.js";
+import { approveAgentConfigVersion, captureAgentConfigVersion, compareAgentConfigVersions, formatAgentConfigVersion, listAgentConfigVersions, loadAgentConfigVersion } from "./core/agent-config-versioning.js";
 
 function readAgentTokenBudgets(): Record<string, number> | undefined {
   const raw = process.env.FORGE_MAX_ESTIMATED_TOKENS_PER_AGENT;
@@ -81,6 +82,7 @@ Commands:
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
   benchmark-matrix CONFIG.json --suite SUITE_ID --goal "..." [--path PROJECT]  Run model comparisons\n  benchmark-regression [MATRIX_ID] [--path PROJECT]  Compare latest matrix with its baseline\n  optimize-agents [--path PROJECT]  Recommend evidence-based agent improvements
+  agent-config <snapshot|list|show|diff|approve> [options]  Version and review agent/skill configuration
   quality [path]   Generate an evidence-based static engineering quality report
   deps [path]       Analyze npm dependencies, licenses, and imported security reports\n  snapshot [path]   Capture a local engineering intelligence snapshot
   timeline [path]   Compare the latest snapshot with its predecessor
@@ -163,6 +165,38 @@ async function main(args: string[]): Promise<void> {
         const suites = await loadEvaluationSuites(target);
         process.stdout.write(suites.length ? suites.map(suite => suite.id + "  " + suite.name + " · " + suite.cases.length + " cases").join("\n") + "\n" : "No evaluation suites. Add JSON suites under .forge/evals/.\n");
       } catch (error) { process.stderr.write("Could not load evaluation suites: " + (error instanceof Error ? error.message : String(error)) + "\n"); process.exitCode = 1; }
+      return;
+    }
+    case "agent-config": {
+      const action = rest[0] ?? "list";
+      const pathIndex = rest.indexOf("--path");
+      const target = path.resolve(pathIndex >= 0 ? rest[pathIndex + 1] ?? "." : ".");
+      const ids = rest.slice(1).filter((arg, index, all) => !arg.startsWith("--") && all[index - 1] !== "--path" && all[index - 1] !== "--note" && all[index - 1] !== "--reviewer");
+      const option = (name: string) => { const index = rest.indexOf(name); return index >= 0 ? rest[index + 1] : undefined; };
+      try {
+        if (action === "snapshot") {
+          const version = await captureAgentConfigVersion(target, { note: option("--note") ?? "", createdBy: option("--author") ?? "local-user" });
+          process.stdout.write(formatAgentConfigVersion(version) + "\\n");
+        } else if (action === "list") {
+          const versions = await listAgentConfigVersions(target);
+          process.stdout.write(versions.length ? versions.map(item => item.id + "  " + item.status.padEnd(9) + "  " + item.createdAt + "  " + item.files.length + " files").join("\\n") + "\\n" : "No agent configuration snapshots found. Run forge agent-config snapshot first.\\n");
+        } else if (action === "show") {
+          const id = ids[0]; if (!id) throw new Error("Usage: forge agent-config show CONFIG_ID --path PROJECT");
+          process.stdout.write(formatAgentConfigVersion(await loadAgentConfigVersion(target, id)) + "\\n");
+        } else if (action === "diff") {
+          if (ids.length < 2) throw new Error("Usage: forge agent-config diff BEFORE_ID AFTER_ID --path PROJECT");
+          const [before, after] = await Promise.all([loadAgentConfigVersion(target, ids[0]!), loadAgentConfigVersion(target, ids[1]!)]);
+          const diff = compareAgentConfigVersions(before, after);
+          process.stdout.write(["Agent configuration diff", "Added: " + (diff.added.join(", ") || "none"), "Changed: " + (diff.changed.join(", ") || "none"), "Removed: " + (diff.removed.join(", ") || "none"), "Unchanged: " + diff.unchanged.length].join("\\n") + "\\n");
+        } else if (action === "approve") {
+          const id = ids[0]; if (!id) throw new Error("Usage: forge agent-config approve CONFIG_ID --reviewer NAME --path PROJECT");
+          const reviewer = option("--reviewer"); if (!reviewer?.trim()) throw new Error("Approval requires --reviewer NAME.");
+          process.stdout.write(formatAgentConfigVersion(await approveAgentConfigVersion(target, id, reviewer.trim())) + "\\nApproved snapshot pointer updated. This does not rewrite live agent or skill files.\\n");
+        } else throw new Error("Unknown action. Use snapshot, list, show, diff or approve.");
+      } catch (error) {
+        process.stderr.write("FORGE agent configuration command failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.exitCode = 1;
+      }
       return;
     }
     case "optimize-agents": {
