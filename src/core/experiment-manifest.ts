@@ -39,7 +39,8 @@ export async function captureExperimentManifest(input: {
   const root = path.resolve(input.projectPath);
   const lockfileNames = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock"];\n  const [commit, status, matrixSha256, packageLockSha256, ...lockfileHashes] = await Promise.all([
     git(root, ["rev-parse", "HEAD"]), git(root, ["status", "--porcelain"]),
-    hashFile(path.resolve(input.matrixFile)), hashFile(path.join(root, "package-lock.json"))
+    hashFile(path.resolve(input.matrixFile)), hashFile(path.join(root, "package-lock.json")),
+    ...lockfileNames.map(name => hashFile(path.join(root, name)))
   ]);
   const suiteSha256 = sha256(JSON.stringify(input.suite));
   const source = { commit, dirty: status === null ? null : status.length > 0 };
