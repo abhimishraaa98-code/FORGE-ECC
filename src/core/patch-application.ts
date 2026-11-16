@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
-import { loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
+import { consumePatchApproval, loadPatchApproval, verifyPatchApproval } from "./patch-approval.js";
 import { validateReviewPatch } from "./patch-validation.js";
 
 export interface PatchStageRecord {
@@ -192,6 +192,7 @@ export async function stageApprovedPatch(root: string, approvalId: string): Prom
       workspaceSha256: finalSnapshot.sha256, snapshotFiles: finalSnapshot.files, snapshotBytes: finalSnapshot.bytes,
     };
     await writeFile(path.join(stageRoot, "stage.json"), JSON.stringify(record, null, 2) + "\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await consumePatchApproval(project, approvalId);
     return record;
   } catch (error) {
     await rm(stageRoot, { recursive: true, force: true }).catch(() => undefined);
