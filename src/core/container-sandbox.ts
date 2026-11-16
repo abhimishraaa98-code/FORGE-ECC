@@ -25,18 +25,19 @@ export function buildContainerRunArgs(
     throw new Error("Choose a valid, explicit package script name.");
   }
   if (workspace.includes(",")) throw new Error("Sandbox workspace paths cannot contain commas.");
+  const copyAndRun = "const fs=require('node:fs');fs.cpSync('/snapshot','/workspace',{recursive:true});const r=require('node:child_process').spawnSync('npm',['run-script','--ignore-scripts',process.argv[1]],{cwd:'/workspace',stdio:'inherit'});process.exit(r.status===null?1:r.status);";
   return [
     "run", "--rm", "--pull=never", "--name", containerName,
     "--network=none", "--read-only", "--cap-drop=ALL",
     "--security-opt=no-new-privileges", "--pids-limit=128",
     "--memory=1g", "--cpus=2",
     "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m,mode=1777",
-    "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp", "--ipc=private", "--uts=private", "--init", "--ulimit", "nofile=1024:1024",
-    "--user", typeof process.getuid === "function" && typeof process.getgid === "function" ? process.getuid() + ":" + process.getgid() : "1000:1000",
-    "--mount", "type=bind,source=" + workspace + ",target=/workspace,rw",
-    "--workdir", "/workspace",
+    "--tmpfs", "/workspace:rw,nosuid,nodev,size=1g,mode=1777",
     "--env", "CI=1", "--env", "NODE_ENV=test", "--env", "FORGE_VERIFICATION=1", "--env", "HOME=/tmp", "--env", "TMPDIR=/tmp",
-    image, "npm", "run-script", "--ignore-scripts", script,
+    "--user", typeof process.getuid === "function" && typeof process.getgid === "function" ? process.getuid() + ":" + process.getgid() : "1000:1000",
+    "--mount", "type=bind,source=" + workspace + ",target=/snapshot,readonly",
+    "--workdir", "/workspace", "--entrypoint", "node",
+    image, "-e", copyAndRun, script,
   ];
 }
 
