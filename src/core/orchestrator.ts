@@ -32,6 +32,7 @@ export interface AgentRequest {
   task: AgentTask;
   completedDependencies: ReadonlyArray<{ id: string; fromAgent?: string; taskTitle?: string; result: string }>;
   projectContext?: string;
+  onUpdate?: (run: RunRecord) => void | Promise<void>;
 }
 
 export interface AgentProvider {
@@ -200,6 +201,8 @@ export async function advanceRun(
     }
 
     const batch = approved.slice(0, maxConcurrency);
+    next.status = "running"; next.updatedAt = timestamp();
+    await options.onUpdate?.(next);
     const batchResults = await Promise.all(batch.map(async record => {
       record.status = "running";
       appendEvent(record.task.id, "started", `Sent to provider "${provider.name}".`);
@@ -232,6 +235,8 @@ export async function advanceRun(
         appendEvent(outcome.record.task.id, "failed", outcome.error);
       }
     }
+    next.status = "running"; next.updatedAt = timestamp();
+    await options.onUpdate?.(next);
   }
 
   const statuses = next.tasks.map(record => record.status);
@@ -240,6 +245,8 @@ export async function advanceRun(
   else if (statuses.some(status => status === "awaiting_approval")) next.status = "awaiting_approval";
   else if (statuses.some(status => status === "running")) next.status = "running";
   else next.status = "pending";
+  next.updatedAt = timestamp();
+  await options.onUpdate?.(next);
 
   return next;
 }
