@@ -291,8 +291,8 @@ async function main(args: string[]): Promise<void> {
         process.exitCode = 1;
         return;
       }
-      if (provider !== "openai" && provider !== "claude-code") {
-        process.stderr.write("Provider must be openai or claude-code.\\n"); process.exitCode = 1; return;
+      if (!["openai", "claude-code", "anthropic", "google", "ollama"].includes(provider)) {
+        process.stderr.write("Unsupported provider. Choose openai, claude-code, anthropic, google or ollama.\\n"); process.exitCode = 1; return;
       }
       try {
         const skillIds = skills.split(",").map(item => item.trim()).filter(Boolean);
@@ -457,7 +457,7 @@ async function main(args: string[]): Promise<void> {
           
           const createProvider = (selectedModel: string) => candidate.provider === "claude-code"
             ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
-            : new OpenAICompatibleProvider({ apiKey, model: selectedModel, baseUrl });
+            : createHostedAgentProvider({ ...process.env, FORGE_AI_PROVIDER: candidate.provider, ...(apiKey ? { FORGE_API_KEY: apiKey } : {}), FORGE_BASE_URL: baseUrl }, selectedModel);
           const router = new ModelRouter({
             fastModel: candidate.model, balancedModel: candidate.model, reasoningModel: candidate.model,
             retryAttempts: Number(process.env.FORGE_MODEL_RETRY_ATTEMPTS ?? 2),
