@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadReview } from "./review-history.js";
 import { validateReviewPatch } from "./patch-validation.js";
@@ -18,7 +18,20 @@ export interface PatchApprovalRecord {
 }
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-function directory(root: string): string { return path.join(path.resolve(root), ".forge", "patch-approvals"); }
+async function safeApprovalDirectory(root: string): Promise<string> {
+  const project = await realpath(path.resolve(root));
+  let current = project;
+  for (const part of [".forge", "patch-approvals"]) {
+    current = path.join(current, part);
+    try { await mkdir(current, { mode: 0o700 }); }
+    catch (error) {
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+    }
+    const info = await lstat(current);
+    if (info.isSymbolicLink() || !info.isDirectory()) throw new Error("Patch approval storage must not contain symbolic links or non-directory components.");
+  }
+  return current;
+}
 function validateId(id: string): void { if (!ID.test(id) || id.includes("..")) throw new Error("Invalid patch approval identifier."); }
 function digest(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 
@@ -69,7 +82,11 @@ export async function approveReviewPatch(
 
 export async function loadPatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
   validateId(id);
-  const parsed: unknown = JSON.parse(await readFile(path.join(directory(root), id + ".json"), "utf8"));
+  const dir = await safeApprovalDirectory(root);
+  const approvalPath = path.join(dir, id + ".json");
+  const info = await lstat(approvalPath);
+  if (info.isSymbolicLink() || !info.isFile()) throw new Error("Stored patch approval must be a regular file.");
+  const parsed: unknown = JSON.parse(await readFile(approvalPath, "utf8"));
   if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== id ||
       !("reviewId" in parsed) || typeof parsed.reviewId !== "string" ||
       !("patchSha256" in parsed) || typeof parsed.patchSha256 !== "string" ||
