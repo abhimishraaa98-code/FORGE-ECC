@@ -231,6 +231,7 @@ async function main(args: string[]): Promise<void> {
             runId: completed.id, score: evaluation.score, passed: evaluation.passed,
             durationMs,
             estimatedTokens: router.traces.reduce((sum, item) => sum + item.inputTokensEstimate + item.outputTokensEstimate, 0),
+            agentScores: evaluation.cases.filter(item => item.status === "scored").map(item => ({ agent: item.agent, caseId: item.caseId, score: item.score, passed: item.passed, skillIds: skills.map(skill => skill.id) })),
           };
         });
         report.suiteId = suite.id;
