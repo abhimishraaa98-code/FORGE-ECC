@@ -194,3 +194,8 @@ Example: `forge patch-verify PATCH_STAGE_ID test --sandbox-image node:22-alpine@
 ### Sandbox compliance reports
 
 Run `forge sandbox-compliance balanced IMAGE@sha256:DIGEST` or choose `hardened` / `rootless-required`. The report distinguishes configured controls (network, read-only root, capabilities, privilege escalation and resource bounds) from observed facts (Docker availability, rootless status and image digest syntax). A hardened profile is non-compliant unless rootless mode is positively detected. This is a local diagnostic, not an independent audit or a guarantee that the host kernel/runtime is secure.
+
+
+### Custom sandbox policy validation
+
+Create a version 1 JSON policy with a built-in profile and restrictive controls, then run `forge sandbox-policy-check ./sandbox-policy.json`. Validation rejects unknown fields, network enablement, writable roots, restored capabilities, disabled no-new-privileges, relaxed resource bounds and hardened profiles without rootless enforcement. This command validates policy input only; it does not apply the policy to a running container.
