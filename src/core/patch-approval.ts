@@ -15,6 +15,7 @@ export interface PatchApprovalRecord {
   expiresAt: string;
   patchSha256: string;
   sourceSha256: string;
+  revokedAt?: string;
 }
 const ID = /^patch-approval-[a-f0-9-]{20,40}$/;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -101,8 +102,26 @@ export async function loadPatchApproval(root: string, id: string): Promise<Patch
   return parsed as PatchApprovalRecord;
 }
 
+export async function revokePatchApproval(root: string, id: string): Promise<PatchApprovalRecord> {
+  const approval = await loadPatchApproval(root, id);
+  if (approval.revokedAt) return approval;
+  const revoked: PatchApprovalRecord = { ...approval, revokedAt: new Date().toISOString() };
+  const dir = await safeApprovalDirectory(root);
+  const destination = path.join(dir, id + ".json");
+  const temporary = path.join(dir, "." + id + "." + randomUUID() + ".tmp");
+  try {
+    await writeFile(temporary, JSON.stringify(revoked, null, 2) + "\\n", { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => undefined);
+    throw error;
+  }
+  return revoked;
+}
+
 export async function verifyPatchApproval(root: string, id: string): Promise<{ valid: boolean; reason: string }> {
   const approval = await loadPatchApproval(root, id);
+  if (approval.revokedAt) return { valid: false, reason: "Approval has been revoked; request a new approval." };
   if (Date.now() >= Date.parse(approval.expiresAt)) return { valid: false, reason: "Approval has expired; request a new review." };
   const review = await loadReview(root, approval.reviewId);
   const suggestion = review.ai?.suggestions[approval.suggestionNumber - 1];
