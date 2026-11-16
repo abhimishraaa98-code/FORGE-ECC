@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile, lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export interface AgentConfigFile {
@@ -71,10 +71,16 @@ export async function captureAgentConfigVersion(projectPath: string, input: { cr
   const root = path.resolve(projectPath);
   const files: AgentConfigFile[] = [];
   for (const directory of ["agents", "skills"]) {
-    const absolute = path.join(root, ".forge", directory);
+    const forgeDirectory = path.join(root, ".forge");
+    const absolute = path.join(forgeDirectory, directory);
     let entries;
-    try { entries = await readdir(absolute, { withFileTypes: true }); }
-    catch (error) {
+    try {
+      const realRoot = await realpath(root);
+      const realForge = await realpath(forgeDirectory);
+      const realDirectory = await realpath(absolute);
+      if (realForge !== path.join(realRoot, ".forge") || realDirectory !== path.join(realForge, directory)) throw new Error("Agent configuration directories must not be symbolic links.");
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") continue;
       throw error;
     }
