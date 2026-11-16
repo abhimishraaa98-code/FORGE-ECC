@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRun } from "../src/core/orchestrator.js";
-import { decideTaskApproval, listRuns, loadRun, recoverInterruptedRun, saveRun } from "../src/core/run-store.js";
+import { decideTaskApproval, listRuns, loadRun, recoverInterruptedRun, saveRun, withRunExecutionLock } from "../src/core/run-store.js";
 
 let root = "";
 afterEach(async () => {
@@ -152,6 +152,29 @@ describe("local run history", () => {
     await (await import("node:fs/promises")).mkdir(lock);
     await expect(decideTaskApproval(root, run.id, "review", "approved", "reviewer")).rejects.toThrow();
     await rm(lock, { recursive: true, force: true });
+  });
+
+  it("allows only one process to hold a run execution lease", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-execution-lock-"));
+    const run = createRun("Prevent duplicate execution", [
+      { id: "task", agent: "planner", title: "Task", prompt: "Execute once" },
+    ]);
+    await saveRun(root, run);
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const hold = new Promise<void>(resolve => { release = resolve; });
+    const first = withRunExecutionLock(root, run.id, async () => {
+      entered();
+      await hold;
+    });
+    await started;
+    await expect(withRunExecutionLock(root, run.id, async () => {
+      throw new Error("second execution must never start");
+    })).rejects.toThrow(/locked by another or interrupted/);
+    release();
+    await expect(first).resolves.toBeUndefined();
+    await expect(withRunExecutionLock(root, run.id, async () => "acquired")).resolves.toBe("acquired");
   });
 
   it("rejects path-like run identifiers", async () => {
