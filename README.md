@@ -147,7 +147,7 @@ If you explicitly opt in, use:
 forge patch-verify PATCH_STAGE_ID test --install-dependencies --path .
 ```
 
-FORGE requires a regular `package-lock.json` and runs `npm ci --ignore-scripts --no-audit --no-fund` inside the temporary workspace before the selected check. This can access the network, is capped at ten minutes with bounded output, and does not run package lifecycle scripts. It is opt-in because package retrieval is an external side effect. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
+FORGE requires a regular `package-lock.json` and runs `npm ci --ignore-scripts --no-audit --no-fund` inside the temporary workspace before the selected check. This can access the network, is capped at ten minutes with bounded output, and does not run package lifecycle scripts. FORGE uses empty temporary npm user/global config files and a temporary HOME rather than reusing the developer's npm configuration or registry credentials. Private registries requiring credentials are therefore not configured automatically. It is opt-in because package retrieval is an external side effect. Project scripts still execute on the local host, so this is not an OS-level sandbox or a security boundary.
 
 ### Verification runner safety
 
