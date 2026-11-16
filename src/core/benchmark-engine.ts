@@ -12,6 +12,7 @@ export interface BenchmarkTrial {
   score: number;
   judgeScore?: number;
   judgeProvider?: string;
+  judgePassed?: boolean;
   passed: boolean;
   provider: string;
   models: string[];
@@ -30,6 +31,7 @@ export interface BenchmarkGroup {
   trials: number;
   averageScore: number;
   averageJudgeScore?: number;
+  judgePassRate?: number;
   bestScore: number;
   worstScore: number;
   passRate: number;
@@ -58,12 +60,12 @@ function summarize(trials: BenchmarkTrial[]): BenchmarkGroup[] {
   }
   return [...buckets.entries()].map(([key, items]) => {
     const scores = items.map(item => item.score);
-    const judged = items.filter((item): item is BenchmarkTrial & { judgeScore: number } => item.judgeScore !== undefined);
+    const judged = items.filter((item): item is BenchmarkTrial & { judgeScore: number; judgePassed: boolean } => item.judgeScore !== undefined && item.judgePassed !== undefined);
     const average = scores.reduce((sum, value) => sum + value, 0) / scores.length;
     return {
       key, provider: items[0]!.provider, models: items[0]!.models, trials: items.length,
       averageScore: Math.round(average * 10) / 10,
-      ...(judged.length ? { averageJudgeScore: Math.round(judged.reduce((sum, item) => sum + item.judgeScore, 0) / judged.length * 10) / 10 } : {}),
+      ...(judged.length ? { averageJudgeScore: Math.round(judged.reduce((sum, item) => sum + item.judgeScore, 0) / judged.length * 10) / 10, judgePassRate: Math.round(judged.filter(item => item.judgePassed).length / judged.length * 1000) / 10 } : {}),
       bestScore: Math.max(...scores), worstScore: Math.min(...scores),
       passRate: Math.round(items.filter(item => item.passed).length / items.length * 1000) / 10,
       scoreStdDev: Math.round(Math.sqrt(scores.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) / scores.length) * 10) / 10,
@@ -81,7 +83,7 @@ export function createBenchmarkTrial(report: EvaluationReport | JudgedEvaluation
   const models = [...new Set(trace.entries.map(entry => entry.model))].sort();
   return {
     runId: report.runId, recordedAt: new Date().toISOString(), suiteId: report.suiteId, suiteName: report.suiteName,
-    score: report.score, ...("judge" in report ? { judgeScore: report.judge.averageScore, judgeProvider: report.judge.provider } : {}), passed: report.passed, provider: providers.join(", ") || "unknown", models,
+    score: report.score, ...("judge" in report ? { judgeScore: report.judge.averageScore, judgeProvider: report.judge.provider, judgePassed: report.judge.passed } : {}), passed: report.passed, provider: providers.join(", ") || "unknown", models,
     tasks: trace.totals.tasks, failures: trace.totals.failures, fallbacks: trace.totals.fallbacks,
     retries: trace.entries.reduce((sum, entry) => sum + (entry.retries ?? 0), 0),
     estimatedInputTokens: trace.totals.estimatedInputTokens, estimatedOutputTokens: trace.totals.estimatedOutputTokens,
@@ -137,7 +139,7 @@ export async function listBenchmarks(projectPath: string): Promise<BenchmarkDocu
 
 export function formatBenchmark(document: BenchmarkDocument): string {
   const lines = ["FORGE Benchmark Lab · " + document.suiteName, "Trials: " + document.trials.length, "", "Provider / model | Trials | Avg rubric | Avg judge | Pass rate | Variance | Avg time | Avg tokens"];
-  for (const group of document.groups) lines.push([group.key, group.trials, group.averageScore + "/100", group.averageJudgeScore === undefined ? "—" : group.averageJudgeScore + "/100", group.passRate + "%", "σ " + group.scoreStdDev, group.averageDurationMs + " ms", group.averageEstimatedTokens].join(" | "));
+  for (const group of document.groups) lines.push([group.key, group.trials, group.averageScore + "/100", group.averageJudgeScore === undefined ? "—" : group.averageJudgeScore + "/100 (" + group.judgePassRate + "% pass)", group.passRate + "%", "σ " + group.scoreStdDev, group.averageDurationMs + " ms", group.averageEstimatedTokens].join(" | "));
   lines.push("", "Recent trials:");
   for (const trial of document.trials.slice(-10).reverse()) lines.push("  " + trial.runId + " · " + trial.provider + " / " + (trial.models.join(", ") || "unknown") + " · " + trial.score + "/100 rubric" + (trial.judgeScore === undefined ? "" : " · " + trial.judgeScore + "/100 judge") + " · " + (trial.passed ? "PASS" : "REVIEW"));
   lines.push("", "Token counts are estimates, not provider-billed usage. Benchmarks compare recorded runs; they do not automatically rerun tasks.");
