@@ -227,10 +227,25 @@ export class ModelRouter implements AgentProvider {
         this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: route.model, provider: provider.name, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
         throw primaryError;
       }
+      let fallbackProviderName = "not-started";
+      let fallbackOutputEstimate = 0;
       try {
+        const fallbackInputEstimate = Math.ceil(inputText.length / 4);
+        if (runLimit !== undefined && this.estimatedTokensUsed + fallbackInputEstimate > runLimit) {
+          throw new Error(`FORGE budget exceeded: run estimate would exceed ${runLimit} tokens before fallback provider call.`);
+        }
+        const currentAgentUsage = this.estimatedTokensByAgent.get(request.task.agent) ?? 0;
+        if (agentLimit !== undefined && currentAgentUsage + fallbackInputEstimate > agentLimit) {
+          throw new Error(`FORGE budget exceeded: agent ${request.task.agent} estimate would exceed ${agentLimit} tokens before fallback provider call.`);
+        }
         const fallback = this.options.createProvider(this.options.fallbackModel);
+        fallbackProviderName = fallback.name;
+        // A fallback is a distinct provider request and has its own input
+        // usage. Reserve it only after provider initialization succeeds.
+        this.estimatedTokensUsed += fallbackInputEstimate;
+        this.estimatedTokensByAgent.set(request.task.agent, currentAgentUsage + fallbackInputEstimate);
         const response = await completeWithinBudget(fallback);
-        const fallbackOutputEstimate = Math.ceil(response.content.length / 4);
+        fallbackOutputEstimate = Math.ceil(response.content.length / 4);
         // The fallback has already generated this output, including when a
         // post-response budget check rejects returning it to the caller.
         this.estimatedTokensUsed += fallbackOutputEstimate;
@@ -252,7 +267,7 @@ export class ModelRouter implements AgentProvider {
         return response;
       } catch (fallbackError) {
         const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: "fallback", startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: 0, error: message });
+        this.recordTrace({ taskId: request.task.id, agent: request.task.agent, tier: route.tier, model: this.options.fallbackModel, provider: fallbackProviderName, startedAt, durationMs: Date.now() - start, outcome: "failed", retries, inputTokensEstimate: Math.ceil(inputText.length / 4), outputTokensEstimate: fallbackOutputEstimate, error: message });
         throw fallbackError;
       }
     }
