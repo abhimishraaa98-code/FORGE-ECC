@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { RunRecord } from "./orchestrator.js";
@@ -11,14 +11,26 @@ function validateRunId(id: string): void {
   }
 }
 
-function runsDirectory(projectPath: string): string {
-  return path.join(path.resolve(projectPath), ".forge", "runs");
+async function safeRunsDirectory(projectPath: string): Promise<string> {
+  const project = await realpath(path.resolve(projectPath));
+  let current = project;
+  for (const part of [".forge", "runs"]) {
+    current = path.join(current, part);
+    try { await mkdir(current, { mode: 0o700 }); }
+    catch (error) {
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") throw error;
+    }
+    const info = await lstat(current);
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      throw new Error("Run history storage must not contain symbolic links or non-directory components.");
+    }
+  }
+  return current;
 }
 
 export async function saveRun(projectPath: string, run: RunRecord): Promise<string> {
   validateRunId(run.id);
-  const directory = runsDirectory(projectPath);
-  await mkdir(directory, { recursive: true });
+  const directory = await safeRunsDirectory(projectPath);
   const destination = path.join(directory, `${run.id}.json`);
   const temporary = path.join(directory, `.${run.id}.${randomUUID()}.tmp`);
   const serialized = JSON.stringify(run, null, 2) + "\n";
@@ -35,7 +47,7 @@ export async function saveRun(projectPath: string, run: RunRecord): Promise<stri
 
 export async function loadRun(projectPath: string, runId: string): Promise<RunRecord> {
   validateRunId(runId);
-  const filePath = path.join(runsDirectory(projectPath), `${runId}.json`);
+  const filePath = path.join(await safeRunsDirectory(projectPath), `${runId}.json`);
   const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
   if (!parsed || typeof parsed !== "object" || !("id" in parsed) || parsed.id !== runId || !("tasks" in parsed) || !Array.isArray(parsed.tasks)) {
     throw new Error("Stored run file has an invalid format.");
@@ -44,7 +56,7 @@ export async function loadRun(projectPath: string, runId: string): Promise<RunRe
 }
 
 export async function listRuns(projectPath: string): Promise<RunRecord[]> {
-  const directory = runsDirectory(projectPath);
+  const directory = await safeRunsDirectory(projectPath);
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
