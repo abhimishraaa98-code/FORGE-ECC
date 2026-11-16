@@ -35,6 +35,21 @@ describe("Git intelligence",()=>{
   await expect(analyzeGitChanges(root,"not-a-real-revision")).rejects.toThrow(/valid commit revision/);
  });
 
+ it("does not execute repository-configured external diff drivers",async()=>{
+  root=await mkdtemp(path.join(os.tmpdir(),"forge-git-extdiff-"));
+  await writeFile(path.join(root,"sample.txt"),"before\\n");
+  await writeFile(path.join(root,".gitattributes"),"*.txt diff=evil\\n");
+  await run("git",["init",root]); await run("git",["-C",root,"config","user.email","forge@example.invalid"]);
+  await run("git",["-C",root,"config","user.name","FORGE Tests"]);
+  const marker=path.join(root,"external-diff-ran.txt");
+  await run("git",["-C",root,"config","diff.evil.command", "touch "+marker]);
+  await run("git",["-C",root,"add","."]); await run("git",["-C",root,"commit","-m","initial"]);
+  await writeFile(path.join(root,"sample.txt"),"after\\n");
+  const report=await analyzeGitChanges(root);
+  expect(report.changes.some(change=>change.file==="sample.txt")).toBe(true);
+  await expect(access(marker)).rejects.toThrow();
+ });
+
  it("flags deleted files as high risk",async()=>{
   root=await mkdtemp(path.join(os.tmpdir(),"forge-git-delete-"));
   await writeFile(path.join(root,"package.json"),'{"name":"sample"}');
