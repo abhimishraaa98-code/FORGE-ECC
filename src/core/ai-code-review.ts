@@ -41,15 +41,26 @@ function parseSuggestions(value:unknown,files:Set<string>):AIReviewSuggestion[]{
  return output;
 }
 export async function generateAIReview(report:CodeReviewReport,provider:AgentProvider):Promise<AIReviewResult>{
- const {readFile}=await import("node:fs/promises");
+ const {readFile,realpath,stat}=await import("node:fs/promises");
  const path=await import("node:path");
+ const projectRoot=await realpath(report.root);
  let remaining=MAX_TOTAL_CHARS;const excerpts:Array<{file:string;content:string}>=[];
+ const skippedFiles:string[]=[];
  for(const file of report.filesReviewed){
   if(remaining<=0)break;
-  try{const text=await readFile(path.join(report.root,file),"utf8");
+  try{
+   if(typeof file!=="string"||!file||path.isAbsolute(file))throw new Error("not a project-relative path");
+   const candidate=path.resolve(projectRoot,file);
+   const lexicalRelative=path.relative(projectRoot,candidate);
+   if(!lexicalRelative||lexicalRelative===".."||lexicalRelative.startsWith(".."+path.sep)||path.isAbsolute(lexicalRelative))throw new Error("path escapes the project root");
+   const resolved=await realpath(candidate);
+   const actualRelative=path.relative(projectRoot,resolved);
+   if(!actualRelative||actualRelative===".."||actualRelative.startsWith(".."+path.sep)||path.isAbsolute(actualRelative))throw new Error("resolved path escapes the project root");
+   if(!(await stat(resolved)).isFile())throw new Error("not a regular file");
+   const text=await readFile(resolved,"utf8");
    const content=text.slice(0,Math.min(MAX_FILE_CHARS,remaining));remaining-=content.length;
    excerpts.push({file,content});
-  }catch{/* File may have changed since static review. */}
+  }catch{skippedFiles.push(String(file));}
  }
  const response=await provider.complete({task:{id:"ai-code-review",agent:"code-reviewer",title:"Review supplied changed source excerpts",prompt:[
   "Perform a careful software engineering review of the supplied source excerpts.",
