@@ -20,7 +20,7 @@ describe("agent experiment studio", () => {
       name: "Provider comparison",
       repeats: 3,
       candidates: [
-        { id: "openai-fast", provider: "openai", model: "gpt-4.1-mini" },
+        { id: "openai-fast", provider: "openai", model: "gpt-4.1-mini", configVersionId: "cfg-0123456789ab" },
         { id: "claude-sonnet", provider: "claude-code", model: "sonnet" },
         { id: "gemini-flash", provider: "google", model: "gemini-2.5-flash" }
       ]
@@ -28,6 +28,7 @@ describe("agent experiment studio", () => {
     expect(matrix.candidates).toHaveLength(3);
     expect(matrix.candidates.map(item => item.provider)).toEqual(["openai", "claude-code", "google"]);
     expect(formatModelComparisonMatrix(matrix)).toContain("Total planned trials: 9");
+    expect(formatModelComparisonMatrix(matrix)).toContain("config cfg-0123456789ab");
   });
 
   it("rejects duplicate candidate IDs and invalid repeat counts", () => {
