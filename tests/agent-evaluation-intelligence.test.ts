@@ -41,6 +41,16 @@ describe("agent evaluation intelligence", () => {
     expect(result.cards[0]?.evaluations).toBe(1);
   });
 
+  it("does not mix history from a different benchmark matrix", () => {
+    const current = report("2026-01-02T00:00:00.000Z", 90);
+    const unrelated = report("2026-01-01T00:00:00.000Z", 10, ["unrelated"]);
+    unrelated.matrixId = "matrix-b";
+    const result = buildAgentEvaluationIntelligence([unrelated, current]);
+    expect(result.cards[0]?.evaluations).toBe(1);
+    expect(result.cards[0]?.scoreTrend).toBeNull();
+    expect(result.cards[0]?.improvementAreas).toEqual([]);
+  });
+
   it("does not invent a trend without comparable prior data", () => {
     const result = buildAgentEvaluationIntelligence([report("2026-01-01T00:00:00.000Z", 90)]);
     expect(result.cards[0]?.scoreTrend).toBeNull();
