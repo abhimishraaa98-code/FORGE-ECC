@@ -269,6 +269,28 @@ describe("local run history", () => {
     await expect(saveRun(root, run)).rejects.toThrow(/maximum file size/);
   });
 
+  it("preserves the previous run record when an oversized update is rejected", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-run-oversized-update-"));
+    const run = createRun("Keep valid history", [
+      { id: "draft", agent: "planner", title: "Draft", prompt: "Original prompt" },
+    ]);
+    await saveRun(root, run);
+    const oversized = {
+      ...run,
+      tasks: run.tasks.map((task) => ({
+        ...task,
+        task: { ...task.task, prompt: "x".repeat(5 * 1024 * 1024) },
+      })),
+    };
+
+    await expect(saveRun(root, oversized)).rejects.toThrow(/maximum file size/);
+    await expect(loadRun(root, run.id)).resolves.toMatchObject({
+      id: run.id,
+      goal: "Keep valid history",
+      tasks: [{ task: { prompt: "Original prompt" } }],
+    });
+  });
+
   it("rejects oversized run-history files before parsing them", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-run-oversized-read-"));
     const run = createRun("Oversized stored run", [
