@@ -28,6 +28,19 @@ describe("agent evaluation intelligence", () => {
     expect(result.status).toBe("insufficient-data");
     expect(result.cards).toHaveLength(0);
   });
+  it("does not mix agent scores from other providers or models", () => {
+    const current = report("2026-01-01T00:00:00.000Z", 90);
+    current.results.push({
+      candidateId: "candidate-a", provider: "anthropic", model: "different-model",
+      repeat: 1, runId: "foreign-run", score: 0, passed: false, durationMs: 1000,
+      estimatedTokens: 500, status: "completed",
+      agentScores: [{ agent: "code-reviewer", caseId: "foreign-case", score: 0, passed: false, skillIds: [], failedCriteria: [] }],
+    });
+    const result = buildAgentEvaluationIntelligence([current]);
+    expect(result.cards[0]?.caseMetrics.map(item => item.caseId)).toEqual(["case-security"]);
+    expect(result.cards[0]?.evaluations).toBe(1);
+  });
+
   it("does not invent a trend without comparable prior data", () => {
     const result = buildAgentEvaluationIntelligence([report("2026-01-01T00:00:00.000Z", 90)]);
     expect(result.cards[0]?.scoreTrend).toBeNull();
