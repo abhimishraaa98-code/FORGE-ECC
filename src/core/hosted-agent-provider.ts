@@ -20,6 +20,9 @@ function localHttpAllowed(url: URL): boolean {
 }
 function endpoint(base: string, suffix: string): string {
   const url = new URL(base);
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error("AI provider URL must not contain credentials, a query string, or a fragment.");
+  }
   if (url.protocol !== "https:" && !(url.protocol === "http:" && localHttpAllowed(url))) {
     throw new Error("AI provider URL must use HTTPS (HTTP is allowed only for localhost).");
   }
