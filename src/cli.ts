@@ -171,7 +171,7 @@ async function main(args: string[]): Promise<void> {
       try {
         const matrices = await listBenchmarkMatrices(target);
         const plan = buildAgentOptimizationPlan(matrices);
-        process.stdout.write(formatAgentOptimizationPlan(plan) + "\\n");
+        process.stdout.write(formatAgentOptimizationPlan(plan) + "\n");
         if (plan.status === "insufficient-history") process.exitCode = 2;
       } catch (error) {
         process.stderr.write("FORGE adaptive agent optimization failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
