@@ -46,11 +46,11 @@ describe("workspace tool broker", () => {
 
   it("blocks direct reads through sensitive directory names", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-tool-broker-"));
-    await mkdir(path.join(root, "config"), { recursive: true });
-    await writeFile(path.join(root, "config", "credentials.json"), JSON.stringify({ token: "must-not-be-read" }));
+    await mkdir(path.join(root, "credentials"), { recursive: true });
+    await writeFile(path.join(root, "credentials", "notes.txt"), "must-not-be-read");
     const policy = validatePermissionPolicy({ version: 1, mode: "restricted", allowedTools: ["read-file", "list-files"] });
-    await expect(executeWorkspaceAgentTool(root, policy, "read-file", { relativePath: "config/credentials.json" })).rejects.toThrow(/Sensitive workspace paths/);
-    await expect(executeWorkspaceAgentTool(root, policy, "list-files", { relativePath: "config" })).rejects.toThrow(/Sensitive workspace paths/);
+    await expect(executeWorkspaceAgentTool(root, policy, "read-file", { relativePath: "credentials/notes.txt" })).rejects.toThrow(/Sensitive workspace paths/);
+    await expect(executeWorkspaceAgentTool(root, policy, "list-files", { relativePath: "credentials" })).rejects.toThrow(/Sensitive workspace paths/);
   });
 
 });
