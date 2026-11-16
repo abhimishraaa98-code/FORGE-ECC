@@ -83,7 +83,7 @@ describe("task-aware model routing", () => {
     let calls = 0;
     const router = new ModelRouter({
       ...models,
-      maxEstimatedTokensPerRun: 10,
+      maxEstimatedTokensPerRun: 8,
       createProvider: model => ({
         name: model,
         async complete() { calls += 1; return { provider: model, content: "A short response." }; },
