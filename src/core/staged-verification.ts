@@ -58,7 +58,7 @@ async function copySnapshot(source: string, destination: string): Promise<{ file
 }
 
 /**
- * Runs one explicitly selected npm script against a temporary copy with the staged file overlaid.
+ * Runs one explicitly selected npm script against a temporary copy of the fingerprinted staged workspace.
  * Project scripts still execute on the local host; this is not an OS-level sandbox.
  */
 export async function verifyStagedPatch(
