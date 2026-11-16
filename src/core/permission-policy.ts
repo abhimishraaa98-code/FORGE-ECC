@@ -49,3 +49,10 @@ export async function loadPermissionPolicy(projectPath: string): Promise<ForgePe
     throw error;
   }
 }
+
+/** Fail closed until a concrete, audited tool executor is registered. */
+export function assertProposalOnlyPolicy(policy: ForgePermissionPolicy, context = "FORGE run"): void {
+  if (policy.mode !== "proposal-only" || policy.allowedTools.length !== 0) {
+    throw new Error(`${context} cannot execute with the configured permission policy. This FORGE build supports proposal-only agents and has no registered tool executor; set mode to "proposal-only" and allowedTools to [].`);
+  }
+}
