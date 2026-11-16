@@ -272,3 +272,32 @@ Run `forge sandbox-compliance balanced IMAGE@sha256:DIGEST` or choose `hardened`
 ### Custom sandbox policy validation
 
 Create a version 1 JSON policy with a built-in profile and restrictive controls, then run `forge sandbox-policy-check ./sandbox-policy.json`. Validation rejects unknown fields, network enablement, writable roots, restored capabilities, disabled no-new-privileges, relaxed resource bounds and hardened profiles without rootless enforcement. This command validates policy input only; it does not apply the policy to a running container.
+
+
+## Machine-readable run history
+
+Use `forge runs --json` for a stable, versioned summary intended for scripts and external tools. The command prints a JSON object with a `schemaVersion` field and a `runs` array. Version 1 exposes run identity, goal, status, timestamps, task-state counts, and event count; it deliberately does not expose internal task payloads or prompt data.
+
+```json
+{
+  "schemaVersion": 1,
+  "runs": [
+    {
+      "id": "run-id",
+      "goal": "Example goal",
+      "status": "completed",
+      "createdAt": "2026-01-01T10:00:00.000Z",
+      "updatedAt": "2026-01-01T10:02:00.000Z",
+      "taskCount": 2,
+      "pendingTaskCount": 0,
+      "awaitingApprovalTaskCount": 0,
+      "completedTaskCount": 2,
+      "failedTaskCount": 0,
+      "blockedTaskCount": 0,
+      "eventCount": 4
+    }
+  ]
+}
+```
+
+Consumers should check `schemaVersion` before interpreting fields. A future incompatible output change will increment this value. Use `forge show-run RUN_ID` when the complete persisted run record is needed.
