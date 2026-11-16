@@ -19,7 +19,11 @@ describe("container sandbox arguments", () => {
     expect(args).toContain("--memory=1g");
     expect(args).toContain("--cpus=2");
     expect(args).toContain("--pull=never");
-    expect(args).toContain("npm");
+    expect(args).toContain("--tmpfs");
+    expect(args).toContain("readonly");
+    expect(args).toContain("--entrypoint");
+    expect(args).toContain("node");
+    expect(args.some(value => value.includes("fs.cpSync"))).toBe(true);
     expect(args).toContain("test");
   });
 
