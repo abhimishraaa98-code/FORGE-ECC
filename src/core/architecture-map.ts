@@ -1,8 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { isExcludedScanDirectory } from "./workspace-scan-policy.js";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-const IGNORED_DIRECTORIES = new Set([".git", ".forge", ".ssh", ".aws", ".azure", ".kube", ".docker", ".gnupg", ".next", ".nuxt", ".output", ".turbo", ".vercel", "node_modules", "dist", "build", "coverage", "vendor", ".venv", "venv", "__pycache__"]);
+
 const IMPORT_PATTERNS = [
   /\bimport\s+(?:type\s+)?(?:[^"'()]*?\s+from\s+)?["']([^"']+)["']/g,
   /\bexport\s+(?:\*|\{[^}]*\})\s+from\s+["']([^"']+)["']/g,
@@ -72,7 +73,7 @@ export async function mapArchitecture(inputPath: string): Promise<ArchitectureMa
     });
   const eligibleSourceFiles = sourceFiles.filter(file =>
     SOURCE_EXTENSIONS.has(path.extname(file)) &&
-    !file.split("/").some(part => part.startsWith(".") || IGNORED_DIRECTORIES.has(part))
+    !file.split("/").some(part => part.startsWith(".") || isExcludedScanDirectory(part))
   );
   const filtered = eligibleSourceFiles.slice(0, 3000);
   const knownFiles = new Set(filtered);
