@@ -1011,15 +1011,17 @@ async function main(args: string[]): Promise<void> {
       const installDependencies = rest.includes("--install-dependencies");
       const sandboxImageIndex = rest.indexOf("--sandbox-image");
       const sandboxImage = sandboxImageIndex >= 0 ? rest[sandboxImageIndex + 1] : undefined;
-      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && !(pathIndex >= 0 && index === pathIndex + 1) && arg !== "--install-dependencies" && arg !== "--sandbox-image" && !(sandboxImageIndex >= 0 && index === sandboxImageIndex + 1));
+      const requireRootless = rest.includes("--require-rootless");
+      const argsWithoutPath = rest.filter((arg, index) => arg !== "--path" && !(pathIndex >= 0 && index === pathIndex + 1) && arg !== "--install-dependencies" && arg !== "--sandbox-image" && !(sandboxImageIndex >= 0 && index === sandboxImageIndex + 1) && arg !== "--require-rootless");
       const stageId = argsWithoutPath.find(arg => !arg.startsWith("--"));
       const script = argsWithoutPath.find((arg, index) => !arg.startsWith("--") && index > 0);
       try {
-        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--path PROJECT]");
+        if (!stageId || !script) throw new Error("Usage: forge patch-verify PATCH_STAGE_ID SCRIPT [--install-dependencies] [--sandbox-image IMAGE@sha256:DIGEST] [--require-rootless] [--path PROJECT]");
         if (sandboxImageIndex >= 0 && !sandboxImage) throw new Error("--sandbox-image requires an image pinned by sha256 digest.");
         const result = await verifyStagedPatch(target, stageId, script, {
           installDependencies,
           ...(sandboxImage ? { sandboxImage } : {}),
+          ...(requireRootless ? { requireRootless } : {}),
         });
         process.stdout.write(
           "# FORGE Staged Patch Verification\n\n" +
