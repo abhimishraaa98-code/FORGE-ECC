@@ -178,7 +178,7 @@ async function main(args: string[]): Promise<void> {
         if (!suite) throw new Error("Evaluation suite not found: " + suiteId);
         const apiKey = process.env.FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
         const baseUrl = process.env.FORGE_BASE_URL ?? "https://api.openai.com/v1";
-        const report = await executeBenchmarkMatrix(config, async (candidate, repeat) => {
+        const report = await executeBenchmarkMatrix(config, async (candidate, _repeat) => {
           if (candidate.provider === "openai" && !apiKey) throw new Error("Candidate " + candidate.id + " requires FORGE_API_KEY or OPENAI_API_KEY.");
           const createProvider = (selectedModel: string) => candidate.provider === "claude-code"
             ? new ClaudeCodeProvider({ cwd: target, model: selectedModel })
