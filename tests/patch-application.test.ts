@@ -75,7 +75,7 @@ describe("isolated approved patch staging", () => {
     await writeFile(path.join(root, ".env"), "SECRET=must-not-be-copied");
     const staged = await stageApprovedPatch(root, approval.id);
     const result = await verifyStagedPatch(root, staged.id, "check");
-    expect(result.verification.status).toBe("passed");
+    expect(result.verification.status, result.verification.output).toBe("passed");
     expect(result.file).toBe("src/a.ts");
     expect(result.stagedSha256).toBe(staged.stagedSha256);
     expect(result.snapshotFileCount).toBeGreaterThanOrEqual(2);
