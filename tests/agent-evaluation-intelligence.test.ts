@@ -19,7 +19,7 @@ describe("agent evaluation intelligence", () => {
     expect(result.status).toBe("ready");
     expect(result.cards).toHaveLength(1);
     expect(result.cards[0]?.scoreTrend).toBe(-20);
-    expect(result.cards[0]?.improvementAreas).toContain("case:case-security");
+    expect(result.cards[0]?.improvementAreas).toContain("criterion:security-boundary");
     expect(result.cards[0]?.criterionSignals[0]?.criterionId).toBe("security-boundary");
     expect(formatAgentEvaluationIntelligence(result)).toContain("Effectiveness: 70/100");
   });
