@@ -55,7 +55,7 @@ function isRetryableProviderError(error: unknown): boolean {
   // server error can happen after the provider accepted and billed the request;
   // replaying it automatically could duplicate paid generation work.
   const message = error instanceof Error ? error.message : String(error);
-  return /HTTP 429\\b/i.test(message);
+  return /HTTP 429\b/i.test(message);
 }
 
 export class ModelRouter implements AgentProvider {
