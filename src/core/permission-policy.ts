@@ -56,3 +56,14 @@ export function assertProposalOnlyPolicy(policy: ForgePermissionPolicy, context 
     throw new Error(`${context} cannot execute with the configured permission policy. This FORGE build supports proposal-only agents and has no registered tool executor; set mode to "proposal-only" and allowedTools to [].`);
   }
 }
+
+
+/** Allows only the audited read-only workspace tools for native OpenAI tool calling. */
+export function assertSupportedAgentPolicy(policy: ForgePermissionPolicy, provider: string, context = "FORGE run"): void {
+  if (policy.mode === "proposal-only" && policy.allowedTools.length === 0) return;
+  const supported = new Set(["list-files", "read-file", "search-code"]);
+  if (policy.mode !== "restricted" || provider !== "openai" || policy.allowedTools.length === 0 ||
+      policy.allowedTools.some(tool => !supported.has(tool))) {
+    throw new Error(`${context} cannot execute with this permission policy. Restricted tool execution currently supports only OpenAI with the audited read-only tools: list-files, read-file, search-code.`);
+  }
+}
