@@ -5,7 +5,7 @@
 -->
 
 <p align="center">
-  <img src="public/forge-dashboard.png" alt="FORGE dashboard" width="360" />
+  <img src="docs/forge-dashboard.png" alt="FORGE dashboard" width="360" />
 </p>
 
 <h1 align="center">FORGE — The AI Engineering Workbench</h1>
