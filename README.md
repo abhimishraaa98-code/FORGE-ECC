@@ -1,51 +1,75 @@
 <!--
   FORGE — AI Engineering Workbench
-  Documentation style inspired by the clarity and information architecture of leading open-source READMEs.
-  All feature and integration claims below describe FORGE v1.0.0 as shipped.
+  Project maintained by FORGE WORKBENCH.
+  Feature claims describe the shipped FORGE v1.0.0 foundation.
 -->
 
 <p align="center">
-  <img src="docs/forge-dashboard.png" alt="FORGE dashboard" width="360" />
+  <img src="docs/forge-dashboard.png" alt="FORGE — local AI engineering workbench dashboard" width="100%" />
 </p>
 
-<h1 align="center">FORGE — The AI Engineering Workbench</h1>
+<h1 align="center">FORGE</h1>
 
 <p align="center">
-  <strong>Understand the codebase. Coordinate AI-assisted work. Review every change. Verify the result.</strong>
-</p>
-
-<p align="center">
-  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-FORGE%20Workbench-c47b52?style=for-the-badge&logo=googlechrome&logoColor=white" alt="FORGE website" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/releases"><img src="https://img.shields.io/github/v/release/ansh44233/FORGE-ECC?style=for-the-badge&label=Release" alt="Latest release" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ansh44233/FORGE-ECC/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI status" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/ansh44233/FORGE-ECC?style=for-the-badge" alt="MIT license" /></a>
+  <strong>The AI Engineering Workbench</strong><br />
+  <sub>Understand the codebase · Coordinate AI-assisted work · Review every change · Verify the result</sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ansh44233/FORGE-ECC/stargazers"><img src="https://img.shields.io/github/stars/ansh44233/FORGE-ECC?style=flat-square&logo=github" alt="GitHub stars" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/network/members"><img src="https://img.shields.io/github/forks/ansh44233/FORGE-ECC?style=flat-square" alt="GitHub forks" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/graphs/contributors"><img src="https://img.shields.io/github/contributors/ansh44233/FORGE-ECC?style=flat-square" alt="Contributors" /></a>
-  <a href="https://img.shields.io/badge/Node.js-22%2B-339933?logo=nodedotjs&logoColor=white"><img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22+" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.8%2B-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/actions"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-64748b?style=flat-square" alt="Platforms" /></a>
-</p>
-
-<p align="center">
-  <a href="https://www.star-history.com/#ansh44233/FORGE-ECC&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date&theme=dark" />
-      <img src="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date" alt="FORGE GitHub star history" width="88%" />
-    </picture>
+  <a href="https://github.com/forge-workbench">
+    <img src="https://img.shields.io/badge/Organization-FORGE%20WORKBENCH-c47b52?style=for-the-badge&logo=github&logoColor=white" alt="FORGE WORKBENCH organization" />
   </a>
+  <a href="https://forge-ecc.vercel.app/">
+    <img src="https://img.shields.io/badge/Website-FORGE%20Workbench-171717?style=for-the-badge&logo=vercel&logoColor=white" alt="FORGE website" />
+  </a>
+  <a href="https://forge-ecc.vercel.app/api/github/install">
+    <img src="https://img.shields.io/badge/GitHub%20App-Get%20FORGE-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get FORGE GitHub App" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/ansh44233/FORGE-ECC?style=for-the-badge&label=License" alt="MIT license" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ansh44233/FORGE-ECC">
+    <img src="https://img.shields.io/github/stars/ansh44233/FORGE-ECC?style=flat-square&logo=github&label=stars" alt="GitHub stars" />
+  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/forks">
+    <img src="https://img.shields.io/github/forks/ansh44233/FORGE-ECC?style=flat-square&label=forks" alt="GitHub forks" />
+  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/graphs/contributors">
+    <img src="https://img.shields.io/github/contributors/ansh44233/FORGE-ECC?style=flat-square&label=contributors" alt="Contributors" />
+  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/commits/main">
+    <img src="https://img.shields.io/github/last-commit/ansh44233/FORGE-ECC?style=flat-square&label=last%20commit" alt="Last commit" />
+  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/ansh44233/FORGE-ECC/ci.yml?branch=main&style=flat-square&label=build" alt="Build status" />
+  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/releases">
+    <img src="https://img.shields.io/github/v/release/ansh44233/FORGE-ECC?style=flat-square&label=release" alt="Latest release" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22+" />
+  <img src="https://img.shields.io/badge/TypeScript-5.8%2B-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-64748b?style=flat-square&logo=linux&logoColor=white" alt="Windows, macOS and Linux" />
+  <img src="https://img.shields.io/badge/Local--first-Privacy%20focused-0f766e?style=flat-square&logo=shield&logoColor=white" alt="Local-first" />
 </p>
 
 <p align="center">
   <a href="https://www.star-history.com/#ansh44233/FORGE-ECC">
-    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending" height="42" alt="FORGE trending badge" />
+    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending" height="42" alt="FORGE GitHub trending badge" />
   </a>
   <a href="https://www.star-history.com/#ansh44233/FORGE-ECC">
-    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank" height="42" alt="FORGE rank badge" />
+    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank" height="42" alt="FORGE GitHub rank badge" />
   </a>
+</p>
+
+<p align="center">
+  <strong>Built and maintained by <a href="https://github.com/forge-workbench">FORGE WORKBENCH</a></strong><br />
+  <sub>Open-source engineering tooling · Transparent capabilities · Human-controlled workflows</sub>
 </p>
 
 <p align="center">
@@ -62,15 +86,6 @@
 
 > [!NOTE]
 > **FORGE v1.0.0 — Foundation release.** The local CLI, local dashboard, MCP server, provider adapters, GitHub Action and GitHub App installation/authentication foundation are available. The GitHub App does not yet perform hosted repository scans or create pull requests. See [Current capabilities and boundaries](#current-capabilities-and-boundaries).
-
-<!--
-DASHBOARD IMAGE
-When the real screenshot is ready, place it at docs/images/forge-dashboard.png
-and replace this comment with:
-<p align="center">
-  <img src="docs/images/forge-dashboard.png" alt="FORGE local engineering dashboard" width="100%" />
-</p>
--->
 
 ## What is FORGE?
 
@@ -768,3 +783,14 @@ For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 ## License
 
 FORGE is open source under the [MIT License](LICENSE).
+
+## Star history
+
+<p align="center">
+  <a href="https://www.star-history.com/#ansh44233/FORGE-ECC&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date&theme=dark" />
+      <img src="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date" alt="FORGE GitHub star history" width="88%" />
+    </picture>
+  </a>
+</p>
