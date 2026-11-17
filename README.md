@@ -7,7 +7,7 @@ FORGE is a local-first AI engineering workbench for planning, coordinating, revi
 Install the CLI directly from this repository (Node.js 22 or newer):
 
 ```bash
-npm install --global git+https://github.com/forge-workbench/FORGE-ECC.git#main
+npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#main
 forge --version
 forge init ./my-project
 forge dashboard ./my-project
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run FORGE
-        uses: forge-workbench/FORGE-ECC@main
+        uses: ansh44233/FORGE-ECC@main
         with:
           version: main
           project-path: .
