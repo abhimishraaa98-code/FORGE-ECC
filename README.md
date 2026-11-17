@@ -757,6 +757,10 @@ For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
+## Support
+
+For questions about FORGE or help with the GitHub App, contact [THEGODOFEARTH3@gmail.com](mailto:THEGODOFEARTH3@gmail.com).
+
 ## Maintainer
 
 **Ansh** · [@ansh44233](https://github.com/ansh44233)
