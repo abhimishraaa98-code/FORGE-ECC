@@ -1,75 +1,58 @@
-<!--
-  FORGE — AI Engineering Workbench
-  Project maintained by FORGE WORKBENCH.
-  Feature claims describe the shipped FORGE v1.0.0 foundation.
--->
+<!-- FORGE — AI Harness for software engineering -->
 
 <p align="center">
-  <img src="docs/forge-dashboard.png" alt="FORGE — local AI engineering workbench dashboard" width="100%" />
+  <img src="https://raw.githubusercontent.com/ansh44233/FORGE-ECC/main/docs/forge-dashboard.png" alt="FORGE AI Harness dashboard" width="100%" />
 </p>
 
-<h1 align="center">FORGE</h1>
+<h1 align="center">FORGE — The AI Harness</h1>
 
 <p align="center">
-  <strong>The AI Engineering Workbench</strong><br />
-  <sub>Understand the codebase · Coordinate AI-assisted work · Review every change · Verify the result</sub>
+  <strong>An open-source AI engineering harness for orchestrating agents, understanding codebases, reviewing changes, and verifying results.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/forge-workbench">
-    <img src="https://img.shields.io/badge/Organization-FORGE%20WORKBENCH-c47b52?style=for-the-badge&logo=github&logoColor=white" alt="FORGE WORKBENCH organization" />
-  </a>
-  <a href="https://forge-ecc.vercel.app/">
-    <img src="https://img.shields.io/badge/Website-FORGE%20Workbench-171717?style=for-the-badge&logo=vercel&logoColor=white" alt="FORGE website" />
-  </a>
-  <a href="https://forge-ecc.vercel.app/api/github/install">
-    <img src="https://img.shields.io/badge/GitHub%20App-Get%20FORGE-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get FORGE GitHub App" />
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/ansh44233/FORGE-ECC?style=for-the-badge&label=License" alt="MIT license" />
-  </a>
+  <a href="https://github.com/forge-workbench"><img src="https://img.shields.io/badge/Organization-FORGE%20WORKBENCH-c47b52?logo=github&logoColor=white" alt="FORGE WORKBENCH organization" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-forge--ecc.vercel.app-222222?logo=vercel&logoColor=white" alt="FORGE website" /></a>
+  <a href="https://forge-ecc.vercel.app/api/github/install"><img src="https://img.shields.io/badge/GitHub%20App-Get%20FORGE-181717?logo=github&logoColor=white" alt="Get FORGE GitHub App" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT license" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ansh44233/FORGE-ECC">
-    <img src="https://img.shields.io/github/stars/ansh44233/FORGE-ECC?style=flat-square&logo=github&label=stars" alt="GitHub stars" />
-  </a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/forks">
-    <img src="https://img.shields.io/github/forks/ansh44233/FORGE-ECC?style=flat-square&label=forks" alt="GitHub forks" />
-  </a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/ansh44233/FORGE-ECC?style=flat-square&label=contributors" alt="Contributors" />
-  </a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/commits/main">
-    <img src="https://img.shields.io/github/last-commit/ansh44233/FORGE-ECC?style=flat-square&label=last%20commit" alt="Last commit" />
-  </a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/ansh44233/FORGE-ECC/ci.yml?branch=main&style=flat-square&label=build" alt="Build status" />
-  </a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/releases">
-    <img src="https://img.shields.io/github/v/release/ansh44233/FORGE-ECC?style=flat-square&label=release" alt="Latest release" />
-  </a>
+  <a href="https://github.com/ansh44233/FORGE-ECC"><img src="https://img.shields.io/github/stars/ansh44233/FORGE-ECC?style=flat" alt="GitHub stars" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/forks"><img src="https://img.shields.io/github/forks/ansh44233/FORGE-ECC?style=flat" alt="GitHub forks" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/graphs/contributors"><img src="https://img.shields.io/github/contributors/ansh44233/FORGE-ECC?style=flat" alt="Contributors" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/commits/main"><img src="https://img.shields.io/github/last-commit/ansh44233/FORGE-ECC?style=flat" alt="Last commit" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ansh44233/FORGE-ECC/ci.yml?branch=main&style=flat&label=build" alt="Build status" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/releases"><img src="https://img.shields.io/github/v/release/ansh44233/FORGE-ECC?style=flat&label=release" alt="Latest release" /></a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22+" />
-  <img src="https://img.shields.io/badge/TypeScript-5.8%2B-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-64748b?style=flat-square&logo=linux&logoColor=white" alt="Windows, macOS and Linux" />
-  <img src="https://img.shields.io/badge/Local--first-Privacy%20focused-0f766e?style=flat-square&logo=shield&logoColor=white" alt="Local-first" />
+  <img src="https://img.shields.io/badge/AI%20Harness-Agent%20Orchestration-7c3aed?logo=probot&logoColor=white" alt="AI harness and agent orchestration" />
+  <img src="https://img.shields.io/badge/Agent%20Workflows-Review%20%26%20Verify-2563eb?logo=githubactions&logoColor=white" alt="Agent workflows, review and verification" />
+  <img src="https://img.shields.io/badge/MCP-Read--only%20Tools-0f766e?logo=protocols&logoColor=white" alt="MCP read-only tools" />
+  <img src="https://img.shields.io/badge/Runtime-Node.js%2022%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 22+" />
+  <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-64748b?logo=linux&logoColor=white" alt="Windows macOS Linux" />
+  <img src="https://img.shields.io/badge/Architecture-Local--first-0f766e?logo=shield&logoColor=white" alt="Local-first architecture" />
 </p>
 
 <p align="center">
-  <a href="https://www.star-history.com/#ansh44233/FORGE-ECC">
-    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending" height="42" alt="FORGE GitHub trending badge" />
+  <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending&theme=dark" />
+      <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending" alt="GitHub Trending Repository" height="46" />
+    </picture>
   </a>
-  <a href="https://www.star-history.com/#ansh44233/FORGE-ECC">
-    <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank" height="42" alt="FORGE GitHub rank badge" />
+  <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank&theme=dark" />
+      <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank" alt="Star History Global Rank" height="46" />
+    </picture>
   </a>
 </p>
 
 <p align="center">
-  <strong>Built and maintained by <a href="https://github.com/forge-workbench">FORGE WORKBENCH</a></strong><br />
-  <sub>Open-source engineering tooling · Transparent capabilities · Human-controlled workflows</sub>
+  <strong>Built and maintained by <a href="https://github.com/forge-workbench">FORGE WORKBENCH</a></strong>
 </p>
 
 <p align="center">
@@ -85,7 +68,7 @@
 ---
 
 > [!NOTE]
-> **FORGE v1.0.0 — Foundation release.** The local CLI, local dashboard, MCP server, provider adapters, GitHub Action and GitHub App installation/authentication foundation are available. The GitHub App does not yet perform hosted repository scans or create pull requests. See [Current capabilities and boundaries](#current-capabilities-and-boundaries).
+> **FORGE v1.0.0 — AI harness foundation.** The local CLI, local dashboard, agent orchestration, MCP server, provider adapters, GitHub Action and GitHub App installation/authentication foundation are available. The GitHub App does not yet perform hosted repository scans or create pull requests. See [Current capabilities and boundaries](#current-capabilities-and-boundaries).
 
 ## What is FORGE?
 
@@ -787,10 +770,10 @@ FORGE is open source under the [MIT License](LICENSE).
 ## Star history
 
 <p align="center">
-  <a href="https://www.star-history.com/#ansh44233/FORGE-ECC&Date">
+  <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date&theme=dark" />
-      <img src="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date" alt="FORGE GitHub star history" width="88%" />
+      <img src="https://api.star-history.com/svg?repos=ansh44233/FORGE-ECC&type=Date" alt="FORGE GitHub star history" width="100%" />
     </picture>
   </a>
 </p>
