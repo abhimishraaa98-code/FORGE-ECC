@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
+import { request as httpRequest } from "node:http";
 import path from "node:path";
 import { startDashboard, type DashboardHandle } from "../src/core/dashboard-server.js";
 import { advanceRun, createRun, DemoAgentProvider } from "../src/core/orchestrator.js";
@@ -19,6 +20,30 @@ afterEach(async () => {
 });
 
 describe("local dashboard server", () => {
+  it("rejects attacker-controlled Host headers even when Origin matches", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "forge-dashboard-host-"));
+    dashboard = await startDashboard({ projectPath: root, port: 0 });
+    const address = dashboard.server.address();
+    if (!address || typeof address === "string") throw new Error("Dashboard did not bind a TCP port.");
+    const response = await new Promise<{ statusCode: number | undefined; body: string }>((resolve, reject) => {
+      const request = httpRequest({
+        hostname: "127.0.0.1",
+        port: address.port,
+        path: "/api/providers",
+        headers: { host: "attacker.example", origin: "http://attacker.example" },
+      }, incoming => {
+        let body = "";
+        incoming.setEncoding("utf8");
+        incoming.on("data", chunk => { body += chunk; });
+        incoming.on("end", () => resolve({ statusCode: incoming.statusCode, body }));
+      });
+      request.on("error", reject);
+      request.end();
+    });
+    expect(response.statusCode).toBe(421);
+    expect(JSON.parse(response.body)).toMatchObject({ error: "Unexpected Host header." });
+  });
+
   it("renders visual candidate comparisons from historical benchmark entries", async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "forge-visual-experiment-history-"));
     dashboard = await startDashboard({ projectPath: root, port: 0 });
