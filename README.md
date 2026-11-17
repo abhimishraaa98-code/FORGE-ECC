@@ -38,17 +38,15 @@
 
 <p align="center">
   <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending&theme=dark" />
-      <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=trending" alt="GitHub Trending Repository" height="46" />
-    </picture>
+    <img src="https://img.shields.io/badge/GitHub%20Trending-Not%20ranked%20yet-64748b?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Trending — not ranked yet" />
   </a>
   <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank&theme=dark" />
-      <img src="https://api.star-history.com/badge?repo=ansh44233/FORGE-ECC&type=rank" alt="Star History Global Rank" height="46" />
-    </picture>
+    <img src="https://img.shields.io/badge/Star%20History%20Global%20Rank-Pending-64748b?style=for-the-badge&logo=starship&logoColor=white" alt="Star History global rank — pending" />
   </a>
+</p>
+
+<p align="center">
+  <sub>These are live-status placeholders until Star History publishes a trending record and global rank for FORGE. They will be replaced with Star History's live badge images once those records are available.</sub>
 </p>
 
 <p align="center">
