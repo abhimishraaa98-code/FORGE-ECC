@@ -40,6 +40,45 @@ export function normalizePrivateKey(value: string): string {
   return `-----BEGIN ${match[1]}-----\n${lines.join("\n")}\n-----END ${match[1]}-----\n`;
 }
 
+/**
+ * Describe the *shape* of a configured private key without revealing any key material.
+ * Used by the health endpoint to diagnose misconfigured environment variables.
+ */
+export function describePrivateKey(value: string | undefined): Record<string, unknown> {
+  if (!value) return { present: false };
+  const normalized = normalizePrivateKey(value);
+  const marker = normalized.match(/-----BEGIN ([A-Z0-9 ]+)-----/)?.[1] ?? null;
+  const body = normalized.match(/-----BEGIN [A-Z0-9 ]+-----([\s\S]*?)-----END/)?.[1]?.replace(/\s+/g, "") ?? "";
+  let parseOk = false;
+  let parseError: string | null = null;
+  let keyType: string | null = null;
+  try {
+    const key = createPrivateKey(normalized);
+    parseOk = true;
+    keyType = key.asymmetricKeyType ?? null;
+  } catch (error) {
+    parseError = error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : "parse_failed";
+  }
+  return {
+    present: true,
+    rawLength: value.length,
+    rawLineCount: value.split(/\r?\n/).length,
+    rawHasLiteralBackslashN: value.includes("\\n"),
+    rawQuoted: /^\s*["']/.test(value),
+    rawStartsWithBeginMarker: value.trimStart().startsWith("-----BEGIN"),
+    looksLikeFingerprint: /^\s*SHA256:/i.test(value),
+    marker,
+    hasEndMarker: /-----END [A-Z0-9 ]+-----/.test(normalized),
+    bodyBase64Length: body.length,
+    bodyIsBase64: /^[A-Za-z0-9+/=]*$/.test(body),
+    encrypted: marker === "ENCRYPTED PRIVATE KEY" || /Proc-Type: 4,ENCRYPTED/.test(normalized),
+    parseOk,
+    keyType,
+    parseError,
+    runtime: { node: process.version, openssl: process.versions.openssl },
+  };
+}
+
 export function loadPrivateKey(value: string): KeyObject {
   try {
     return createPrivateKey(normalizePrivateKey(value));
