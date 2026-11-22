@@ -60,6 +60,11 @@ code,.mono{font-family:var(--mono)}
 i.logo{background:rgba(255,255,255,.92)!important}
 i.logo img{display:block}
 i.logo span{display:none}
+.glyph{display:grid;place-items:center;width:100%;height:100%}
+.glyph svg{width:62%;height:62%}
+.tool i{background:linear-gradient(145deg,rgba(232,179,162,.22),rgba(232,179,162,.08));border:1px solid rgba(232,179,162,.25)}
+.platform .top i{background:linear-gradient(145deg,rgba(232,179,162,.2),rgba(232,179,162,.06));border:1px solid rgba(232,179,162,.22)}
+.tool:hover i,.platform:hover .top i{border-color:rgba(232,179,162,.55)}
 .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:46px}
 .stat{border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;background:rgba(19,17,22,.76);backdrop-filter:blur(6px)}
 .stat b{display:block;font-size:30px;letter-spacing:-.02em;line-height:1.1}
@@ -215,12 +220,12 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
     <div class="tools">
       <p>Install FORGE in your coding tool</p>
       <div class="toolrow">
-        <span class="tool"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span>CC</span></i>Claude Code</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span>Cx</span></i>Codex</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span>Cu</span></i>Cursor</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span>OC</span></i>OpenCode</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span>Ge</span></i>Gemini CLI</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/github.svg" alt=""><span>GH</span></i>GitHub</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M12.5 15.5h4"/></svg></span></i>Claude Code</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5c-2 0-3 1-3 3v2c0 1.3-.8 2.5-2 2.5 1.2 0 2 1.2 2 2.5v2c0 2 1 3 3 3"/><path d="M15 4.5c2 0 3 1 3 3v2c0 1.3.8 2.5 2 2.5-1.2 0-2 1.2-2 2.5v2c0 2-1 3-3 3"/></svg></span></i>Codex</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 3.5l13 7.2-5.6 1.6 3.4 6.2-2.6 1.4-3.4-6.2-4.8 3.6z"/></svg></span></i>Cursor</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 4.5l-3 15"/></svg></span></i>OpenCode</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18"/><circle cx="6.3" cy="6.8" r=".4" fill="currentColor"/><circle cx="8.6" cy="6.8" r=".4" fill="currentColor"/><path d="M7 13.5h3.5M7 16h6"/></svg></span></i>Gemini CLI</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/github.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.2"/><circle cx="6.5" cy="18.5" r="2.2"/><circle cx="17.5" cy="8.5" r="2.2"/><path d="M6.5 7.7v8.6"/><path d="M17.5 10.7c0 3.5-4 3.8-9.4 5.9"/></svg></span></i>GitHub</span>
       </div>
     </div>
     <div class="stats">
@@ -377,12 +382,12 @@ forge_memory_search · forge_memory_add</div>
     <p class="label reveal">Platforms</p>
     <h2 class="reveal">One install. <span>Every harness.</span></h2>
     <div class="platforms">
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span>CC</span></i><b>Claude Code</b><span class="type">Native + hooks</span></div><p>Agents, skills, <code>/forge:*</code> commands, rules and Guard hooks in <code>.claude/</code></p></div>
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span>Cx</span></i><b>Codex</b><span class="type">AGENTS.md + skills</span></div><p>Managed <code>AGENTS.md</code> block and skills in <code>.agents/skills/</code></p></div>
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span>Cu</span></i><b>Cursor</b><span class="type">Rules + commands</span></div><p>Scoped <code>.cursor/rules/*.mdc</code> and <code>.cursor/commands/</code></p></div>
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span>OC</span></i><b>OpenCode</b><span class="type">Agents + commands</span></div><p>Subagents and commands in <code>.opencode/</code> plus <code>AGENTS.md</code></p></div>
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span>Ge</span></i><b>Gemini CLI</b><span class="type">Commands</span></div><p>TOML commands in <code>.gemini/commands/forge/</code> and <code>GEMINI.md</code></p></div>
-      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/github.svg" alt=""><span>GH</span></i><b>GitHub</b><span class="type">App + checks</span></div><p>Setup pull requests, PR risk checks, SARIF and the <code>shield</code> Action</p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M12.5 15.5h4"/></svg></span></i><b>Claude Code</b><span class="type">Native + hooks</span></div><p>Agents, skills, <code>/forge:*</code> commands, rules and Guard hooks in <code>.claude/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5c-2 0-3 1-3 3v2c0 1.3-.8 2.5-2 2.5 1.2 0 2 1.2 2 2.5v2c0 2 1 3 3 3"/><path d="M15 4.5c2 0 3 1 3 3v2c0 1.3.8 2.5 2 2.5-1.2 0-2 1.2-2 2.5v2c0 2-1 3-3 3"/></svg></span></i><b>Codex</b><span class="type">AGENTS.md + skills</span></div><p>Managed <code>AGENTS.md</code> block and skills in <code>.agents/skills/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 3.5l13 7.2-5.6 1.6 3.4 6.2-2.6 1.4-3.4-6.2-4.8 3.6z"/></svg></span></i><b>Cursor</b><span class="type">Rules + commands</span></div><p>Scoped <code>.cursor/rules/*.mdc</code> and <code>.cursor/commands/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 4.5l-3 15"/></svg></span></i><b>OpenCode</b><span class="type">Agents + commands</span></div><p>Subagents and commands in <code>.opencode/</code> plus <code>AGENTS.md</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18"/><circle cx="6.3" cy="6.8" r=".4" fill="currentColor"/><circle cx="8.6" cy="6.8" r=".4" fill="currentColor"/><path d="M7 13.5h3.5M7 16h6"/></svg></span></i><b>Gemini CLI</b><span class="type">Commands</span></div><p>TOML commands in <code>.gemini/commands/forge/</code> and <code>GEMINI.md</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/github.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.2"/><circle cx="6.5" cy="18.5" r="2.2"/><circle cx="17.5" cy="8.5" r="2.2"/><path d="M6.5 7.7v8.6"/><path d="M17.5 10.7c0 3.5-4 3.8-9.4 5.9"/></svg></span></i><b>GitHub</b><span class="type">App + checks</span></div><p>Setup pull requests, PR risk checks, SARIF and the <code>shield</code> Action</p></div>
     </div>
     <p class="note reveal">Every file is hashed in <code>.forge/install-state.json</code>. FORGE never overwrites your edits, and <code>forge uninstall</code> restores the project.</p>
   </div>
