@@ -56,6 +56,10 @@ code,.mono{font-family:var(--mono)}
 .toolrow{display:flex;flex-wrap:wrap;gap:10px}
 .tool{display:inline-flex;align-items:center;gap:9px;padding:8px 14px 8px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(19,17,22,.7);font-size:14px;font-weight:600}
 .tool i{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font:700 11px Inter,system-ui,sans-serif;font-style:normal;background:rgba(232,179,162,.14);color:var(--accent)}
+.tool i img,.platform .top i img{display:none;width:70%;height:70%;object-fit:contain}
+i.logo{background:rgba(255,255,255,.92)!important}
+i.logo img{display:block}
+i.logo span{display:none}
 .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:46px}
 .stat{border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;background:rgba(19,17,22,.76);backdrop-filter:blur(6px)}
 .stat b{display:block;font-size:30px;letter-spacing:-.02em;line-height:1.1}
@@ -211,12 +215,12 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
     <div class="tools">
       <p>Install FORGE in your coding tool</p>
       <div class="toolrow">
-        <span class="tool"><i>CC</i>Claude Code</span>
-        <span class="tool"><i>Cx</i>Codex</span>
-        <span class="tool"><i>Cu</i>Cursor</span>
-        <span class="tool"><i>OC</i>OpenCode</span>
-        <span class="tool"><i>Ge</i>Gemini CLI</span>
-        <span class="tool"><i>GH</i>GitHub</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span>CC</span></i>Claude Code</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span>Cx</span></i>Codex</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span>Cu</span></i>Cursor</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span>OC</span></i>OpenCode</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span>Ge</span></i>Gemini CLI</span>
+        <span class="tool"><i><img data-logo src="/assets/logos/github.svg" alt=""><span>GH</span></i>GitHub</span>
       </div>
     </div>
     <div class="stats">
@@ -373,12 +377,12 @@ forge_memory_search · forge_memory_add</div>
     <p class="label reveal">Platforms</p>
     <h2 class="reveal">One install. <span>Every harness.</span></h2>
     <div class="platforms">
-      <div class="platform reveal"><div class="top"><i>CC</i><b>Claude Code</b><span class="type">Native + hooks</span></div><p>Agents, skills, <code>/forge:*</code> commands, rules and Guard hooks in <code>.claude/</code></p></div>
-      <div class="platform reveal"><div class="top"><i>Cx</i><b>Codex</b><span class="type">AGENTS.md + skills</span></div><p>Managed <code>AGENTS.md</code> block and skills in <code>.agents/skills/</code></p></div>
-      <div class="platform reveal"><div class="top"><i>Cu</i><b>Cursor</b><span class="type">Rules + commands</span></div><p>Scoped <code>.cursor/rules/*.mdc</code> and <code>.cursor/commands/</code></p></div>
-      <div class="platform reveal"><div class="top"><i>OC</i><b>OpenCode</b><span class="type">Agents + commands</span></div><p>Subagents and commands in <code>.opencode/</code> plus <code>AGENTS.md</code></p></div>
-      <div class="platform reveal"><div class="top"><i>Ge</i><b>Gemini CLI</b><span class="type">Commands</span></div><p>TOML commands in <code>.gemini/commands/forge/</code> and <code>GEMINI.md</code></p></div>
-      <div class="platform reveal"><div class="top"><i>GH</i><b>GitHub</b><span class="type">App + checks</span></div><p>Setup pull requests, PR risk checks, SARIF and the <code>shield</code> Action</p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span>CC</span></i><b>Claude Code</b><span class="type">Native + hooks</span></div><p>Agents, skills, <code>/forge:*</code> commands, rules and Guard hooks in <code>.claude/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span>Cx</span></i><b>Codex</b><span class="type">AGENTS.md + skills</span></div><p>Managed <code>AGENTS.md</code> block and skills in <code>.agents/skills/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span>Cu</span></i><b>Cursor</b><span class="type">Rules + commands</span></div><p>Scoped <code>.cursor/rules/*.mdc</code> and <code>.cursor/commands/</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span>OC</span></i><b>OpenCode</b><span class="type">Agents + commands</span></div><p>Subagents and commands in <code>.opencode/</code> plus <code>AGENTS.md</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span>Ge</span></i><b>Gemini CLI</b><span class="type">Commands</span></div><p>TOML commands in <code>.gemini/commands/forge/</code> and <code>GEMINI.md</code></p></div>
+      <div class="platform reveal"><div class="top"><i><img data-logo src="/assets/logos/github.svg" alt=""><span>GH</span></i><b>GitHub</b><span class="type">App + checks</span></div><p>Setup pull requests, PR risk checks, SARIF and the <code>shield</code> Action</p></div>
     </div>
     <p class="note reveal">Every file is hashed in <code>.forge/install-state.json</code>. FORGE never overwrites your edits, and <code>forge uninstall</code> restores the project.</p>
   </div>
@@ -489,6 +493,13 @@ forge_memory_search · forge_memory_add</div>
     try { await navigator.clipboard.writeText(text); copy.textContent = "Copied"; }
     catch { copy.textContent = "Select & copy"; }
     setTimeout(() => { copy.textContent = "Copy"; }, 1600);
+  });
+
+  // Official tool logos are optional files in /assets/logos/; letter badges stay until a logo loads.
+  document.querySelectorAll("img[data-logo]").forEach(img => {
+    const show = () => { if (img.naturalWidth > 0) img.parentElement.classList.add("logo"); };
+    if (img.complete) show(); else img.addEventListener("load", show, { once: true });
+    img.addEventListener("error", () => img.remove(), { once: true });
   });
 
   const items = document.querySelectorAll(".reveal");
