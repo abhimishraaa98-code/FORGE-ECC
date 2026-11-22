@@ -2,9 +2,13 @@ name: FORGE CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, forge-v2]
   pull_request:
-    branches: [main]
+    branches: [main, forge-v2]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
