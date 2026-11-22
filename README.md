@@ -204,6 +204,37 @@ Profiles: `minimal` (core agents, commands, always-on rules), `standard` (defaul
 
 Safety: every written file is hashed in `.forge/install-state.json`. FORGE never overwrites a file it did not write or that you edited (unless you pass `--force`), only edits text inside its own `<!-- forge:begin -->` block in `AGENTS.md` / `GEMINI.md`, and refuses to write through symlinks.
 
+## FORGE Shield — agent harness security (v2 preview)
+
+`forge shield` reviews the configuration that controls your coding agents and scores it 0–100:
+
+- **Permissions** — `bypassPermissions`, blanket `Bash(*)`, auto-trusted MCP servers, missing `.env` deny rules (Claude Code settings)
+- **Hooks** — remote code piped into a shell, outbound network calls, destructive or obfuscated commands, catch-all matchers
+- **MCP servers** — plain-HTTP remotes, unpinned `npx` packages, filesystem servers rooted at `/` or `~`, literal secrets in `env`/headers (Claude, Cursor, VS Code, Gemini, OpenCode)
+- **Prompt injection** — invisible/bidi Unicode, "ignore previous instructions" phrases, hidden HTML comments addressed to the agent (defensive guidance that quotes these phrases is not flagged)
+- **Secrets** — known token formats and private keys in agent files (values are never printed)
+- **CI** — `pull_request_target` checking out PR code, `write-all` tokens, event text interpolated into `run:`
+
+```bash
+forge shield .                       # human report with score and grade
+forge shield . --fix --dry-run       # preview safe automatic fixes
+forge shield . --fix                 # add .env deny rules, strip invisible Unicode
+forge shield . --sarif shield.sarif --fail-on high   # CI gate + GitHub code scanning
+```
+
+GitHub Action:
+
+```yaml
+- uses: ansh44233/FORGE-ECC@forge-v2
+  with:
+    operation: shield
+    fail-on: high
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: forge-shield.sarif
+```
+
 ## Features
 
 FORGE is composed of focused engineering systems that share local project context and persisted evidence.

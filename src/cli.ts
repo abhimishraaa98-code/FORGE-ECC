@@ -51,6 +51,8 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
+import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
+import { writeFile as writeTextFile } from "node:fs/promises";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -138,6 +140,8 @@ Commands:
   doctor [path]    Check installed harness files for missing, modified or outdated entries
   repair [path]    Restore missing and outdated harness files (keeps local edits)
   catalog          List the FORGE catalog [--kind agent|skill|command|rule] [--json]
+  shield [path]    Security review of agent settings, hooks, MCP servers, instructions and workflows
+                   [--json] [--markdown] [--sarif FILE] [--fix] [--dry-run] [--fail-on critical|high|medium|low]
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
@@ -322,6 +326,35 @@ async function main(args: string[]): Promise<void> {
         }
       } catch (error) {
         process.stderr.write("FORGE catalog failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "shield": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge shield [path] [--json] [--markdown] [--sarif FILE] [--fix] [--dry-run] [--fail-on critical|high|medium|low]\n");
+        return;
+      }
+      try {
+        const options = parseHarnessArgs(rest, ["--sarif", "--fail-on"], ["--json", "--markdown", "--fix", "--dry-run"]);
+        const failOn = options.values.has("--fail-on") ? parseSeverity(options.values.get("--fail-on")) : undefined;
+        let report = await runShield(options.path);
+        if (options.flags.has("--fix")) {
+          const fixes = await applyShieldFixes(options.path, report, { dryRun: options.flags.has("--dry-run") });
+          const verb = options.flags.has("--dry-run") ? "would fix" : "fixed";
+          if (!options.flags.has("--json")) {
+            process.stdout.write(fixes.length ? fixes.map(fix => "  " + verb + "  " + fix.file + "  " + fix.ruleId + ": " + fix.description).join("\n") + "\n\n" : "No automatic fixes were applicable.\n\n");
+          }
+          if (!options.flags.has("--dry-run") && fixes.length) report = await runShield(options.path);
+        }
+        const sarifPath = options.values.get("--sarif");
+        if (sarifPath) await writeTextFile(path.resolve(sarifPath), JSON.stringify(toSarif(report, VERSION), null, 2) + "\n", "utf8");
+        if (options.flags.has("--json")) process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+        else if (options.flags.has("--markdown")) process.stdout.write(formatShieldMarkdown(report) + "\n");
+        else process.stdout.write(formatShieldReport(report) + "\n");
+        if (failOn && report.findings.some(item => severityAtLeast(item.severity, failOn))) process.exitCode = 2;
+      } catch (error) {
+        process.stderr.write("FORGE shield failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
