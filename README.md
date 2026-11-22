@@ -872,7 +872,7 @@ For questions about FORGE or help with the GitHub App, contact [THEGODOFEARTH3@g
 
 FORGE is open source under the [MIT License](LICENSE).
 
-## Star history
+## Star history <3
 
 <p align="center">
   <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
