@@ -179,6 +179,31 @@ npm test
 npm run build
 ```
 
+## Install FORGE into your agent harness (v2 preview)
+
+`forge install` adds FORGE's agents, skills, slash commands and coding rules to the tools you already use. It writes the native format for each tool:
+
+| Target | What gets written |
+|---|---|
+| `claude` | `.claude/agents/forge-*.md`, `.claude/skills/forge-*/SKILL.md`, `.claude/commands/forge/*.md` (→ `/forge:plan`), `.claude/rules/forge/**` |
+| `cursor` | `.cursor/rules/forge-*.mdc`, `.cursor/commands/forge-*.md` |
+| `codex` | managed block in `AGENTS.md`, `.agents/skills/forge-*/SKILL.md`, `.forge/harness/**` |
+| `opencode` | `.opencode/agent/forge-*.md`, `.opencode/command/forge-*.md`, managed block in `AGENTS.md` |
+| `gemini` | `.gemini/commands/forge/*.toml`, managed block in `GEMINI.md` |
+
+```bash
+forge catalog                                  # browse agents, skills, commands, rules
+forge install . --dry-run                      # preview every file first
+forge install . --target claude,cursor --profile standard
+forge doctor .                                 # missing / modified / outdated files
+forge repair .                                 # restore missing files, keep your edits
+forge uninstall .                              # remove only unmodified FORGE files
+```
+
+Profiles: `minimal` (core agents, commands, always-on rules), `standard` (default; adds skills and rules for detected languages), `full` (everything). Override language detection with `--lang ts,python,go,rust,java`.
+
+Safety: every written file is hashed in `.forge/install-state.json`. FORGE never overwrites a file it did not write or that you edited (unless you pass `--force`), only edits text inside its own `<!-- forge:begin -->` block in `AGENTS.md` / `GEMINI.md`, and refuses to write through symlinks.
+
 ## Features
 
 FORGE is composed of focused engineering systems that share local project context and persisted evidence.

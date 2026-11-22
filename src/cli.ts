@@ -49,6 +49,8 @@ import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeP
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
+import { doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
+import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -130,6 +132,12 @@ Usage:
 
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
+  install [path]   Install FORGE agents, skills, commands and rules into Claude Code, Cursor, Codex, OpenCode and Gemini
+                   [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--dry-run] [--force]
+  uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
+  doctor [path]    Check installed harness files for missing, modified or outdated entries
+  repair [path]    Restore missing and outdated harness files (keeps local edits)
+  catalog          List the FORGE catalog [--kind agent|skill|command|rule] [--json]
   inspect [path]   Analyze project languages, tooling, dependencies, and scripts
   evaluate RUNID  Score a saved run against a local evaluation suite
   benchmark [RUN_ID] [--suite SUITE_ID] [--path PROJECT]  Record or view benchmark results
@@ -191,6 +199,36 @@ Examples:
   forge dashboard .
 `.trim();
 
+const LANGUAGE_ALIASES: Record<string, string> = { ts: "typescript", js: "typescript", javascript: "typescript", py: "python", go: "golang", rs: "rust", kotlin: "java", kt: "java" };
+function normalizeLanguage(value: string): string {
+  const key = value.trim().toLowerCase();
+  return LANGUAGE_ALIASES[key] ?? key;
+}
+
+function parseHarnessArgs(args: string[], valueOptions: string[], flagOptions: string[]): { path: string; values: Map<string, string>; flags: Set<string> } {
+  const values = new Map<string, string>();
+  const flags = new Set<string>();
+  const positional: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? "";
+    if (valueOptions.includes(arg)) {
+      const value = args[index + 1];
+      if (value === undefined || value.startsWith("--")) throw new Error(arg + " requires a value");
+      if (values.has(arg)) throw new Error(arg + " may only be given once");
+      values.set(arg, value);
+      index += 1;
+    } else if (flagOptions.includes(arg)) {
+      flags.add(arg);
+    } else if (arg.startsWith("--")) {
+      throw new Error("Unknown option " + arg);
+    } else {
+      positional.push(arg);
+    }
+  }
+  if (positional.length > 1) throw new Error("Expected at most one project path");
+  return { path: path.resolve(positional[0] ?? "."), values, flags };
+}
+
 async function main(args: string[]): Promise<void> {
   const [command = "help", ...rest] = args;
   switch (command) {
@@ -214,6 +252,76 @@ async function main(args: string[]): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`FORGE could not initialize this project: ${message}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "install":
+    case "repair": {
+      if (rest.includes("--help")) {
+        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|all] [--profile minimal|standard|full] [--lang LIST] [--dry-run] [--force] [--json]\n");
+        return;
+      }
+      try {
+        const options = parseHarnessArgs(rest, ["--target", "--profile", "--lang"], ["--dry-run", "--force", "--json"]);
+        const existing = command === "repair" ? await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }) : undefined;
+        if (command === "repair" && !existing?.installed) throw new Error("FORGE harness is not installed here. Run `forge install` first.");
+        const result = await installHarness({
+          projectPath: options.path,
+          forgeVersion: VERSION,
+          dryRun: options.flags.has("--dry-run"),
+          force: options.flags.has("--force"),
+          profile: parseProfile(options.values.get("--profile") ?? existing?.profile),
+          targets: options.values.has("--target") ? parseTargets(options.values.get("--target")) : (existing?.targets ?? parseTargets("all")),
+          ...(options.values.has("--lang") ? { languages: (options.values.get("--lang") ?? "").split(",").map(v => normalizeLanguage(v)).filter(Boolean) } : existing?.languages ? { languages: existing.languages } : {}),
+        });
+        process.stdout.write(options.flags.has("--json") ? JSON.stringify({ ...result, plan: { ...result.plan, files: result.plan.files.map(f => ({ path: f.path, targets: f.targets, item: f.item })) } }, null, 2) + "\n" : formatInstallResult(result) + "\n");
+        if (result.conflicts) process.exitCode = 3;
+      } catch (error) {
+        process.stderr.write("FORGE could not " + command + ": " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "uninstall": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--dry-run", "--force", "--json"]);
+        const result = await uninstallHarness({ projectPath: options.path, dryRun: options.flags.has("--dry-run"), force: options.flags.has("--force") });
+        process.stdout.write(options.flags.has("--json") ? JSON.stringify(result, null, 2) + "\n" : formatUninstallResult(result) + "\n");
+      } catch (error) {
+        process.stderr.write("FORGE could not uninstall: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "doctor": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--json"]);
+        const report = await doctorHarness({ projectPath: options.path, forgeVersion: VERSION });
+        process.stdout.write(options.flags.has("--json") ? JSON.stringify(report, null, 2) + "\n" : formatDoctorReport(report) + "\n");
+        if (report.installed && !report.healthy) process.exitCode = 2;
+      } catch (error) {
+        process.stderr.write("FORGE doctor failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "catalog": {
+      try {
+        const options = parseHarnessArgs(rest, ["--kind"], ["--json"]);
+        const kind = options.values.get("--kind");
+        if (kind && !["agent", "skill", "command", "rule"].includes(kind)) throw new Error("--kind must be agent, skill, command or rule");
+        const catalog = await loadHarnessCatalog();
+        const items = catalog.items.filter(item => !kind || item.kind === (kind as CatalogKind));
+        if (options.flags.has("--json")) {
+          process.stdout.write(JSON.stringify(items.map(({ body: _body, ...item }) => item), null, 2) + "\n");
+        } else {
+          const counts = ["agent", "skill", "command", "rule"].map(k => catalog.items.filter(i => i.kind === k).length);
+          process.stdout.write("FORGE catalog: " + counts[0] + " agents · " + counts[1] + " skills · " + counts[2] + " commands · " + counts[3] + " rules\n\n");
+          for (const item of items) process.stdout.write("  " + item.kind.padEnd(8) + (item.language ? item.language + "/" : "") + item.id.padEnd(item.language ? 28 - item.language.length - 1 : 28) + " " + item.profile.padEnd(9) + item.description + "\n");
+        }
+      } catch (error) {
+        process.stderr.write("FORGE catalog failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
