@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createPrivateKey, createSign, type KeyObject } from "node:crypto";
 
 /**
  * Minimal, dependency-free GitHub REST client for the FORGE GitHub App.
@@ -20,8 +20,32 @@ function base64url(input: string | Buffer): string {
   return Buffer.from(input).toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
+/**
+ * Accept the private key however it was pasted into an environment variable:
+ * real newlines, literal "\\n" escapes, CRLF, surrounding quotes, newlines turned
+ * into spaces (single-line PEM), or the whole PEM base64-encoded.
+ */
 export function normalizePrivateKey(value: string): string {
-  return value.includes("\\n") && !value.includes("\n") ? value.replace(/\\n/g, "\n") : value;
+  let key = value.trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) key = key.slice(1, -1).trim();
+  key = key.replace(/\\r\\n|\\n/g, "\n").replace(/\r\n?/g, "\n");
+  if (!key.includes("-----BEGIN")) {
+    const decoded = Buffer.from(key.replace(/\s+/g, ""), "base64").toString("utf8");
+    if (decoded.includes("-----BEGIN")) key = decoded.trim();
+  }
+  const match = key.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/);
+  if (!match) return key;
+  const body = (match[2] ?? "").replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${match[1]}-----\n${lines.join("\n")}\n-----END ${match[1]}-----\n`;
+}
+
+export function loadPrivateKey(value: string): KeyObject {
+  try {
+    return createPrivateKey(normalizePrivateKey(value));
+  } catch {
+    throw new Error("GITHUB_APP_PRIVATE_KEY could not be read. Paste the complete .pem file from the GitHub App settings (including the BEGIN/END lines) into the Vercel environment variable, then redeploy.");
+  }
 }
 
 /** GitHub App JWT: issued 60s in the past to tolerate clock drift, valid for 9 minutes. */
@@ -31,7 +55,7 @@ export function createAppJwt(appId: number | string, privateKeyPem: string, now 
   const payload = base64url(JSON.stringify({ iat: issuedAt, exp: issuedAt + 540, iss: String(appId) }));
   const signer = createSign("RSA-SHA256");
   signer.update(`${header}.${payload}`);
-  return `${header}.${payload}.${base64url(signer.sign(normalizePrivateKey(privateKeyPem)))}`;
+  return `${header}.${payload}.${base64url(signer.sign(loadPrivateKey(privateKeyPem)))}`;
 }
 
 export class GitHubApiError extends Error {

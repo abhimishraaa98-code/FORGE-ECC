@@ -1,7 +1,7 @@
 import { generateKeyPairSync, createVerify } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { buildCheckRun, gitBlobSha, handleIssueComment, handlePullRequest, parseForgeCommand, selectShieldPaths } from "../src/github/app-handlers.js";
-import { createAppJwt, GitHubApiError, GitHubClient, type FetchLike, type PullFile, type TreeEntry } from "../src/github/github-client.js";
+import { createAppJwt, GitHubApiError, GitHubClient, loadPrivateKey, type FetchLike, type PullFile, type TreeEntry } from "../src/github/github-client.js";
 import { assessPullRequestRisk } from "../src/github/pr-risk.js";
 import { analyzeRepository, renderProjectSkill } from "../src/github/repo-analysis.js";
 import { buildRepoOverview, parseRepoFullName, runDashboardAction } from "../src/github/dashboard-service.js";
@@ -134,6 +134,30 @@ describe("GitHub building blocks", () => {
     verifier.update(`${header}.${payload}`);
     expect(verifier.verify(publicKey, Buffer.from(signature!.replace(/-/g, "+").replace(/_/g, "/"), "base64"))).toBe(true);
     expect(JSON.parse(Buffer.from(payload!, "base64").toString()).iss).toBe("42");
+  });
+
+  it("reads private keys pasted into environment variables in common broken formats", () => {
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pkcs1 = privateKey.export({ type: "pkcs1", format: "pem" }).toString();
+    const pkcs8 = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const variants = [
+      pkcs1,
+      pkcs8,
+      pkcs1.replace(/\n/g, "\\n"),
+      `"${pkcs1.replace(/\n/g, "\\n")}"`,
+      pkcs1.replace(/\n/g, " "),
+      pkcs1.replace(/\n/g, "\r\n"),
+      Buffer.from(pkcs1).toString("base64"),
+      `  ${pkcs8}  `,
+    ];
+    for (const variant of variants) {
+      const jwt = createAppJwt(7, variant);
+      const [header, payload, signature] = jwt.split(".");
+      const verifier = createVerify("RSA-SHA256");
+      verifier.update(`${header}.${payload}`);
+      expect(verifier.verify(publicKey, Buffer.from(signature!.replace(/-/g, "+").replace(/_/g, "/"), "base64"))).toBe(true);
+    }
+    expect(() => loadPrivateKey("not a key")).toThrow(/GITHUB_APP_PRIVATE_KEY could not be read/);
   });
 
   it("mints repository-scoped installation tokens and opens PRs through the git data API", async () => {
