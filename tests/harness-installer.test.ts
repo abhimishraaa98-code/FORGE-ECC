@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadHarnessCatalog, parseCatalogItem, selectCatalogItems } from "../src/core/harness-catalog.js";
+import { detectProjectLanguages, loadHarnessCatalog, parseCatalogItem, selectCatalogItems } from "../src/core/harness-catalog.js";
 import {
   buildInstallPlan,
   doctorHarness,
@@ -47,6 +47,11 @@ describe("harness catalog", () => {
     expect(() => parseCatalogItem("agent", "../evil", "---\ndescription: x\n---\nbody", "x.md")).toThrow(/invalid id/);
     expect(() => parseCatalogItem("agent", "ok", "---\nprofile: minimal\n---\nbody", "x.md")).toThrow(/description/);
     expect(() => parseCatalogItem("agent", "ok", "---\ndescription: d\nprofile: huge\n---\nbody", "x.md")).toThrow(/profile/);
+  });
+
+  it("detects project languages and frameworks from marker files", async () => {
+    const root = await project({ "package.json": JSON.stringify({ dependencies: { react: "^19.0.0" } }), "composer.json": "{}", "App.csproj": "<Project/>" });
+    expect(new Set(await detectProjectLanguages(root))).toEqual(new Set(["typescript", "php", "csharp", "react"]));
   });
 
   it("filters by profile and language", async () => {

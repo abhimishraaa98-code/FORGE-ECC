@@ -56,10 +56,23 @@ export function gitBlobSha(content: string): string {
 // ---------------------------------------------------------------------------
 
 const SHIELD_PATH = /^(?:AGENTS\.md|CLAUDE\.md|CLAUDE\.local\.md|GEMINI\.md|\.cursorrules|\.windsurfrules|\.mcp\.json|mcp\.json|opencode\.json|\.github\/copilot-instructions\.md|\.claude\/settings(?:\.local)?\.json|\.cursor\/mcp\.json|\.vscode\/mcp\.json|\.gemini\/settings\.json|\.forge\/(?:permissions|policy)\.json)$|^(?:\.claude\/(?:agents|commands|skills|hooks|rules)|\.cursor\/(?:rules|commands)|\.opencode|\.gemini\/commands|\.agents\/skills|\.forge\/(?:skills|hooks|harness)|\.github\/workflows)\/.+\.(?:md|mdc|json|ya?ml|toml|sh|js|mjs|cjs|ts|py)$/;
-const MAX_REMOTE_FILES = 120;
+const MAX_REMOTE_FILES = 200;
+
+/** Highest-risk surfaces first; FORGE-generated catalog copies last. */
+function shieldPriority(file: string): number {
+  if (!file.includes("/") || /settings(?:\.local)?\.json$|mcp\.json$|permissions\.json$|policy\.json$/.test(file)) return 0;
+  if (file.startsWith(".github/workflows/") || /\/hooks\//.test(file)) return 1;
+  if (/(?:^|\/)forge-[\w.-]+(?:\/SKILL)?\.(?:md|mdc|toml)$|^\.forge\/harness\/|^\.(?:claude\/(?:commands|rules)|gemini\/commands)\/forge\//.test(file)) return 3;
+  return 2;
+}
 
 export function selectShieldPaths(entries: readonly TreeEntry[]): string[] {
-  return entries.filter(entry => entry.type === "blob" && (entry.size ?? 0) <= 256 * 1024 && SHIELD_PATH.test(entry.path)).map(entry => entry.path).sort().slice(0, MAX_REMOTE_FILES);
+  return entries
+    .filter(entry => entry.type === "blob" && (entry.size ?? 0) <= 256 * 1024 && SHIELD_PATH.test(entry.path))
+    .map(entry => entry.path)
+    .sort((a, b) => shieldPriority(a) - shieldPriority(b) || a.localeCompare(b))
+    .slice(0, MAX_REMOTE_FILES)
+    .sort();
 }
 
 async function withRemoteFiles<T>(client: GitHubClient, owner: string, repo: string, ref: string, paths: string[], action: (root: string) => Promise<T>): Promise<T> {
@@ -88,10 +101,12 @@ async function remoteShield(client: GitHubClient, owner: string, repo: string, r
 // Repository analysis and setup pull request
 // ---------------------------------------------------------------------------
 
-const LANGUAGE_RULES: Record<string, string> = { TypeScript: "typescript", JavaScript: "typescript", Python: "python", Go: "golang", Rust: "rust", Java: "java", Kotlin: "java" };
+const LANGUAGE_RULES: Record<string, string> = { TypeScript: "typescript", JavaScript: "typescript", Python: "python", Go: "golang", Rust: "rust", Java: "java", Kotlin: "java", "C#": "csharp", PHP: "php", Ruby: "ruby", Swift: "swift" };
 
 export function ruleLanguages(profile: RepoProfile): string[] {
-  return [...new Set(profile.languages.filter(item => item.files >= 2).map(item => LANGUAGE_RULES[item.language]).filter((v): v is string => Boolean(v)))].sort();
+  const languages = profile.languages.filter(item => item.files >= 2).map(item => LANGUAGE_RULES[item.language]).filter((v): v is string => Boolean(v));
+  if (profile.frameworks.some(name => name === "React" || name === "Next.js")) languages.push("react");
+  return [...new Set(languages)].sort();
 }
 
 export interface SetupPlan {

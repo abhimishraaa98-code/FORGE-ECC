@@ -202,6 +202,9 @@ export async function detectProjectLanguages(projectRoot: string): Promise<strin
     ["golang", ["go.mod"]],
     ["rust", ["Cargo.toml"]],
     ["java", ["pom.xml", "build.gradle", "build.gradle.kts"]],
+    ["php", ["composer.json"]],
+    ["ruby", ["Gemfile"]],
+    ["swift", ["Package.swift"]],
   ];
   const found: string[] = [];
   for (const [language, files] of markers) {
@@ -214,5 +217,22 @@ export async function detectProjectLanguages(projectRoot: string): Promise<strin
       }
     }
   }
-  return found;
+  try {
+    const entries = await readdir(projectRoot);
+    if (entries.some(name => /\.(?:csproj|sln|fsproj)$/i.test(name))) found.push("csharp");
+    if (entries.some(name => name.endsWith(".xcodeproj"))) found.includes("swift") || found.push("swift");
+  } catch {
+    // Unreadable root: keep marker results.
+  }
+  try {
+    const pkgInfo = await lstat(path.join(projectRoot, "package.json"));
+    if (pkgInfo.isFile() && pkgInfo.size < 512 * 1024) {
+      const pkg = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+      const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+      if ("react" in deps || "next" in deps || "react-native" in deps) found.push("react");
+    }
+  } catch {
+    // No or invalid package.json.
+  }
+  return [...new Set(found)];
 }

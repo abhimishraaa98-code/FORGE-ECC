@@ -85,8 +85,8 @@ const LEGACY_RULE_MAP: Record<string, string> = {
   "FORGE-AGENT-006": "SHIELD-AGENT-006",
 };
 
-const MAX_FILES = 400;
-const MAX_ENTRIES = 10_000;
+const MAX_FILES = 2000;
+const MAX_ENTRIES = 30_000;
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_DEPTH = 6;
 
@@ -402,8 +402,14 @@ export async function runShield(projectPath: string, options: { now?: () => Date
   }
 
   // Reuse the established FORGE instruction rules (broad permissions, review bypass, untrusted content).
-  const legacy = await auditAgentConfiguration(root);
-  for (const item of legacy.findings) {
+  let legacyFindings: Awaited<ReturnType<typeof auditAgentConfiguration>>["findings"] = [];
+  const extraCaveats: string[] = [];
+  try {
+    legacyFindings = (await auditAgentConfiguration(root)).findings;
+  } catch (error) {
+    extraCaveats.push(`Instruction wording rules were skipped: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  for (const item of legacyFindings) {
     const mapped = LEGACY_RULE_MAP[item.id] ?? item.id;
     if (mapped === "SHIELD-SEC-001" && findings.some(f => f.file === item.file && f.line === item.line && f.category === "secrets")) continue;
     if (mapped !== "SHIELD-SEC-001") {
@@ -436,6 +442,7 @@ export async function runShield(projectPath: string, options: { now?: () => Date
       "Static analysis of known harness configuration locations; it does not prove an agent setup is safe.",
       "Secret values and matched lines are never included in reports.",
       "Runtime behavior of hooks, MCP servers and remote endpoints is not executed or observed.",
+      ...extraCaveats,
     ],
   };
 }
