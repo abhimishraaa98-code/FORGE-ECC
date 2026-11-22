@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { addClaudeHooks, claudeHookEntries, readSettingsFile, removeClaudeHooks } from "./harness-hooks.js";
 import {
   detectProjectLanguages,
   INSTALL_PROFILES,
@@ -50,6 +51,8 @@ export interface InstallPlan {
 export interface InstallStateFile { path: string; sha256: string; targets: HarnessTarget[]; item?: string }
 export interface InstallStateBlock { path: string; sha256: string; targets: HarnessTarget[]; createdFile: boolean }
 
+export interface InstallStateSettings { path: string; commands: string[]; addedDeny: string[]; createdFile: boolean }
+
 export interface InstallState {
   schemaVersion: number;
   forgeVersion: string;
@@ -59,6 +62,8 @@ export interface InstallState {
   languages: string[];
   files: InstallStateFile[];
   blocks: InstallStateBlock[];
+  /** Claude Code hook commands merged into .claude/settings.json by `--hooks`. */
+  settings?: InstallStateSettings;
 }
 
 export type FileAction = "create" | "update" | "unchanged" | "conflict" | "remove" | "keep-modified" | "overwrite";
@@ -84,7 +89,13 @@ export interface InstallOptions {
   forgeVersion: string;
   catalog?: HarnessCatalog;
   now?: () => Date;
+  /** Merge FORGE runtime hooks (guard, config guard, verify, session memory) into Claude Code settings. */
+  hooks?: boolean;
+  /** Executable used in hook commands. Default "forge". */
+  hookCommand?: string;
 }
+
+const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
 
 export function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
@@ -387,6 +398,11 @@ export async function loadInstallState(projectPath: string): Promise<InstallStat
     if (!entry || typeof entry.path !== "string" || typeof entry.sha256 !== "string") throw new Error(`${INSTALL_STATE_PATH} contains an invalid entry.`);
     assertRelativeSafe(entry.path);
   }
+  if (state.settings !== undefined) {
+    const settings = state.settings as Partial<InstallStateSettings>;
+    if (typeof settings.path !== "string" || !Array.isArray(settings.commands) || !Array.isArray(settings.addedDeny)) throw new Error(`${INSTALL_STATE_PATH} has an invalid settings entry.`);
+    assertRelativeSafe(settings.path);
+  }
   return state as InstallState;
 }
 
@@ -477,6 +493,41 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
     });
   }
 
+  let stateSettings: InstallStateSettings | undefined;
+  const wantHooks = Boolean(options.hooks) && plan.targets.includes("claude");
+  if (wantHooks || previous?.settings) {
+    const absolute = await resolveInside(root, CLAUDE_SETTINGS_PATH);
+    let current: Awaited<ReturnType<typeof readSettingsFile>> | undefined;
+    try {
+      current = await readSettingsFile(absolute);
+    } catch (error) {
+      changes.push({ path: CLAUDE_SETTINGS_PATH, action: "conflict", detail: `cannot merge hooks: ${error instanceof Error ? error.message : String(error)}` });
+      if (previous?.settings) stateSettings = previous.settings;
+    }
+    if (current) {
+      const previousCommands = previous?.settings?.commands ?? [];
+      if (wantHooks) {
+        const entries = claudeHookEntries(options.hookCommand);
+        const base = removeClaudeHooks(current.settings, previousCommands);
+        const { settings: next, addedDeny } = addClaudeHooks(base, entries);
+        const keptDeny = (previous?.settings?.addedDeny ?? []).filter(rule => Array.isArray(next.permissions?.deny) && (next.permissions.deny as unknown[]).includes(rule));
+        stateSettings = { path: CLAUDE_SETTINGS_PATH, commands: entries.map(entry => entry.command), addedDeny: [...new Set([...keptDeny, ...addedDeny])], createdFile: previous?.settings?.createdFile ?? !current.existed };
+        if (JSON.stringify(next) === JSON.stringify(current.settings)) changes.push({ path: CLAUDE_SETTINGS_PATH, action: "unchanged", detail: "FORGE hooks" });
+        else {
+          changes.push({ path: CLAUDE_SETTINGS_PATH, action: current.existed ? "update" : "create", detail: "FORGE hooks merged" });
+          writes.push(() => atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`));
+        }
+      } else if (previous?.settings && current.existed) {
+        const next = removeClaudeHooks(current.settings, previousCommands, previous.settings.addedDeny);
+        changes.push({ path: CLAUDE_SETTINGS_PATH, action: "remove", detail: "FORGE hooks no longer selected" });
+        writes.push(async () => {
+          if (!Object.keys(next).length && previous.settings?.createdFile) await rm(absolute, { force: true });
+          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
+        });
+      }
+    }
+  }
+
   const conflicts = changes.filter(change => change.action === "conflict").length;
   if (!dryRun) {
     for (const write of writes) await write();
@@ -489,6 +540,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       languages: plan.languages,
       files: stateFiles.sort((a, b) => a.path.localeCompare(b.path)),
       blocks: stateBlocks.sort((a, b) => a.path.localeCompare(b.path)),
+      ...(stateSettings ? { settings: stateSettings } : {}),
     };
     await atomicWrite(await resolveInside(root, INSTALL_STATE_PATH), `${JSON.stringify(state, null, 2)}\n`);
   }
@@ -525,6 +577,23 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
       else await atomicWrite(absolute, remaining);
     });
   }
+  if (state.settings) {
+    const absolute = await resolveInside(root, state.settings.path);
+    try {
+      const current = await readSettingsFile(absolute);
+      if (current.existed) {
+        const next = removeClaudeHooks(current.settings, state.settings.commands, state.settings.addedDeny);
+        changes.push({ path: state.settings.path, action: "remove", detail: "FORGE hooks" });
+        const createdFile = state.settings.createdFile;
+        actions.push(async () => {
+          if (!Object.keys(next).length && createdFile) { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); }
+          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
+        });
+      }
+    } catch (error) {
+      changes.push({ path: state.settings.path, action: "keep-modified", detail: `could not remove FORGE hooks: ${error instanceof Error ? error.message : String(error)}` });
+    }
+  }
   if (!options.dryRun) {
     for (const action of actions) await action();
     const statePath = await resolveInside(root, INSTALL_STATE_PATH);
@@ -544,6 +613,7 @@ export interface DoctorReport {
   profile?: InstallProfile;
   targets?: HarnessTarget[];
   languages?: string[];
+  hooks?: boolean;
   entries: DoctorEntry[];
   summary: Record<DoctorStatus, number>;
   recommendations: string[];
@@ -584,6 +654,16 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
     else if (expectedBlocks.get(entry.path) !== entry.sha256) entries.push({ path: entry.path, status: "outdated", detail: "managed block" });
     else entries.push({ path: entry.path, status: "ok", detail: "managed block" });
   }
+  if (state.settings) {
+    try {
+      const current = await readSettingsFile(await resolveInside(root, state.settings.path));
+      const text = JSON.stringify(current.settings.hooks ?? {});
+      const missing = state.settings.commands.filter(command => !text.includes(JSON.stringify(command)));
+      entries.push(missing.length ? { path: state.settings.path, status: "missing", detail: `FORGE hooks missing: ${missing.join(", ")}` } : { path: state.settings.path, status: "ok", detail: "FORGE hooks" });
+    } catch (error) {
+      entries.push({ path: state.settings.path, status: "modified", detail: error instanceof Error ? error.message : String(error) });
+    }
+  }
   for (const entry of entries) summary[entry.status] += 1;
   const recommendations: string[] = [];
   if (summary.missing || summary.outdated) recommendations.push("Run `forge install` (or `forge repair`) to restore missing files and apply catalog updates.");
@@ -597,6 +677,7 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
     profile: state.profile,
     targets: state.targets,
     languages: state.languages,
+    hooks: Boolean(state.settings),
     entries: entries.sort((a, b) => a.path.localeCompare(b.path)),
     summary,
     recommendations,

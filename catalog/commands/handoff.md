@@ -10,3 +10,5 @@ Produce a handoff another engineer or agent can resume from cold:
 - Branch, changed files and uncommitted work (`git status`)
 - Verified results (commands + outcomes) vs. unverified assumptions
 - Blockers and the next three concrete steps
+
+Save it so the next session starts with it: `forge memory handoff . --content "<handoff>"` or the `forge_memory_add` MCP tool with `kind: "handoff"`. With FORGE hooks installed, the next Claude Code session receives it automatically.

@@ -235,6 +235,38 @@ GitHub Action:
     sarif_file: forge-shield.sarif
 ```
 
+## Runtime hooks and layered memory (v2 preview)
+
+`forge install --hooks` merges four FORGE hooks into `.claude/settings.json` (your own hooks and settings are kept; uninstall removes only FORGE entries):
+
+| Hook | What it does |
+|---|---|
+| `PreToolUse` → `forge hook pre-tool` | **FORGE Guard** — denies catastrophic commands (`rm -rf ~`, `curl … \| sh`, disk writes, fork bombs, `.git` internals); asks before force-push, pushes to `main`, `git reset --hard`, `DROP TABLE`, publishing, deploys, `sudo`, reading or writing secrets, and edits to agent permissions/MCP/CI files |
+| `PostToolUse` → `forge hook post-edit` | records edited files; when an agent edits its own settings, MCP config or instructions, runs Shield and tells the agent about high-risk changes |
+| `Stop` → `forge hook stop` | optional verification gate: runs configured npm scripts if files changed and sends failures back to the agent (never loops) |
+| `SessionStart` → `forge hook session-start` | injects the latest handoff and relevant project memory |
+
+Configure in `.forge/harness-hooks.json`:
+
+```json
+{
+  "guard": { "enabled": true, "allow": ["^rm -rf dist$"] },
+  "verifyOnStop": { "scripts": ["typecheck", "test"], "timeoutMs": 180000 },
+  "sessionContext": { "enabled": true, "maxTokens": 900 }
+}
+```
+
+Memory is layered (project `.forge/memory.json`, global `~/.forge/memory.json`), keeps provenance (`source`, `evidence`), rejects credentials, and ranks results by relevance and recency:
+
+```bash
+forge memory add . --kind decision --content "Use zod at API boundaries" --evidence src/schema.ts
+forge memory add --global --kind preference --content "Prefer pnpm"
+forge memory search . --query "validation"
+forge memory handoff . --content "Login form done; next: e2e tests"
+```
+
+The MCP server exposes the same memory to every harness (`forge_memory_search`, `forge_memory_add`) plus `forge_shield_scan`.
+
 ## Features
 
 FORGE is composed of focused engineering systems that share local project context and persisted evidence.

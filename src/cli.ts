@@ -45,7 +45,8 @@ import { analyzeChangeIntelligence, formatChangeIntelligence } from "./core/chan
 import { captureIntelligenceSnapshot, compareLatestIntelligence, formatIntelligenceComparison } from "./core/intelligence-timeline.js";
 import { analyzeDependencies, formatDependencyIntelligence } from "./core/dependency-intelligence.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
-import { addProjectMemory, buildProjectMemoryContext, listProjectMemory, removeProjectMemory, type ProjectMemoryKind } from "./core/project-memory.js";
+import { addProjectMemory, buildProjectMemoryContext, globalMemoryRoot, latestHandoff, listProjectMemory, PROJECT_MEMORY_KINDS, removeProjectMemory, searchMemory, type ProjectMemoryKind } from "./core/project-memory.js";
+import { HOOK_EVENTS, runHarnessHook, type HookEventName } from "./core/harness-hooks.js";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
@@ -135,7 +136,8 @@ Usage:
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   install [path]   Install FORGE agents, skills, commands and rules into Claude Code, Cursor, Codex, OpenCode and Gemini
-                   [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--dry-run] [--force]
+                   [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--hooks] [--dry-run] [--force]
+  hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start); reads hook JSON on stdin
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
   doctor [path]    Check installed harness files for missing, modified or outdated entries
   repair [path]    Restore missing and outdated harness files (keeps local edits)
@@ -172,7 +174,7 @@ Commands:
   sandbox-policy-check POLICY.json Validate a fail-closed sandbox policy file\n  sandbox-profiles [NAME] List or inspect built-in sandbox security profiles\n  sandbox-cleanup        Review stopped FORGE containers; add --apply to remove them\n  sandbox-cleanup-history [PATH] Show recorded cleanup activity
   verify-history   List saved verification runs for a project
   map [path]       Map source modules and import relationships
-  agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage local project memory (add, list, remove, context)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks\n  agent-security [path] Audit agent instructions, skills, hooks, and permissions
+  agents [path]    List built-in and workspace agent roles\n  memory <action>  Manage layered memory (add, list, remove, context, search, handoff; --global for cross-project)\n  skills [path]    List built-in and workspace skills\n  hooks [path]     List configured declarative lifecycle hooks\n  agent-security [path] Audit agent instructions, skills, hooks, and permissions
   plan --goal TEXT Create and save a reviewable draft plan
   run --goal TEXT  Run the plan using a configured AI provider
   runs [path]      List locally saved run history (add --json for versioned JSON)\n  evals [path]     List local agent evaluation suites
@@ -263,11 +265,12 @@ async function main(args: string[]): Promise<void> {
     case "install":
     case "repair": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|all] [--profile minimal|standard|full] [--lang LIST] [--dry-run] [--force] [--json]\n");
+        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|all] [--profile minimal|standard|full] [--lang LIST] [--hooks|--no-hooks] [--hook-command CMD] [--dry-run] [--force] [--json]\n");
         return;
       }
       try {
-        const options = parseHarnessArgs(rest, ["--target", "--profile", "--lang"], ["--dry-run", "--force", "--json"]);
+        const options = parseHarnessArgs(rest, ["--target", "--profile", "--lang", "--hook-command"], ["--dry-run", "--force", "--json", "--hooks", "--no-hooks"]);
+        if (options.flags.has("--hooks") && options.flags.has("--no-hooks")) throw new Error("Use either --hooks or --no-hooks");
         const existing = command === "repair" ? await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }) : undefined;
         if (command === "repair" && !existing?.installed) throw new Error("FORGE harness is not installed here. Run `forge install` first.");
         const result = await installHarness({
@@ -275,6 +278,8 @@ async function main(args: string[]): Promise<void> {
           forgeVersion: VERSION,
           dryRun: options.flags.has("--dry-run"),
           force: options.flags.has("--force"),
+          hooks: options.flags.has("--hooks") || (!options.flags.has("--no-hooks") && Boolean(existing?.hooks ?? (await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }).catch(() => undefined))?.hooks)),
+          ...(options.values.has("--hook-command") ? { hookCommand: options.values.get("--hook-command") as string } : {}),
           profile: parseProfile(options.values.get("--profile") ?? existing?.profile),
           targets: options.values.has("--target") ? parseTargets(options.values.get("--target")) : (existing?.targets ?? parseTargets("all")),
           ...(options.values.has("--lang") ? { languages: (options.values.get("--lang") ?? "").split(",").map(v => normalizeLanguage(v)).filter(Boolean) } : existing?.languages ? { languages: existing.languages } : {}),
@@ -328,6 +333,28 @@ async function main(args: string[]): Promise<void> {
         process.stderr.write("FORGE catalog failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
+      return;
+    }
+    case "hook": {
+      const event = rest[0] as HookEventName | undefined;
+      if (!event || !HOOK_EVENTS.includes(event)) {
+        process.stderr.write("Usage: forge hook " + HOOK_EVENTS.join("|") + "  (reads Claude Code hook JSON on stdin)\n");
+        process.exitCode = 1;
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let size = 0;
+      if (!process.stdin.isTTY) {
+        for await (const chunk of process.stdin) {
+          const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+          size += part.length;
+          if (size > 4 * 1024 * 1024) break;
+          chunks.push(part);
+        }
+      }
+      const output = await runHarnessHook(event, Buffer.concat(chunks).toString("utf8"));
+      if (output.json) process.stdout.write(JSON.stringify(output.json) + "\n");
+      process.exitCode = output.exitCode;
       return;
     }
     case "shield": {
@@ -873,8 +900,9 @@ async function main(args: string[]): Promise<void> {
     }
     case "memory": {
       const [action = "list", ...memoryArgs] = rest;
-      const targetIndex = memoryArgs.findIndex(arg => !arg.startsWith("--"));
-      const target = path.resolve(targetIndex >= 0 ? memoryArgs[targetIndex] ?? "." : ".");
+      const valueOptions = new Set(["--kind", "--content", "--tags", "--query", "--evidence", "--limit"]);
+      const positional = memoryArgs.filter((arg, index) => !arg.startsWith("--") && !valueOptions.has(memoryArgs[index - 1] ?? "") && !arg.startsWith("mem-"));
+      const target = path.resolve(positional[0] ?? ".");
       const option = (name: string) => { const index = memoryArgs.indexOf(name); return index >= 0 ? memoryArgs[index + 1] : undefined; };
       try {
         if (action === "list") {
@@ -883,11 +911,29 @@ async function main(args: string[]): Promise<void> {
         } else if (action === "add") {
           const kind = option("--kind") as ProjectMemoryKind | undefined;
           const content = option("--content");
-          const allowed: ProjectMemoryKind[] = ["decision", "architecture", "constraint", "preference", "fact"];
-          if (!kind || !allowed.includes(kind) || !content) throw new Error("Usage: forge memory add [path] --kind decision|architecture|constraint|preference|fact --content TEXT [--tags a,b]");
+          const allowed = PROJECT_MEMORY_KINDS;
+          if (!kind || !allowed.includes(kind) || !content) throw new Error("Usage: forge memory add [path] --kind " + allowed.join("|") + " --content TEXT [--tags a,b] [--evidence path,commit] [--global]");
           const tags = option("--tags")?.split(",") ?? [];
-          const entry = await addProjectMemory(target, { kind, content, tags });
-          process.stdout.write(`Saved ${entry.id} to .forge/memory.json\n`);
+          const evidence = option("--evidence")?.split(",").map(item => item.trim()).filter(Boolean);
+          const layerRoot = memoryArgs.includes("--global") ? globalMemoryRoot() : target;
+          const entry = await addProjectMemory(layerRoot, { kind, content, tags, source: "cli", ...(evidence?.length ? { evidence } : {}) });
+          process.stdout.write(`Saved ${entry.id} to ${memoryArgs.includes("--global") ? "global" : "project"} memory\n`);
+        } else if (action === "handoff") {
+          const content = option("--content");
+          if (content) {
+            const entry = await addProjectMemory(target, { kind: "handoff", content, source: "cli" });
+            process.stdout.write(`Saved handoff ${entry.id}. The next Claude Code session will receive it when FORGE hooks are installed.\n`);
+          } else {
+            const handoff = await latestHandoff(target);
+            process.stdout.write(handoff ? `${handoff.updatedAt}\n${handoff.content}\n` : "No handoff saved. Save one with: forge memory handoff [path] --content TEXT\n");
+          }
+        } else if (action === "search") {
+          const query = option("--query") ?? "";
+          const limit = Number(option("--limit") ?? 10);
+          if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("--limit must be an integer from 1 to 100.");
+          const hits = await searchMemory(target, query, { limit, includeGlobal: !memoryArgs.includes("--project-only") });
+          if (memoryArgs.includes("--json")) process.stdout.write(JSON.stringify(hits, null, 2) + "\n");
+          else process.stdout.write(hits.length ? hits.map(hit => `${hit.score.toFixed(2).padStart(6)}  ${hit.layer.padEnd(7)} ${hit.entry.id} [${hit.entry.kind}] ${hit.entry.content}${hit.entry.evidence?.length ? "  (evidence: " + hit.entry.evidence.join(", ") + ")" : ""}`).join("\n") + "\n" : "No matching memory.\n");
         } else if (action === "remove") {
           const id = memoryArgs.find(arg => arg.startsWith("mem-"));
           if (!id) throw new Error("Usage: forge memory remove [path] mem-ID");
@@ -898,7 +944,7 @@ async function main(args: string[]): Promise<void> {
           const context = await buildProjectMemoryContext(target, query);
           process.stdout.write(context.text || "No relevant project memory.\n");
         } else {
-          throw new Error("Memory actions: add, list, remove, context.");
+          throw new Error("Memory actions: add, list, remove, context, search, handoff.");
         }
       } catch (error) {
         process.stderr.write("FORGE memory command failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
