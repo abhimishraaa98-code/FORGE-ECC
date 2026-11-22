@@ -1,7 +1,7 @@
 <!-- FORGE — AI Harness for software engineering -->
 
 <p align="center">
-  <img src="forge-dashboard.png" alt="FORGE AI Harness dashboard" width="100%" />
+  <img src="https://github.com/ansh44233/FORGE-ECC/blob/main/docs/forge-dashboard.png" alt="FORGE AI Harness dashboard" width="100%" />
 </p>
 
 <h1 align="center">FORGE — The AI Harness</h1>
