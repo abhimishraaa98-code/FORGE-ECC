@@ -4,6 +4,7 @@ import { buildCheckRun, gitBlobSha, handleIssueComment, handlePullRequest, parse
 import { createAppJwt, GitHubApiError, GitHubClient, type FetchLike, type PullFile, type TreeEntry } from "../src/github/github-client.js";
 import { assessPullRequestRisk } from "../src/github/pr-risk.js";
 import { analyzeRepository, renderProjectSkill } from "../src/github/repo-analysis.js";
+import { buildRepoOverview, parseRepoFullName, runDashboardAction } from "../src/github/dashboard-service.js";
 
 type Files = Record<string, string>;
 
@@ -23,6 +24,8 @@ class FakeClient {
   async getCollaboratorPermission() { if (!this.options.permission) throw new GitHubApiError(404, "not a collaborator"); return this.options.permission; }
   async createIssueComment(_o: string, _r: string, _i: number, body: string) { this.comments.push(body); return { html_url: "https://github.com/acme/app/issues/1#c" }; }
   async createCheckRun(_o: string, _r: string, check: Record<string, unknown>) { this.checks.push(check); return { id: 1, html_url: "https://github.com/acme/app/runs/1" }; }
+  repo(owner: string, repo: string) { return `/repos/${owner}/${repo}`; }
+  async request(_method: string, path: string) { if (path.includes("/pulls?state=open")) return [{ number: 5, title: "feat: billing", html_url: "https://github.com/acme/app/pull/5", user: { login: "dev" } }]; return []; }
   async openPullRequestWithFiles(options: { branch: string; title: string; body: string; files: Array<{ path: string; content: string }> }) { this.pulls.push(options); return { html_url: "https://github.com/acme/app/pull/7", number: 7 }; }
 }
 
@@ -196,5 +199,31 @@ describe("GitHub building blocks", () => {
     const shield = { schemaVersion: 1 as const, tool: "forge-shield" as const, generatedAt: "", filesScanned: 1, score: 100, grade: "A" as const, summary: { critical: 0, high: 0, medium: 0, low: 0 }, byCategory: {}, findings: [], caveats: [] };
     const check = buildCheckRun("sha", shield, assessPullRequestRisk([{ filename: "README.md", status: "modified", additions: 2, deletions: 1 }]), new Set(["README.md"]));
     expect(check.conclusion).toBe("success");
+  });
+});
+
+describe("hosted dashboard service", () => {
+  it("builds a repository overview with profile, setup, Shield and PR risk", async () => {
+    const client = new FakeClient({ ...REPO, ".mcp.json": JSON.stringify({ mcpServers: { x: { url: "http://remote.example/mcp" } } }) }, { pullFiles: [{ filename: "src/billing/charge.ts", status: "modified", additions: 80, deletions: 5, changes: 85 }] });
+    const overview = await buildRepoOverview(context(client), "acme", "app", [{ at: "2026-11-22T00:00:00Z", event: "issue_comment", action: "audit" }]);
+    expect(overview.repository.defaultBranch).toBe("main");
+    expect(overview.profile.packageManager).toBe("pnpm");
+    expect(overview.setup.installed).toBe(false);
+    expect(overview.shield.findings.some(item => item.ruleId === "SHIELD-MCP-001")).toBe(true);
+    expect(overview.pulls[0]?.risk.reasons.some(reason => /billing/i.test(reason.reason))).toBe(true);
+    expect(overview.history).toHaveLength(1);
+  });
+
+  it("only lets writers open setup pull requests from the dashboard", async () => {
+    const reader = new FakeClient({ ...REPO }, { permission: "read" });
+    await expect(runDashboardAction(context(reader), "acme", "app", "analyze", "viewer")).rejects.toThrow(/write access/);
+    const writer = new FakeClient({ ...REPO }, { permission: "write" });
+    const result = await runDashboardAction(context(writer), "acme", "app", "analyze", "dev");
+    expect(result.url).toBe("https://github.com/acme/app/pull/7");
+  });
+
+  it("validates repository names", () => {
+    expect(parseRepoFullName("acme/app")).toEqual({ owner: "acme", repo: "app" });
+    for (const bad of ["acme", "acme/../x", "../x/y", "acme/app/extra", "a b/c", 42]) expect(parseRepoFullName(bad)).toBeUndefined();
   });
 });

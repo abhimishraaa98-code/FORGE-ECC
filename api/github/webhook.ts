@@ -134,6 +134,13 @@ async function handleAppEvent(req: VercelRequest, res: VercelResponse, event: st
   try {
     const client = await GitHubClient.forInstallation({ appId, privateKey, installationId, repositories: [repositoryName] });
     const result = await handleGitHubEvent({ client, forgeVersion: FORGE_VERSION, catalogRoot: path.join(process.cwd(), "catalog") }, event, payload);
+    const fullName = payload.repository?.full_name?.toLowerCase();
+    if (result.handled && fullName && /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/.test(fullName)) {
+      // Activity feed for the hosted dashboard (latest 50 events per repository).
+      const entry = JSON.stringify({ at: new Date().toISOString(), event, action: result.action, ...(result.detail ? { detail: result.detail.slice(0, 200) } : {}), ...(result.url ? { url: result.url } : {}) });
+      await redisCommand(["LPUSH", `forge:repo:${fullName}:events`, entry]).catch(() => undefined);
+      await redisCommand(["LTRIM", `forge:repo:${fullName}:events`, 0, 49]).catch(() => undefined);
+    }
     return res.status(200).json({ received: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 200) : "unknown error";

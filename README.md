@@ -271,6 +271,8 @@ The MCP server exposes the same memory to every harness (`forge_memory_search`, 
 
 Comment `/forge analyze` on an issue to get a pull request that sets up FORGE for the repository, including a generated `forge-project` skill with the repo's real verify commands and conventions. Every pull request gets a **FORGE** check with an explainable change-risk score and Shield annotations. Commands: `analyze`, `repair`, `audit`, `doctor`, `risk`, `help`. Locally, `forge analyze . --write` generates the same project skill. See [docs/integrations/github-app.md](docs/integrations/github-app.md) for permissions.
 
+The hosted dashboard at [`/app/`](https://forge-ecc.vercel.app/app/) (sign in with GitHub) shows, for every repository you can access through the app: Shield score and findings, FORGE setup health, change risk for open pull requests, the detected stack and verify commands, and FORGE activity — with one-click setup/repair pull requests for collaborators with write access.
+
 ## Features
 
 FORGE is composed of focused engineering systems that share local project context and persisted evidence.
