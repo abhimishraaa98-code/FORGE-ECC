@@ -21,6 +21,7 @@ import {
 export type HarnessTarget = "claude" | "cursor" | "codex" | "opencode" | "gemini";
 export const HARNESS_TARGETS: readonly HarnessTarget[] = ["claude", "cursor", "codex", "opencode", "gemini"];
 
+export const STATE_SCHEMA = 1;
 export const INSTALL_STATE_PATH = ".forge/install-state.json";
 const STATE_SCHEMA_VERSION = 1;
 const BLOCK_BEGIN = "<!-- forge:begin (managed by `forge install`; edit outside this block) -->";
@@ -359,7 +360,7 @@ export function extractManagedBlock(content: string): { before: string; block: s
   };
 }
 
-function withBlock(existing: string | undefined, block: string): string {
+export function withBlock(existing: string | undefined, block: string): string {
   const rendered = `${BLOCK_BEGIN}\n${block}\n${BLOCK_END}`;
   if (existing === undefined || existing.trim() === "") return `${rendered}\n`;
   const parts = extractManagedBlock(existing);

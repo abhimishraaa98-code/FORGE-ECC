@@ -267,6 +267,10 @@ forge memory handoff . --content "Login form done; next: e2e tests"
 
 The MCP server exposes the same memory to every harness (`forge_memory_search`, `forge_memory_add`) plus `forge_shield_scan`.
 
+## GitHub App (v2 preview)
+
+Comment `/forge analyze` on an issue to get a pull request that sets up FORGE for the repository, including a generated `forge-project` skill with the repo's real verify commands and conventions. Every pull request gets a **FORGE** check with an explainable change-risk score and Shield annotations. Commands: `analyze`, `repair`, `audit`, `doctor`, `risk`, `help`. Locally, `forge analyze . --write` generates the same project skill. See [docs/integrations/github-app.md](docs/integrations/github-app.md) for permissions.
+
 ## Features
 
 FORGE is composed of focused engineering systems that share local project context and persisted evidence.

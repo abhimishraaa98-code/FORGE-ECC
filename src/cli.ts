@@ -47,6 +47,8 @@ import { analyzeDependencies, formatDependencyIntelligence } from "./core/depend
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
 import { addProjectMemory, buildProjectMemoryContext, globalMemoryRoot, latestHandoff, listProjectMemory, PROJECT_MEMORY_KINDS, removeProjectMemory, searchMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { HOOK_EVENTS, runHarnessHook, type HookEventName } from "./core/harness-hooks.js";
+import { analyzeRepository, collectLocalRepository, formatRepoProfile, renderProjectSkill } from "./github/repo-analysis.js";
+import { mkdir as mkdirAsync } from "node:fs/promises";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
@@ -137,6 +139,7 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   install [path]   Install FORGE agents, skills, commands and rules into Claude Code, Cursor, Codex, OpenCode and Gemini
                    [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--hooks] [--dry-run] [--force]
+  analyze [path]   Learn the repo (stack, scripts, tests, commit style) and generate a project skill [--write] [--json]
   hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start); reads hook JSON on stdin
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
   doctor [path]    Check installed harness files for missing, modified or outdated entries
@@ -331,6 +334,29 @@ async function main(args: string[]): Promise<void> {
         }
       } catch (error) {
         process.stderr.write("FORGE catalog failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "analyze": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--write", "--json"]);
+        const profile = analyzeRepository(await collectLocalRepository(options.path));
+        if (options.flags.has("--json")) process.stdout.write(JSON.stringify(profile, null, 2) + "\n");
+        else process.stdout.write(formatRepoProfile(profile) + "\n");
+        if (options.flags.has("--write")) {
+          const skill = renderProjectSkill(profile);
+          for (const relative of [".claude/skills/forge-project/SKILL.md", ".agents/skills/forge-project/SKILL.md"]) {
+            const target = path.join(options.path, relative);
+            await mkdirAsync(path.dirname(target), { recursive: true });
+            await writeTextFile(target, skill, "utf8");
+            if (!options.flags.has("--json")) process.stdout.write("  wrote " + relative + "\n");
+          }
+        } else if (!options.flags.has("--json")) {
+          process.stdout.write("\nRun with --write to save the forge-project skill for Claude Code and Codex/OpenCode.\n");
+        }
+      } catch (error) {
+        process.stderr.write("FORGE analyze failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;

@@ -2,5 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "installCommand": "npm install",
-  "framework": null
+  "framework": null,
+  "functions": {
+    "api/github/webhook.ts": {
+      "includeFiles": "catalog/**",
+      "maxDuration": 60
+    }
+  }
 }
