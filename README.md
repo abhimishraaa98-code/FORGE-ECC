@@ -66,7 +66,7 @@
 ---
 
 > [!NOTE]
-> **FORGE v1.0.0 — AI harness foundation.** The local CLI, local dashboard, agent orchestration, MCP server, provider adapters, GitHub Action and GitHub App installation/authentication foundation are available. The GitHub App does not yet perform hosted repository scans or create pull requests. See [Current capabilities and boundaries](#current-capabilities-and-boundaries).
+> **FORGE 2.0 — the verified agent harness.** Install FORGE agents, skills, commands and rules into Claude Code, Cursor, Codex, OpenCode and Gemini; guard risky actions with runtime hooks; scan agent configuration with Shield; get setup pull requests and PR risk checks from the GitHub App; and see it all in the hosted dashboard at [forge-ecc.vercel.app/app](https://forge-ecc.vercel.app/app/). Everything from 1.0 still works. See [CHANGELOG](CHANGELOG.md).
 
 ## What is FORGE?
 
@@ -115,7 +115,16 @@ git --version
 Install the released CLI directly from the GitHub repository:
 
 ```bash
-npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#v1.0.0
+npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#v2.0.0
+```
+
+Add FORGE to the project you work on (preview first, then install with runtime hooks):
+
+```bash
+cd /path/to/your-project
+forge install . --dry-run
+forge install . --hooks
+forge shield .
 ```
 
 Verify the installation:
@@ -153,7 +162,7 @@ npm --version
 git --version
 
 # Install FORGE
-npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#v1.0.0
+npm install --global git+https://github.com/ansh44233/FORGE-ECC.git#v2.0.0
 
 # Move into your project
 cd C:\Users\YourName\Projects\my-project
@@ -179,7 +188,7 @@ npm test
 npm run build
 ```
 
-## Install FORGE into your agent harness (v2 preview)
+## Install FORGE into your agent harness (2.0)
 
 `forge install` adds FORGE's agents, skills, slash commands and coding rules to the tools you already use. It writes the native format for each tool:
 
@@ -204,7 +213,7 @@ Profiles: `minimal` (core agents, commands, always-on rules), `standard` (defaul
 
 Safety: every written file is hashed in `.forge/install-state.json`. FORGE never overwrites a file it did not write or that you edited (unless you pass `--force`), only edits text inside its own `<!-- forge:begin -->` block in `AGENTS.md` / `GEMINI.md`, and refuses to write through symlinks.
 
-## FORGE Shield — agent harness security (v2 preview)
+## FORGE Shield — agent harness security (2.0)
 
 `forge shield` reviews the configuration that controls your coding agents and scores it 0–100:
 
@@ -225,7 +234,7 @@ forge shield . --sarif shield.sarif --fail-on high   # CI gate + GitHub code sca
 GitHub Action:
 
 ```yaml
-- uses: ansh44233/FORGE-ECC@forge-v2
+- uses: ansh44233/FORGE-ECC@v2.0.0
   with:
     operation: shield
     fail-on: high
@@ -235,7 +244,7 @@ GitHub Action:
     sarif_file: forge-shield.sarif
 ```
 
-## Runtime hooks and layered memory (v2 preview)
+## Runtime hooks and layered memory (2.0)
 
 `forge install --hooks` merges four FORGE hooks into `.claude/settings.json` (your own hooks and settings are kept; uninstall removes only FORGE entries):
 
@@ -267,7 +276,7 @@ forge memory handoff . --content "Login form done; next: e2e tests"
 
 The MCP server exposes the same memory to every harness (`forge_memory_search`, `forge_memory_add`) plus `forge_shield_scan`.
 
-## GitHub App (v2 preview)
+## GitHub App (2.0)
 
 Comment `/forge analyze` on an issue to get a pull request that sets up FORGE for the repository, including a generated `forge-project` skill with the repo's real verify commands and conventions. Every pull request gets a **FORGE** check with an explainable change-risk score and Shield annotations. Commands: `analyze`, `repair`, `audit`, `doctor`, `risk`, `help`. Locally, `forge analyze . --write` generates the same project skill. See [docs/integrations/github-app.md](docs/integrations/github-app.md) for permissions.
 
@@ -621,9 +630,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ansh44233/FORGE-ECC@v1.0.0
+      - uses: ansh44233/FORGE-ECC@v2.0.0
         with:
-          version: v1.0.0
+          version: v2.0.0
           project-path: .
           operation: inspect
 ```
