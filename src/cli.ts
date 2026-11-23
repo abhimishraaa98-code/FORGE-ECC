@@ -54,7 +54,7 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
-import { formatHarnessCapabilities, listHarnessCapabilities } from "./core/harness-capabilities.js";
+import { formatHarnessCapabilities, HARNESS_CAPABILITY_SCHEMA_VERSION, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
 import { writeFile as writeTextFile } from "node:fs/promises";
 import { ModelRouter } from "./core/model-router.js";
@@ -325,8 +325,8 @@ async function main(args: string[]): Promise<void> {
         const options = parseHarnessArgs(rest, [], ["--json"]);
         const manifest = listHarnessCapabilities();
         process.stdout.write(options.flags.has("--json")
-          ? JSON.stringify({ schemaVersion: 1, harnesses: manifest }, null, 2) + "\\n"
-          : formatHarnessCapabilities() + "\\n");
+          ? JSON.stringify({ schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION, harnesses: manifest }, null, 2) + "\n"
+          : formatHarnessCapabilities() + "\n");
       } catch (error) {
         process.stderr.write("FORGE harness listing failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
