@@ -395,10 +395,21 @@ export async function recoverFileTransaction(projectPath: string): Promise<boole
     if (!parsed || typeof parsed !== "object" || (parsed as TransactionJournal).schemaVersion !== 1 ||
         !Array.isArray((parsed as TransactionJournal).snapshots)) throw new Error("invalid journal shape");
     journal = parsed as TransactionJournal;
+    const seenPaths = new Set<string>();
     for (const item of journal.snapshots) {
       if (!item || typeof item.path !== "string" ||
           !(item.contentBase64 === null || typeof item.contentBase64 === "string")) throw new Error("invalid snapshot entry");
       assertRelativeSafe(item.path);
+      if (seenPaths.has(item.path)) throw new Error("duplicate snapshot path");
+      seenPaths.add(item.path);
+      if (item.contentBase64 !== null) {
+        // Buffer.from(..., "base64") silently accepts malformed input; journals must be canonical.
+        const encoded = item.contentBase64;
+        if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded) ||
+            Buffer.from(encoded, "base64").toString("base64") !== encoded) {
+          throw new Error("invalid snapshot base64");
+        }
+      }
     }
   } catch (error) {
     throw new Error("FORGE transaction recovery journal is invalid; it was left untouched: " + (error instanceof Error ? error.message : String(error)));
