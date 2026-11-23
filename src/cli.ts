@@ -54,9 +54,11 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
+import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
+import { buildScorecard, formatScorecard, formatScorecardMarkdown } from "./core/harness-scorecard.js";
 import { formatHarnessCapabilities, HARNESS_CAPABILITY_SCHEMA_VERSION, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
-import { writeFile as writeTextFile } from "node:fs/promises";
+import { readFile, writeFile as writeTextFile } from "node:fs/promises";
 import { ModelRouter } from "./core/model-router.js";
 import { loadExecutionTrace, saveExecutionTrace } from "./core/execution-trace.js";
 import { createReplayRun } from "./core/run-replay.js";
@@ -145,6 +147,11 @@ Commands:
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
   doctor [path]    Check installed harness files for missing, modified or outdated entries
   repair [path]    Restore missing and outdated harness files (keeps local edits)
+  scorecard [path] Deterministic 0-10 readiness score per category (install, coverage, security, guards,
+                   quality gates, context, memory, learning, CI) with top actions [--json] [--markdown] [--verbose] [--min N]
+  instinct ACTION  Learned behaviours: learn | list | add | promote ID.. | reject ID.. | remove ID | export | import FILE
+                   [path] [--trigger T --action A] [--status S] [--global] [--dry-run] [--json] [--out FILE]
+  evolve [path]    Compile approved instincts into a forge-learned skill (Claude Code + .agents) [--write] [--force] [--global]
   harnesses        List supported harnesses and their actual FORGE integration capabilities [--json]
   catalog          List the FORGE catalog [--kind agent|skill|command|rule] [--json]
   shield [path]    Security review of agent settings, hooks, MCP servers, instructions and workflows
@@ -316,6 +323,96 @@ async function main(args: string[]): Promise<void> {
         if (report.installed && !report.healthy) process.exitCode = 2;
       } catch (error) {
         process.stderr.write("FORGE doctor failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "scorecard":
+    case "harness-audit": {
+      try {
+        const options = parseHarnessArgs(rest, ["--min"], ["--json", "--markdown", "--verbose"]);
+        const card = await buildScorecard({ projectPath: options.path, forgeVersion: VERSION });
+        process.stdout.write((options.flags.has("--json") ? JSON.stringify(card, null, 2) : options.flags.has("--markdown") ? formatScorecardMarkdown(card) : formatScorecard(card, { verbose: options.flags.has("--verbose") })) + "\n");
+        if (options.values.has("--min")) {
+          const min = Number(options.values.get("--min"));
+          if (!Number.isFinite(min) || min < 0 || min > 100) throw new Error("--min must be a percentage between 0 and 100");
+          if (card.percent < min) process.exitCode = 4;
+        }
+      } catch (error) {
+        process.stderr.write("FORGE scorecard failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "instinct":
+    case "instincts": {
+      const [action = "list", ...instinctArgs] = rest;
+      try {
+        const ids = instinctArgs.filter(arg => /^inst-[a-f0-9]{10}$/.test(arg));
+        const instinctValues = ["--trigger", "--action", "--domain", "--status", "--out"];
+        const positional = instinctArgs.filter((arg, index) => !arg.startsWith("--") && !ids.includes(arg) && !instinctValues.includes(instinctArgs[index - 1] ?? ""));
+        // `import FILE [path]`: the first positional is the export file, not the project.
+        const importFile = action === "import" ? positional[0] : undefined;
+        const options = parseHarnessArgs(instinctArgs.filter(arg => !ids.includes(arg) && arg !== importFile), instinctValues, ["--global", "--dry-run", "--json"]);
+        const scope = options.flags.has("--global") ? "global" as const : "project" as const;
+        if (action === "learn") {
+          const result = await learnInstincts(options.path, { dryRun: options.flags.has("--dry-run") });
+          if (options.flags.has("--json")) process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+          else {
+            process.stdout.write(`FORGE learned ${result.added.length} new and refreshed ${result.updated.length} instinct(s) (${result.total} stored)${options.flags.has("--dry-run") ? " — dry run, nothing written" : ""}.\n`);
+            for (const i of result.added) process.stdout.write(`  + ${i.id} ${Math.round(i.confidence * 100)}%  When ${i.trigger}: ${i.action}\n`);
+            if (result.added.length) process.stdout.write("New instincts are candidates. Review them, then `forge instinct promote ID` the ones you trust.\n");
+          }
+        } else if (action === "list" || action === "status") {
+          const status = options.values.get("--status") as InstinctStatus | undefined;
+          if (status && !["candidate", "active", "rejected"].includes(status)) throw new Error("--status must be candidate, active or rejected");
+          const instincts = (await loadInstincts(options.path, scope)).filter(i => !status || i.status === status);
+          process.stdout.write((options.flags.has("--json") ? JSON.stringify(instincts, null, 2) : formatInstinctList(instincts)) + "\n");
+        } else if (action === "add") {
+          const trigger = options.values.get("--trigger");
+          const what = options.values.get("--action");
+          if (!trigger || !what) throw new Error("Usage: forge instinct add [path] --trigger \"editing api/**\" --action \"update the OpenAPI spec\" [--domain api] [--global]");
+          const domain = options.values.get("--domain");
+          const instinct = await addManualInstinct(options.path, trigger, what, { scope, ...(domain ? { domain } : {}) });
+          process.stdout.write(`Saved active instinct ${instinct.id} to the ${scope} store.\n`);
+        } else if (action === "promote" || action === "reject") {
+          if (!ids.length) throw new Error(`Usage: forge instinct ${action} ID [ID...] [path] [--global]`);
+          const changed = await setInstinctStatus(options.path, ids, action === "promote" ? "active" : "rejected", { scope });
+          process.stdout.write(`${action === "promote" ? "Promoted" : "Rejected"} ${changed.length} instinct(s).${action === "promote" ? " They now reach new sessions; run `forge evolve --write` to compile them into a skill." : ""}\n`);
+        } else if (action === "remove") {
+          if (ids.length !== 1) throw new Error("Usage: forge instinct remove ID [path] [--global]");
+          process.stdout.write((await removeInstinct(options.path, ids[0] as string, scope)) ? `Removed ${ids[0]}.\n` : `No instinct ${ids[0]}.\n`);
+        } else if (action === "export") {
+          const status = options.values.get("--status") as InstinctStatus | undefined;
+          const payload = JSON.stringify(await exportInstincts(options.path, { scope, ...(status ? { status } : {}) }), null, 2) + "\n";
+          if (options.values.has("--out")) { await writeTextFile(path.resolve(options.values.get("--out") as string), payload, "utf8"); process.stdout.write(`Exported instincts to ${options.values.get("--out")}.\n`); }
+          else process.stdout.write(payload);
+        } else if (action === "import") {
+          const file = importFile;
+          if (!file) throw new Error("Usage: forge instinct import FILE [path] [--global]");
+          const raw = await readFile(path.resolve(file), "utf8");
+          if (raw.length > 1024 * 1024) throw new Error("Import file exceeds 1 MiB.");
+          const result = await importInstincts(options.path, JSON.parse(raw), { scope });
+          process.stdout.write(`Imported ${result.added.length} new candidate instinct(s); existing instincts were left unchanged. Promote the ones you trust.\n`);
+        } else {
+          throw new Error(`Unknown instinct action "${action}". Use learn, list, add, promote, reject, remove, export or import.`);
+        }
+      } catch (error) {
+        process.stderr.write("FORGE instinct failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "evolve": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--write", "--force", "--global", "--json"]);
+        const result = await evolveInstincts(options.path, { write: options.flags.has("--write"), force: options.flags.has("--force"), includeGlobal: options.flags.has("--global") });
+        if (options.flags.has("--json")) { process.stdout.write(JSON.stringify({ instincts: result.instincts, files: result.files }, null, 2) + "\n"); return; }
+        if (!result.instincts) { process.stdout.write("No active instincts yet. Run `forge instinct learn`, then `forge instinct promote ID`.\n"); return; }
+        if (!options.flags.has("--write")) process.stdout.write(result.content + "\n--- dry run: pass --write to save ---\n");
+        for (const file of result.files) process.stdout.write(`  ${file.action.padEnd(20)} ${file.path}\n`);
+      } catch (error) {
+        process.stderr.write("FORGE evolve failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
