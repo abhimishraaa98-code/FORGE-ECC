@@ -208,7 +208,7 @@ function h(tag, attrs, ...children) {
     else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
     else el.setAttribute(key, value === true ? "" : String(value));
   }
-  for (const child of children.flat()) {
+  for (const child of children.flat(Infinity)) {
     if (child === undefined || child === null || child === false) continue;
     el.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
@@ -659,7 +659,7 @@ function renderRepo(data) {
       h("div", {}, h("h1", {}, name), h("div", { class: "meta" }, "Default branch ", h("code", {}, data.repository.defaultBranch), data.repository.private ? " · private" : " · public", " · scanned " + ago(data.generatedAt))),
       h("div", { class: "actions" }, h("a", { class: "btn", href: "https://github.com/" + name, target: "_blank", rel: "noopener noreferrer" }, "GitHub ↗"), h("button", { class: "btn", onclick: () => loadRepo(name, current.tab, "refresh") }, "Rescan"), setupButton)),
     tabs,
-    ...(views[current.tab] || overviewTab)(data));
+    ...[(views[current.tab] || overviewTab)(data)].flat(Infinity).filter(Boolean));
 }
 
 /** mode: undefined = use the cached scan if there is one; "refresh" = rescan with a loading state; "quiet" = rescan in place. */
