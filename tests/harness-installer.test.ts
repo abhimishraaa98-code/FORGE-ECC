@@ -69,35 +69,35 @@ describe("installer file transaction recovery", () => {
 
 describe("durable installer lifecycle recovery", () => {
   it("recovers an interrupted transaction before install reads or writes project files", async () => {
-    const root = await project({ "AGENTS.md": "# User instructions\\n" });
+    const root = await project({ "AGENTS.md": "# User instructions\n" });
     const forgeDir = path.join(root, ".forge");
     await mkdir(forgeDir, { recursive: true });
     await writeFile(path.join(root, "AGENTS.md"), "partially-written");
     await writeFile(path.join(forgeDir, "transaction-journal.json"), JSON.stringify({
       schemaVersion: 1,
-      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# User instructions\\n", "utf8").toString("base64") }],
+      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# User instructions\n", "utf8").toString("base64") }],
     }));
 
     await installHarness({ projectPath: root, forgeVersion: "test", targets: ["codex"] });
 
     const restored = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    expect(restored.startsWith("# User instructions\\n")).toBe(true);
+    expect(restored.startsWith("# User instructions\n")).toBe(true);
     expect(restored).toContain("FORGE engineering harness");
     expect(await exists(path.join(forgeDir, "transaction-journal.json"))).toBe(false);
   });
 
   it("recovers an interrupted transaction before uninstall checks install state", async () => {
-    const root = await project({ "AGENTS.md": "# Keep this file\\n" });
+    const root = await project({ "AGENTS.md": "# Keep this file\n" });
     const forgeDir = path.join(root, ".forge");
     await mkdir(forgeDir, { recursive: true });
     await writeFile(path.join(root, "AGENTS.md"), "partially-removed");
     await writeFile(path.join(forgeDir, "transaction-journal.json"), JSON.stringify({
       schemaVersion: 1,
-      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# Keep this file\\n", "utf8").toString("base64") }],
+      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# Keep this file\n", "utf8").toString("base64") }],
     }));
 
     await expect(uninstallHarness({ projectPath: root })).resolves.toMatchObject({ installed: false });
-    await expect(readFile(path.join(root, "AGENTS.md"), "utf8")).resolves.toBe("# Keep this file\\n");
+    await expect(readFile(path.join(root, "AGENTS.md"), "utf8")).resolves.toBe("# Keep this file\n");
     expect(await exists(path.join(forgeDir, "transaction-journal.json"))).toBe(false);
   });
 });
@@ -291,7 +291,7 @@ describe("harness installer", () => {
   });
 
   it("preserves modified managed blocks and install state during uninstall", async () => {
-    const root = await project({ "package.json": "{}", "AGENTS.md": "# Personal instructions\\n" });
+    const root = await project({ "package.json": "{}", "AGENTS.md": "# Personal instructions\n" });
     await installHarness({ projectPath: root, forgeVersion: "test", targets: ["codex"] });
     const agentsPath = path.join(root, "AGENTS.md");
     const before = await readFile(agentsPath, "utf8");
@@ -307,7 +307,7 @@ describe("harness installer", () => {
     const root = await project();
     await installHarness({ projectPath: root, forgeVersion: "test", targets: ["claude"], profile: "minimal" });
     const filePath = path.join(root, ".claude/agents/forge-planner.md");
-    await writeFile(filePath, (await readFile(filePath, "utf8")) + "\\nlocal note\\n");
+    await writeFile(filePath, (await readFile(filePath, "utf8")) + "\nlocal note\n");
     const result = await uninstallHarness({ projectPath: root });
     expect(result.changes.some(change => change.path.endsWith("forge-planner.md") && change.action === "keep-modified")).toBe(true);
     expect(await exists(filePath)).toBe(true);
