@@ -1,7 +1,7 @@
 <!-- FORGE: the verified layer for your coding agents -->
 
 <p align="center">
-  <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.png" alt="FORGE: the verified layer for your coding agents. 41 agents, 51 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.jpg" alt="FORGE: the verified layer for your coding agents. 41 agents, 51 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
 </p>
 
 <p align="center">
@@ -23,16 +23,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/-Claude%20Code-D97757?logo=anthropic&logoColor=white" alt="Claude Code" />
-  <img src="https://img.shields.io/badge/-Codex-111111?logo=openai&logoColor=white" alt="Codex" />
-  <img src="https://img.shields.io/badge/-Cursor-000000?logoColor=white" alt="Cursor" />
-  <img src="https://img.shields.io/badge/-OpenCode-2b2b2b" alt="OpenCode" />
-  <img src="https://img.shields.io/badge/-Gemini%20CLI-1A73E8?logo=googlegemini&logoColor=white" alt="Gemini CLI" />
-  <img src="https://img.shields.io/badge/-Copilot-24292f?logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
-  <img src="https://img.shields.io/badge/-Windsurf-0B6E6E" alt="Windsurf" />
-  <img src="https://img.shields.io/badge/-Kiro-7c3aed" alt="Kiro" />
-  <img src="https://img.shields.io/badge/-Cline-334155" alt="Cline" />
-  <img src="https://img.shields.io/badge/-Zed-084CCF?logo=zedindustries&logoColor=white" alt="Zed" />
+  <img src="https://img.shields.io/badge/Claude%20Code-native%20%2B%20hooks-D97757?logo=anthropic&logoColor=white" alt="Claude Code: native and hooks" />
+  <img src="https://img.shields.io/badge/Codex-supported-10A37F" alt="Codex" />
+  <img src="https://img.shields.io/badge/Cursor-supported-6E56CF" alt="Cursor" />
+  <img src="https://img.shields.io/badge/OpenCode-supported-F59E0B" alt="OpenCode" />
+  <img src="https://img.shields.io/badge/Gemini%20CLI-supported-1A73E8?logo=googlegemini&logoColor=white" alt="Gemini CLI" />
+  <br />
+  <img src="https://img.shields.io/badge/Copilot-supported-24292F?logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
+  <img src="https://img.shields.io/badge/Windsurf-supported-0B6E6E" alt="Windsurf" />
+  <img src="https://img.shields.io/badge/Kiro-supported-7C3AED" alt="Kiro" />
+  <img src="https://img.shields.io/badge/Cline-supported-334155" alt="Cline" />
+  <img src="https://img.shields.io/badge/Zed-supported-084CCF?logo=zedindustries&logoColor=white" alt="Zed" />
 </p>
 
 <p align="center">
@@ -49,6 +50,7 @@
 <p align="center">
   <a href="#install-forge">Install</a> ·
   <a href="#why-forge">Why FORGE</a> ·
+  <a href="#how-forge-works">How it works</a> ·
   <a href="#harness-scorecard">Scorecard</a> ·
   <a href="#forge-shield">Shield</a> ·
   <a href="#verified-loop">Verified loop</a> ·
@@ -160,6 +162,56 @@ npm link   # puts `forge` on your PATH
 | Someone comments on an issue | A CI agent may run with your secrets | **Shield flags it as critical** unless the workflow checks who triggered it |
 | An agent tries `git commit --no-verify` | Hooks skipped silently | **Guard denies it**, and asks before an agent loosens lint or type configs |
 | You compare repositories | Gut feeling | **A deterministic scorecard** with evidence for every point, across the whole fleet |
+
+## How FORGE works
+
+```mermaid
+flowchart LR
+    A[You or an agent<br/>starts a task] --> B[Plan<br/>planner agent, skills, memory, instincts]
+    B --> C{FORGE Guard<br/>every tool call}
+    C -- deny / ask --> B
+    C -- allow --> D[Build<br/>agent edits code]
+    D --> E[Verify<br/>FORGE runs your checks itself]
+    E -- fails --> D
+    E -- tests deleted or skipped --> R[needs-review<br/>no fake pass]
+    E -- passes --> F[Prove<br/>receipt, scorecard, Shield]
+    F --> G[Learn<br/>handoff + instinct candidates]
+    G -. approved by a person .-> B
+```
+
+Each step leaves something you can check. Installs are hashed, every Guard decision is logged, the loop saves a receipt for each iteration, Shield writes SARIF, and every scorecard point cites its evidence. Instincts only reach the agent after a person approves them.
+
+## See it work
+
+Real output from FORGE 3.0, shortened:
+
+```console
+$ forge install . --hooks --statusline
+FORGE install complete
+  profile   standard
+  targets   claude, cursor, codex, opencode, gemini
+  languages typescript, react        ← stack skills: nextjs-app-router, react-components
+
+$ forge scorecard .
+FORGE harness scorecard — 79/90 (88%, grade B)
+  Harness install        ██████████ 10/10
+  Security posture       ██████████ 10/10
+  Runtime guards         ██████████ 10/10
+  Project context        ███████░░░  7/10
+Top actions:
+  1. Run `forge analyze --write` to generate a project skill from the repo.
+
+$ forge loop start --goal "make sum add" --check "npm test"
+  baseline  ✗ npm test
+  #1  ✓ npm test  · 1 file(s)
+All 1 check(s) passed after 1 iteration(s), verified by FORGE.
+
+$ forge loop start --goal "make sum add" --check "npm test"     # an agent that deletes the test
+  #1  ✓ npm test  · 2 file(s)  ⚠ 2 integrity issue(s)
+        ⚠ deleted-test: tests/sum.test.js
+        ⚠ package-scripts: package.json
+The agent changed what the checks measure. Review the diff before trusting any result.
+```
 
 ## What's new in 3.0
 
@@ -484,6 +536,18 @@ The **FORGE Control Center** at [`/app/`](https://forge-ecc.vercel.app/app/) (si
 Collaborators with write access can open setup and repair pull requests in one click. Memory, instincts and loops come from the committed `.forge/` files, so teams choose what they share.
 
 <p align="center"><img src="docs/control-center-fleet.jpg" alt="FORGE Control Center fleet view" width="100%" /></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/cc-scorecard.jpg" alt="Scorecard tab: nine categories with evidence" /><br /><sub><b>Scorecard</b>: evidence behind every point</sub></td>
+    <td width="50%"><img src="docs/cc-loops.jpg" alt="Loops tab: verified loop receipts with an integrity warning" /><br /><sub><b>Loops</b>: receipts, with the integrity gate</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/cc-memory.jpg" alt="Memory tab: handoffs and decisions with trust labels" /><br /><sub><b>Memory</b>: handoffs and decisions with trust labels</sub></td>
+    <td width="50%"><img src="docs/cc-harnesses.jpg" alt="Harnesses tab: coverage across 10 tools" /><br /><sub><b>Harnesses</b>: what the repo uses and what FORGE covers</sub></td>
+  </tr>
+</table>
+
 
 ## Codebase intelligence and agent workflows
 
