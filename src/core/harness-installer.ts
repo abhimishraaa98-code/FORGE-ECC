@@ -593,6 +593,10 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
   if (!state) return { dryRun: Boolean(options.dryRun), changes: [], installed: false };
   const changes: InstallChange[] = [];
   const actions: Array<() => Promise<void>> = [];
+  const remainingFiles: InstallStateFile[] = [];
+  const remainingBlocks: InstallStateBlock[] = [];
+  let remainingSettings: InstallStateSettings | undefined;
+
   for (const entry of state.files) {
     const absolute = await resolveInside(root, entry.path);
     const current = await readIfExists(absolute);
@@ -602,12 +606,21 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
       actions.push(async () => { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); });
     } else {
       changes.push({ path: entry.path, action: "keep-modified", detail: "locally modified; kept (use --force to remove)" });
+      remainingFiles.push(entry);
     }
   }
+
   for (const entry of state.blocks) {
     const absolute = await resolveInside(root, entry.path);
     const current = await readIfExists(absolute);
-    if (current === undefined || !extractManagedBlock(current)) continue;
+    if (current === undefined) continue;
+    const managed = extractManagedBlock(current);
+    if (!managed) continue;
+    if (sha256(managed.block) !== entry.sha256 && !options.force) {
+      changes.push({ path: entry.path, action: "keep-modified", detail: "managed block edited by hand; kept (use --force to remove)" });
+      remainingBlocks.push(entry);
+      continue;
+    }
     changes.push({ path: entry.path, action: "remove", detail: "managed block" });
     actions.push(async () => {
       const remaining = withoutBlock(current);
@@ -615,6 +628,7 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
       else await atomicWrite(absolute, remaining);
     });
   }
+
   if (state.settings) {
     const absolute = await resolveInside(root, state.settings.path);
     try {
@@ -625,18 +639,30 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
         const createdFile = state.settings.createdFile;
         actions.push(async () => {
           if (!Object.keys(next).length && createdFile) { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); }
-          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
+          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\\n`);
         });
       }
     } catch (error) {
       changes.push({ path: state.settings.path, action: "keep-modified", detail: `could not remove FORGE hooks: ${error instanceof Error ? error.message : String(error)}` });
+      remainingSettings = state.settings;
     }
   }
+
   if (!options.dryRun) {
     for (const action of actions) await action();
+    const remainingState: InstallState = {
+      ...state,
+      files: remainingFiles,
+      blocks: remainingBlocks,
+      ...(remainingSettings ? { settings: remainingSettings } : {}),
+    };
     const statePath = await resolveInside(root, INSTALL_STATE_PATH);
-    await rm(statePath, { force: true });
-    await pruneEmptyParents(root, statePath);
+    if (remainingFiles.length || remainingBlocks.length || remainingSettings) {
+      await atomicWrite(statePath, `${JSON.stringify(remainingState, null, 2)}\\n`);
+    } else {
+      await rm(statePath, { force: true });
+      await pruneEmptyParents(root, statePath);
+    }
   }
   return { dryRun: Boolean(options.dryRun), changes, installed: true };
 }
