@@ -45,6 +45,19 @@ describe("installer file transaction", () => {
     ])).rejects.toThrow("All applied changes were rolled back");
     await expect(readFile(blocker, "utf8")).resolves.toBe("original");
   });
+  it("restores deleted files and removes newly created files after failure", async () => {
+    const root = await project({ "blocker": "keep", "to-delete.txt": "restore-me" });
+    const blocker = path.join(root, "blocker");
+    const created = path.join(root, "created.txt");
+    const deleted = path.join(root, "to-delete.txt");
+    await expect(applyFileTransaction([
+      { path: deleted, content: null },
+      { path: created, content: "temporary" },
+      { path: path.join(blocker, "child.txt"), content: "cannot-write" },
+    ])).rejects.toThrow("All applied changes were rolled back");
+    await expect(readFile(deleted, "utf8")).resolves.toBe("restore-me");
+    expect(await exists(created)).toBe(false);
+  });
 });
 
 describe("harness catalog", () => {
