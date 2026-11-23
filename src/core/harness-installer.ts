@@ -414,7 +414,7 @@ async function applyDurableFileTransaction(projectPath: string, operations: File
   await recoverFileTransaction(root);
   const snapshots = new Map<string, string | undefined>();
   for (const operation of operations) {
-    const relative = path.relative(root, operation.path);
+    const relative = path.relative(root, operation.path).split(path.sep).join("/");
     assertRelativeSafe(relative);
     if (!snapshots.has(relative)) snapshots.set(relative, await readIfExists(await resolveInside(root, relative)));
   }
