@@ -344,7 +344,7 @@ async function atomicWrite(file: string, content: string): Promise<void> {
 interface FileTransactionOperation { path: string; content: string | null }
 
 /** Apply file mutations with snapshots and reverse-order rollback on failure. */
-async function applyFileTransaction(operations: FileTransactionOperation[]): Promise<void> {
+export async function applyFileTransaction(operations: FileTransactionOperation[]): Promise<void> {
   const snapshots = new Map<string, string | undefined>();
   const applied: string[] = [];
   try {
