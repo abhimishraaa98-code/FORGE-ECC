@@ -428,7 +428,7 @@ async function applyDurableFileTransaction(projectPath: string, operations: File
   const journalPath = path.join(root, TRANSACTION_JOURNAL_PATH);
   await atomicWrite(journalPath, JSON.stringify(journal, null, 2) + "\n");
   try {
-    await applyDurableFileTransaction(root, operations);
+    await applyFileTransaction(operations);
     await rm(journalPath, { force: true });
   } catch (error) {
     try {
