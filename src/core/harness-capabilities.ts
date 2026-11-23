@@ -62,6 +62,41 @@ export const HARNESS_CAPABILITIES: readonly HarnessCapability[] = [
     capabilities: { agents: "shared", skills: "shared", commands: "native", rules: "shared", hooks: "unsupported" },
     notes: ["Shared instructions are referenced from GEMINI.md; skills use the shared .agents/skills layout.", "FORGE runtime hooks are not installed for this target."],
   },
+  {
+    target: "copilot",
+    displayName: "GitHub Copilot",
+    schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION,
+    capabilities: { agents: "native", skills: "shared", commands: "native", rules: "native", hooks: "unsupported" },
+    notes: ["Rules become .github/instructions/*.instructions.md with applyTo globs; workflows become .github/prompts/*.prompt.md; agents become .github/agents/*.agent.md.", "A managed block in .github/copilot-instructions.md indexes the shared harness.", "Opt-in target: install with --target copilot, or FORGE adds it when .github/copilot-instructions.md exists."],
+  },
+  {
+    target: "windsurf",
+    displayName: "Windsurf",
+    schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION,
+    capabilities: { agents: "shared", skills: "shared", commands: "native", rules: "native", hooks: "unsupported" },
+    notes: ["Rules become .windsurf/rules with always_on, glob or model_decision triggers; workflows become .windsurf/workflows.", "Agents and skills are indexed from AGENTS.md.", "Opt-in target: FORGE adds it when .windsurf/ exists."],
+  },
+  {
+    target: "kiro",
+    displayName: "Kiro",
+    schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION,
+    capabilities: { agents: "shared", skills: "shared", commands: "shared", rules: "native", hooks: "unsupported" },
+    notes: ["Rules become .kiro/steering files with always, fileMatch or manual inclusion.", "Agents and workflows become manual steering files you pull in with #forge-<kind>-<id>.", "Opt-in target: FORGE adds it when .kiro/ exists."],
+  },
+  {
+    target: "cline",
+    displayName: "Cline",
+    schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION,
+    capabilities: { agents: "shared", skills: "shared", commands: "native", rules: "native", hooks: "unsupported" },
+    notes: ["Rules become .clinerules/*.md (with paths frontmatter when scoped); workflows become .clinerules/workflows.", "A managed .clinerules/forge-harness.md indexes agents and skills.", "Opt-in target: FORGE adds it when .clinerules exists."],
+  },
+  {
+    target: "zed",
+    displayName: "Zed",
+    schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION,
+    capabilities: { agents: "shared", skills: "shared", commands: "shared", rules: "shared", hooks: "unsupported" },
+    notes: ["Zed's agent reads AGENTS.md, so FORGE installs the shared harness and its managed AGENTS.md block.", "If the project has a .rules file, Zed prefers it over AGENTS.md; add a pointer to AGENTS.md there.", "Opt-in target: FORGE adds it when .zed/ or .rules exists."],
+  },
 ] as const;
 
 export function getHarnessCapability(target: HarnessTarget): HarnessCapability {

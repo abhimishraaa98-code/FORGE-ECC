@@ -52,7 +52,7 @@ import { mkdir as mkdirAsync } from "node:fs/promises";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
 import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
-import { doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
+import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { formatHarnessCapabilities, HARNESS_CAPABILITY_SCHEMA_VERSION, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
@@ -138,7 +138,7 @@ Usage:
 
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
-  install [path]   Install FORGE agents, skills, commands and rules into Claude Code, Cursor, Codex, OpenCode and Gemini
+  install [path]   Install FORGE agents, skills, commands and rules (Claude Code, Cursor, Codex, OpenCode, Gemini; Copilot, Windsurf, Kiro, Cline, Zed opt-in)
                    [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--hooks] [--dry-run] [--force]
   analyze [path]   Learn the repo (stack, scripts, tests, commit style) and generate a project skill [--write] [--json]
   hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start); reads hook JSON on stdin
@@ -270,7 +270,7 @@ async function main(args: string[]): Promise<void> {
     case "install":
     case "repair": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|all] [--profile minimal|standard|full] [--lang LIST] [--hooks|--no-hooks] [--hook-command CMD] [--dry-run] [--force] [--json]\n");
+        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|default|all] [--profile minimal|standard|full] [--lang LIST] [--hooks|--no-hooks] [--hook-command CMD] [--dry-run] [--force] [--json]\n");
         return;
       }
       try {
@@ -286,7 +286,7 @@ async function main(args: string[]): Promise<void> {
           hooks: options.flags.has("--hooks") || (!options.flags.has("--no-hooks") && Boolean(existing?.hooks ?? (await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }).catch(() => undefined))?.hooks)),
           ...(options.values.has("--hook-command") ? { hookCommand: options.values.get("--hook-command") as string } : {}),
           profile: parseProfile(options.values.get("--profile") ?? existing?.profile),
-          targets: options.values.has("--target") ? parseTargets(options.values.get("--target")) : (existing?.targets ?? parseTargets("all")),
+          targets: options.values.has("--target") ? parseTargets(options.values.get("--target")) : (existing?.targets ?? [...new Set([...parseTargets("default"), ...await detectHarnessTargets(options.path)])]),
           ...(options.values.has("--lang") ? { languages: (options.values.get("--lang") ?? "").split(",").map(v => normalizeLanguage(v)).filter(Boolean) } : existing?.languages ? { languages: existing.languages } : {}),
         });
         process.stdout.write(options.flags.has("--json") ? JSON.stringify({ ...result, plan: { ...result.plan, files: result.plan.files.map(f => ({ path: f.path, targets: f.targets, item: f.item })) } }, null, 2) + "\n" : formatInstallResult(result) + "\n");

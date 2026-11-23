@@ -7,6 +7,7 @@ import { detectProjectLanguages, loadHarnessCatalog, parseCatalogItem, selectCat
 import {
   applyFileTransaction,
   buildInstallPlan,
+  detectHarnessTargets,
   doctorHarness,
   extractManagedBlock,
   installHarness,
@@ -374,5 +375,51 @@ describe("harness CLI", () => {
   it("rejects unknown options", async () => {
     const root = await project();
     expect(() => runCli("install", root, "--bogus")).toThrow();
+  });
+});
+
+describe("opt-in harness targets", () => {
+  it("keeps the default target set unchanged and accepts default/all keywords", async () => {
+    expect(parseTargets("default")).toEqual(["claude", "cursor", "codex", "opencode", "gemini"]);
+    expect(parseTargets("all")).toHaveLength(HARNESS_TARGETS.length);
+    const plan = await buildInstallPlan({ projectPath: await project(), forgeVersion: "test" });
+    expect(plan.targets).toEqual(["claude", "cursor", "codex", "opencode", "gemini"]);
+  });
+
+  it("detects harnesses the project already uses", async () => {
+    const root = await project({ "package.json": "{}", ".github/copilot-instructions.md": "# team\n", ".kiro/steering/x.md": "x", ".clinerules": "" });
+    expect(await detectHarnessTargets(root)).toEqual(["copilot", "kiro", "cline"]);
+  });
+
+  it("renders native Copilot, Windsurf, Kiro and Cline files plus managed blocks", async () => {
+    const plan = await buildInstallPlan({ projectPath: await project(), forgeVersion: "test", targets: ["copilot", "windsurf", "kiro", "cline", "zed"] });
+    const paths = plan.files.map(file => file.path);
+    expect(paths.some(p => p.startsWith(".github/instructions/forge-common-") && p.endsWith(".instructions.md"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".github/prompts/forge-") && p.endsWith(".prompt.md"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".github/agents/forge-") && p.endsWith(".agent.md"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".windsurf/rules/forge-common-"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".windsurf/workflows/forge-"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".kiro/steering/forge-agent-"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".clinerules/workflows/forge-"))).toBe(true);
+    expect(paths.some(p => p.startsWith(".agents/skills/forge-"))).toBe(true);
+    expect(plan.blocks.map(block => block.path)).toEqual([".clinerules/forge-harness.md", ".github/copilot-instructions.md", ".kiro/steering/forge-harness.md", "AGENTS.md"]);
+    const common = plan.files.find(file => file.path.startsWith(".windsurf/rules/forge-common-"));
+    expect(common?.content).toMatch(/^---\ntrigger: always_on/);
+    const steering = plan.files.find(file => file.path.startsWith(".kiro/steering/forge-common-"));
+    expect(steering?.content).toMatch(/inclusion: always/);
+    const prompt = plan.files.find(file => file.path.startsWith(".github/prompts/"));
+    expect(prompt?.content).not.toContain("$ARGUMENTS");
+  });
+
+  it("installs and uninstalls a new target cleanly", async () => {
+    const root = await project({ "package.json": "{}", ".github/copilot-instructions.md": "# Team notes\n" });
+    await installHarness({ projectPath: root, forgeVersion: "test", targets: ["copilot"] });
+    const instructions = await readFile(path.join(root, ".github/copilot-instructions.md"), "utf8");
+    expect(instructions).toContain("# Team notes");
+    expect(instructions).toContain("forge:begin");
+    expect((await doctorHarness({ projectPath: root, forgeVersion: "test" })).healthy).toBe(true);
+    await uninstallHarness({ projectPath: root });
+    await expect(readFile(path.join(root, ".github/copilot-instructions.md"), "utf8")).resolves.toBe("# Team notes\n");
+    expect(await exists(path.join(root, ".github/prompts"))).toBe(false);
   });
 });
