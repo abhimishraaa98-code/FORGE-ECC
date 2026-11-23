@@ -10,6 +10,7 @@ import {
   extractManagedBlock,
   installHarness,
   INSTALL_STATE_PATH,
+  HARNESS_TARGETS,
   parseTargets,
   uninstallHarness,
 } from "../src/core/harness-installer.js";
@@ -65,9 +66,19 @@ describe("harness catalog", () => {
 });
 
 describe("harness installer", () => {
-  it("rejects unknown targets", () => {
+  it("derives the accepted target list from the capability manifest", () => {
+    expect(parseTargets("all")).toEqual([...HARNESS_TARGETS]);
+    expect(parseTargets("claude,claude,codex")).toEqual(["claude", "codex"]);
     expect(() => parseTargets("claude,vim")).toThrow(/Unknown target/);
-    expect(parseTargets("all")).toContain("gemini");
+  });
+
+  it("rejects unsupported targets passed directly to the install planner", async () => {
+    const root = await project();
+    await expect(buildInstallPlan({
+      projectPath: root,
+      forgeVersion: "test",
+      targets: ["vim" as never],
+    })).rejects.toThrow(/Unknown target/);
   });
 
   it("renders native files for each harness", async () => {
