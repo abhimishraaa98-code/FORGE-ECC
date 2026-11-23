@@ -614,7 +614,8 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
   const state = await loadInstallState(root);
   if (!state) return { dryRun: Boolean(options.dryRun), changes: [], installed: false };
   const changes: InstallChange[] = [];
-  const actions: Array<() => Promise<void>> = [];
+  const operations: FileTransactionOperation[] = [];
+  const pruneAfterCommit: string[] = [];
   const remainingFiles: InstallStateFile[] = [];
   const remainingBlocks: InstallStateBlock[] = [];
   let remainingSettings: InstallStateSettings | undefined;
@@ -625,7 +626,8 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
     if (current === undefined) continue;
     if (sha256(current) === entry.sha256 || options.force) {
       changes.push({ path: entry.path, action: "remove" });
-      actions.push(async () => { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); });
+      operations.push({ path: absolute, content: null });
+      pruneAfterCommit.push(absolute);
     } else {
       changes.push({ path: entry.path, action: "keep-modified", detail: "locally modified; kept (use --force to remove)" });
       remainingFiles.push(entry);
@@ -644,11 +646,9 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
       continue;
     }
     changes.push({ path: entry.path, action: "remove", detail: "managed block" });
-    actions.push(async () => {
-      const remaining = withoutBlock(current);
-      if (!remaining && entry.createdFile) await rm(absolute, { force: true });
-      else await atomicWrite(absolute, remaining);
-    });
+    const remaining = withoutBlock(current);
+    operations.push({ path: absolute, content: !remaining && entry.createdFile ? null : remaining });
+    if (!remaining && entry.createdFile) pruneAfterCommit.push(absolute);
   }
 
   if (state.settings) {
@@ -659,10 +659,8 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
         const next = removeClaudeHooks(current.settings, state.settings.commands, state.settings.addedDeny);
         changes.push({ path: state.settings.path, action: "remove", detail: "FORGE hooks" });
         const createdFile = state.settings.createdFile;
-        actions.push(async () => {
-          if (!Object.keys(next).length && createdFile) { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); }
-          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
-        });
+        operations.push({ path: absolute, content: !Object.keys(next).length && createdFile ? null : `${JSON.stringify(next, null, 2)}\n` });
+        if (!Object.keys(next).length && createdFile) pruneAfterCommit.push(absolute);
       }
     } catch (error) {
       changes.push({ path: state.settings.path, action: "keep-modified", detail: `could not remove FORGE hooks: ${error instanceof Error ? error.message : String(error)}` });
@@ -671,7 +669,6 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
   }
 
   if (!options.dryRun) {
-    for (const action of actions) await action();
     const remainingState: InstallState = {
       ...state,
       files: remainingFiles,
@@ -680,11 +677,13 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
     };
     const statePath = await resolveInside(root, INSTALL_STATE_PATH);
     if (remainingFiles.length || remainingBlocks.length || remainingSettings) {
-      await atomicWrite(statePath, `${JSON.stringify(remainingState, null, 2)}\n`);
+      operations.push({ path: statePath, content: `${JSON.stringify(remainingState, null, 2)}\n` });
     } else {
-      await rm(statePath, { force: true });
-      await pruneEmptyParents(root, statePath);
+      operations.push({ path: statePath, content: null });
+      pruneAfterCommit.push(statePath);
     }
+    await applyFileTransaction(operations);
+    for (const file of pruneAfterCommit) await pruneEmptyParents(root, file);
   }
   return { dryRun: Boolean(options.dryRun), changes, installed: true };
 }
