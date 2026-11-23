@@ -67,6 +67,41 @@ describe("installer file transaction recovery", () => {
   });
 });
 
+describe("durable installer lifecycle recovery", () => {
+  it("recovers an interrupted transaction before install reads or writes project files", async () => {
+    const root = await project({ "AGENTS.md": "# User instructions\\n" });
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    await writeFile(path.join(root, "AGENTS.md"), "partially-written");
+    await writeFile(path.join(forgeDir, "transaction-journal.json"), JSON.stringify({
+      schemaVersion: 1,
+      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# User instructions\\n", "utf8").toString("base64") }],
+    }));
+
+    await installHarness({ projectPath: root, forgeVersion: "test", targets: ["codex"] });
+
+    const restored = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(restored.startsWith("# User instructions\\n")).toBe(true);
+    expect(restored).toContain("FORGE engineering harness");
+    expect(await exists(path.join(forgeDir, "transaction-journal.json"))).toBe(false);
+  });
+
+  it("recovers an interrupted transaction before uninstall checks install state", async () => {
+    const root = await project({ "AGENTS.md": "# Keep this file\\n" });
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    await writeFile(path.join(root, "AGENTS.md"), "partially-removed");
+    await writeFile(path.join(forgeDir, "transaction-journal.json"), JSON.stringify({
+      schemaVersion: 1,
+      snapshots: [{ path: "AGENTS.md", contentBase64: Buffer.from("# Keep this file\\n", "utf8").toString("base64") }],
+    }));
+
+    await expect(uninstallHarness({ projectPath: root })).resolves.toMatchObject({ installed: false });
+    await expect(readFile(path.join(root, "AGENTS.md"), "utf8")).resolves.toBe("# Keep this file\\n");
+    expect(await exists(path.join(forgeDir, "transaction-journal.json"))).toBe(false);
+  });
+});
+
 describe("installer file transaction", () => {
   it("restores earlier writes when a later operation fails", async () => {
     const root = await project({ "blocker": "original" });
