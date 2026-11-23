@@ -55,6 +55,8 @@ import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permiss
 import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
+import { buildCostReport, formatCostReport } from "./core/session-cost.js";
+import { renderStatusLine } from "./core/statusline.js";
 import { buildScorecard, formatScorecard, formatScorecardMarkdown } from "./core/harness-scorecard.js";
 import { formatHarnessCapabilities, HARNESS_CAPABILITY_SCHEMA_VERSION, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
@@ -143,7 +145,10 @@ Commands:
   install [path]   Install FORGE agents, skills, commands and rules (Claude Code, Cursor, Codex, OpenCode, Gemini; Copilot, Windsurf, Kiro, Cline, Zed opt-in)
                    [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--hooks] [--dry-run] [--force]
   analyze [path]   Learn the repo (stack, scripts, tests, commit style) and generate a project skill [--write] [--json]
-  hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start); reads hook JSON on stdin
+  hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start, prompt-submit, pre-compact,
+                   session-end); reads hook JSON on stdin
+  statusline       Claude Code status line: model, branch, unverified edits, last verification, guard blocks, cost
+  cost [path]      Token usage and estimated spend per session, model and day [--json] [--days N]
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
   doctor [path]    Check installed harness files for missing, modified or outdated entries
   repair [path]    Restore missing and outdated harness files (keeps local edits)
@@ -277,11 +282,11 @@ async function main(args: string[]): Promise<void> {
     case "install":
     case "repair": {
       if (rest.includes("--help")) {
-        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|default|all] [--profile minimal|standard|full] [--lang LIST] [--hooks|--no-hooks] [--hook-command CMD] [--dry-run] [--force] [--json]\n");
+        process.stdout.write("Usage: forge " + command + " [path] [--target LIST|default|all] [--profile minimal|standard|full] [--lang LIST] [--hooks|--no-hooks] [--statusline] [--hook-command CMD] [--dry-run] [--force] [--json]\n");
         return;
       }
       try {
-        const options = parseHarnessArgs(rest, ["--target", "--profile", "--lang", "--hook-command"], ["--dry-run", "--force", "--json", "--hooks", "--no-hooks"]);
+        const options = parseHarnessArgs(rest, ["--target", "--profile", "--lang", "--hook-command"], ["--dry-run", "--force", "--json", "--hooks", "--no-hooks", "--statusline", "--no-statusline"]);
         if (options.flags.has("--hooks") && options.flags.has("--no-hooks")) throw new Error("Use either --hooks or --no-hooks");
         const existing = command === "repair" ? await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }) : undefined;
         if (command === "repair" && !existing?.installed) throw new Error("FORGE harness is not installed here. Run `forge install` first.");
@@ -290,8 +295,9 @@ async function main(args: string[]): Promise<void> {
           forgeVersion: VERSION,
           dryRun: options.flags.has("--dry-run"),
           force: options.flags.has("--force"),
-          hooks: options.flags.has("--hooks") || (!options.flags.has("--no-hooks") && Boolean(existing?.hooks ?? (await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }).catch(() => undefined))?.hooks)),
+          hooks: options.flags.has("--hooks") || options.flags.has("--statusline") || (!options.flags.has("--no-hooks") && Boolean(existing?.hooks ?? (await doctorHarness({ projectPath: options.path, forgeVersion: VERSION }).catch(() => undefined))?.hooks)),
           ...(options.values.has("--hook-command") ? { hookCommand: options.values.get("--hook-command") as string } : {}),
+          ...(options.flags.has("--statusline") ? { statusLine: true } : options.flags.has("--no-statusline") ? { statusLine: false } : {}),
           profile: parseProfile(options.values.get("--profile") ?? existing?.profile),
           targets: options.values.has("--target") ? parseTargets(options.values.get("--target")) : (existing?.targets ?? [...new Set([...parseTargets("default"), ...await detectHarnessTargets(options.path)])]),
           ...(options.values.has("--lang") ? { languages: (options.values.get("--lang") ?? "").split(",").map(v => normalizeLanguage(v)).filter(Boolean) } : existing?.languages ? { languages: existing.languages } : {}),
@@ -469,6 +475,38 @@ async function main(args: string[]): Promise<void> {
         }
       } catch (error) {
         process.stderr.write("FORGE analyze failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "statusline": {
+      const chunks: Buffer[] = [];
+      if (!process.stdin.isTTY) {
+        let size = 0;
+        for await (const chunk of process.stdin) {
+          const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+          size += part.length;
+          if (size > 1024 * 1024) break;
+          chunks.push(part);
+        }
+      }
+      process.stdout.write(await renderStatusLine(Buffer.concat(chunks).toString("utf8"), process.cwd()) + "\n");
+      return;
+    }
+    case "cost":
+    case "cost-report": {
+      try {
+        const options = parseHarnessArgs(rest, ["--days"], ["--json"]);
+        let since: Date | undefined;
+        if (options.values.has("--days")) {
+          const days = Number(options.values.get("--days"));
+          if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error("--days must be a whole number of days");
+          since = new Date(Date.now() - days * 86_400_000);
+        }
+        const report = await buildCostReport(options.path, since ? { since } : {});
+        process.stdout.write((options.flags.has("--json") ? JSON.stringify(report, null, 2) : formatCostReport(report)) + "\n");
+      } catch (error) {
+        process.stderr.write("FORGE cost failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;

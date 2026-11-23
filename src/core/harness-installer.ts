@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { addClaudeHooks, claudeHookEntries, readSettingsFile, removeClaudeHooks } from "./harness-hooks.js";
+import { addClaudeHooks, claudeHookEntries, readSettingsFile, removeClaudeHooks, statusLineCommand } from "./harness-hooks.js";
 import { HARNESS_CAPABILITIES } from "./harness-capabilities.js";
 import {
   detectProjectLanguages,
@@ -127,6 +127,8 @@ export interface InstallOptions {
   now?: () => Date;
   /** Merge FORGE runtime hooks (guard, config guard, verify, session memory) into Claude Code settings. */
   hooks?: boolean;
+  /** Also set FORGE as the Claude Code status line (never replaces an existing one). Requires hooks. */
+  statusLine?: boolean;
   /** Executable used in hook commands. Default "forge". */
   hookCommand?: string;
 }
@@ -749,10 +751,13 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       const previousCommands = previous?.settings?.commands ?? [];
       if (wantHooks) {
         const entries = claudeHookEntries(options.hookCommand);
+        const statusCommand = statusLineCommand(options.hookCommand);
+        const wantStatusLine = options.statusLine ?? previousCommands.some(command => / statusline$/.test(command));
         const base = removeClaudeHooks(current.settings, previousCommands);
-        const { settings: next, addedDeny } = addClaudeHooks(base, entries);
+        const { settings: next, addedDeny, statusLine } = addClaudeHooks(base, entries, wantStatusLine ? { statusLineCommand: statusCommand } : {});
+        if (wantStatusLine && !statusLine) changes.push({ path: CLAUDE_SETTINGS_PATH, action: "unchanged", detail: "kept your existing statusLine" });
         const keptDeny = (previous?.settings?.addedDeny ?? []).filter(rule => Array.isArray(next.permissions?.deny) && (next.permissions.deny as unknown[]).includes(rule));
-        stateSettings = { path: CLAUDE_SETTINGS_PATH, commands: entries.map(entry => entry.command), addedDeny: [...new Set([...keptDeny, ...addedDeny])], createdFile: previous?.settings?.createdFile ?? !current.existed };
+        stateSettings = { path: CLAUDE_SETTINGS_PATH, commands: [...entries.map(entry => entry.command), ...(statusLine ? [statusCommand] : [])], addedDeny: [...new Set([...keptDeny, ...addedDeny])], createdFile: previous?.settings?.createdFile ?? !current.existed };
         if (JSON.stringify(next) === JSON.stringify(current.settings)) changes.push({ path: CLAUDE_SETTINGS_PATH, action: "unchanged", detail: "FORGE hooks" });
         else {
           changes.push({ path: CLAUDE_SETTINGS_PATH, action: current.existed ? "update" : "create", detail: "FORGE hooks merged" });
@@ -922,7 +927,7 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
   if (state.settings) {
     try {
       const current = await readSettingsFile(await resolveInside(root, state.settings.path));
-      const text = JSON.stringify(current.settings.hooks ?? {});
+      const text = JSON.stringify({ hooks: current.settings.hooks ?? {}, statusLine: current.settings.statusLine ?? null });
       const missing = state.settings.commands.filter(command => !text.includes(JSON.stringify(command)));
       entries.push(missing.length ? { path: state.settings.path, status: "missing", detail: `FORGE hooks missing: ${missing.join(", ")}` } : { path: state.settings.path, status: "ok", detail: "FORGE hooks" });
     } catch (error) {
