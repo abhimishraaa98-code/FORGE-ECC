@@ -4,6 +4,7 @@ import {
   HARNESS_CAPABILITY_SCHEMA_VERSION,
   getHarnessCapability,
   listHarnessCapabilities,
+  formatHarnessCapabilities,
 } from "../src/core/harness-capabilities.js";
 
 describe("harness capability manifest", () => {
@@ -33,5 +34,12 @@ describe("harness capability manifest", () => {
     const listed = listHarnessCapabilities();
     listed[0]!.notes.push("consumer mutation");
     expect(HARNESS_CAPABILITIES[0]!.notes).not.toContain("consumer mutation");
+  });
+  it("formats a readable capability matrix for CLI consumers", () => {
+    const output = formatHarnessCapabilities();
+    expect(output).toContain("native = native format");
+    expect(output).toContain("Claude Code");
+    expect(output).toContain("unsupported");
+    expect(output).toContain("Manifest schema: 1");
   });
 });
