@@ -16,6 +16,7 @@ import {
   HARNESS_TARGETS,
   parseTargets,
   uninstallHarness,
+  recoverFileTransaction,
 } from "../src/core/harness-installer.js";
 
 const directories: string[] = [];
@@ -33,6 +34,37 @@ async function exists(file: string): Promise<boolean> {
 }
 afterEach(async () => {
   await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true })));
+});
+
+describe("installer file transaction recovery", () => {
+  it("restores snapshots from a journal left by an interrupted process", async () => {
+    const root = await project({ "existing.txt": "before" });
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    await writeFile(path.join(root, "existing.txt"), "partially-written");
+    await writeFile(path.join(root, "new.txt"), "partial-create");
+    await writeFile(path.join(forgeDir, "transaction-journal.json"), JSON.stringify({
+      schemaVersion: 1,
+      snapshots: [
+        { path: "existing.txt", contentBase64: Buffer.from("before", "utf8").toString("base64") },
+        { path: "new.txt", contentBase64: null },
+      ],
+    }));
+    await expect(recoverFileTransaction(root)).resolves.toBe(true);
+    await expect(readFile(path.join(root, "existing.txt"), "utf8")).resolves.toBe("before");
+    expect(await exists(path.join(root, "new.txt"))).toBe(false);
+    expect(await exists(path.join(forgeDir, "transaction-journal.json"))).toBe(false);
+  });
+
+  it("refuses malformed journals without deleting them", async () => {
+    const root = await project();
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    const journalPath = path.join(forgeDir, "transaction-journal.json");
+    await writeFile(journalPath, JSON.stringify({ schemaVersion: 99, snapshots: [] }));
+    await expect(recoverFileTransaction(root)).rejects.toThrow(/invalid/);
+    expect(await exists(journalPath)).toBe(true);
+  });
 });
 
 describe("installer file transaction", () => {
