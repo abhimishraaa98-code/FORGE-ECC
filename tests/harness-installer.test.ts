@@ -65,6 +65,37 @@ describe("installer file transaction recovery", () => {
     await expect(recoverFileTransaction(root)).rejects.toThrow(/invalid/);
     expect(await exists(journalPath)).toBe(true);
   });
+
+  it("rejects non-canonical base64 snapshots without modifying project files", async () => {
+    const root = await project({ "keep.txt": "partially-written" });
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    const journalPath = path.join(forgeDir, "transaction-journal.json");
+    await writeFile(journalPath, JSON.stringify({
+      schemaVersion: 1,
+      snapshots: [{ path: "keep.txt", contentBase64: "%%%not-base64%%%" }],
+    }));
+    await expect(recoverFileTransaction(root)).rejects.toThrow(/invalid/);
+    await expect(readFile(path.join(root, "keep.txt"), "utf8")).resolves.toBe("partially-written");
+    expect(await exists(journalPath)).toBe(true);
+  });
+
+  it("rejects duplicate snapshot paths rather than applying ambiguous restores", async () => {
+    const root = await project({ "keep.txt": "partially-written" });
+    const forgeDir = path.join(root, ".forge");
+    await mkdir(forgeDir, { recursive: true });
+    const journalPath = path.join(forgeDir, "transaction-journal.json");
+    await writeFile(journalPath, JSON.stringify({
+      schemaVersion: 1,
+      snapshots: [
+        { path: "keep.txt", contentBase64: Buffer.from("first").toString("base64") },
+        { path: "keep.txt", contentBase64: Buffer.from("second").toString("base64") },
+      ],
+    }));
+    await expect(recoverFileTransaction(root)).rejects.toThrow(/duplicate/);
+    await expect(readFile(path.join(root, "keep.txt"), "utf8")).resolves.toBe("partially-written");
+    expect(await exists(journalPath)).toBe(true);
+  });
 });
 
 describe("durable installer lifecycle recovery", () => {
