@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { addClaudeHooks, claudeHookEntries, readSettingsFile, removeClaudeHooks } from "./harness-hooks.js";
+import { HARNESS_CAPABILITIES } from "./harness-capabilities.js";
 import {
   detectProjectLanguages,
   INSTALL_PROFILES,
@@ -19,7 +20,18 @@ import {
  */
 
 export type HarnessTarget = "claude" | "cursor" | "codex" | "opencode" | "gemini";
-export const HARNESS_TARGETS: readonly HarnessTarget[] = ["claude", "cursor", "codex", "opencode", "gemini"];
+/** Installer targets are derived from the versioned capability manifest. */
+export const HARNESS_TARGETS: readonly HarnessTarget[] = HARNESS_CAPABILITIES.map(item => item.target);
+
+function normalizeHarnessTargets(targets: readonly string[]): HarnessTarget[] {
+  const supported = new Set<string>(HARNESS_TARGETS);
+  for (const target of targets) {
+    if (!supported.has(target)) {
+      throw new Error(`Unknown target "${target}". Supported: ${HARNESS_TARGETS.join(", ")}, all.`);
+    }
+  }
+  return [...new Set(targets)] as HarnessTarget[];
+}
 
 export const STATE_SCHEMA = 1;
 export const INSTALL_STATE_PATH = ".forge/install-state.json";
@@ -105,12 +117,7 @@ export function sha256(content: string): string {
 export function parseTargets(value: string | undefined): HarnessTarget[] {
   if (!value || value === "all") return [...HARNESS_TARGETS];
   const targets = value.split(",").map(item => item.trim().toLowerCase()).filter(Boolean);
-  for (const target of targets) {
-    if (!HARNESS_TARGETS.includes(target as HarnessTarget)) {
-      throw new Error(`Unknown target "${target}". Supported: ${HARNESS_TARGETS.join(", ")}, all.`);
-    }
-  }
-  return [...new Set(targets)] as HarnessTarget[];
+  return normalizeHarnessTargets(targets);
 }
 
 export function parseProfile(value: string | undefined): InstallProfile {
@@ -228,7 +235,7 @@ export async function buildInstallPlan(options: InstallOptions): Promise<Install
   const projectRoot = path.resolve(options.projectPath);
   const catalog = options.catalog ?? await loadHarnessCatalog();
   const profile = options.profile ?? "standard";
-  const targets = options.targets?.length ? [...new Set(options.targets)] : [...HARNESS_TARGETS];
+  const targets = options.targets?.length ? normalizeHarnessTargets(options.targets) : [...HARNESS_TARGETS];
   const languages = options.languages ?? (profile === "full" ? undefined : await detectProjectLanguages(projectRoot));
   const items = selectCatalogItems(catalog, languages ? { profile, languages } : { profile });
   const resolvedLanguages = languages ?? [...new Set(items.filter(i => i.kind === "rule" && i.language && i.language !== "common").map(i => i.language as string))].sort();
