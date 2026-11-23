@@ -760,7 +760,7 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
       operations.push({ path: statePath, content: null });
       pruneAfterCommit.push(statePath);
     }
-    await applyFileTransaction(operations);
+    await applyDurableFileTransaction(root, operations);
     for (const file of pruneAfterCommit) await pruneEmptyParents(root, file);
   }
   return { dryRun: Boolean(options.dryRun), changes, installed: true };
