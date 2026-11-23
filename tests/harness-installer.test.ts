@@ -197,6 +197,30 @@ describe("harness installer", () => {
     }
   });
 
+  it("preserves modified managed blocks and install state during uninstall", async () => {
+    const root = await project({ "package.json": "{}", "AGENTS.md": "# Personal instructions\\n" });
+    await installHarness({ projectPath: root, forgeVersion: "test", targets: ["codex"] });
+    const agentsPath = path.join(root, "AGENTS.md");
+    const before = await readFile(agentsPath, "utf8");
+    await writeFile(agentsPath, before.replace("FORGE engineering harness", "Locally customized FORGE harness"));
+    const result = await uninstallHarness({ projectPath: root });
+    expect(result.changes.some(change => change.path === "AGENTS.md" && change.action === "keep-modified")).toBe(true);
+    expect(await readFile(agentsPath, "utf8")).toContain("Locally customized FORGE harness");
+    const state = await loadInstallState(root);
+    expect(state?.blocks.map(block => block.path)).toContain("AGENTS.md");
+  });
+
+  it("keeps modified generated files tracked after uninstall", async () => {
+    const root = await project();
+    await installHarness({ projectPath: root, forgeVersion: "test", targets: ["claude"], profile: "minimal" });
+    const filePath = path.join(root, ".claude/agents/forge-planner.md");
+    await writeFile(filePath, (await readFile(filePath, "utf8")) + "\\nlocal note\\n");
+    const result = await uninstallHarness({ projectPath: root });
+    expect(result.changes.some(change => change.path.endsWith("forge-planner.md") && change.action === "keep-modified")).toBe(true);
+    expect(await exists(filePath)).toBe(true);
+    expect((await loadInstallState(root))?.files.some(file => file.path.endsWith("forge-planner.md"))).toBe(true);
+  });
+
   it("refuses to write through symlinked directories", async () => {
     const root = await project();
     const outside = await project({});
