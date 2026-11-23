@@ -55,12 +55,12 @@ export function gitBlobSha(content: string): string {
 // Remote Shield: fetch only agent-configuration files into a temporary folder
 // ---------------------------------------------------------------------------
 
-const SHIELD_PATH = /^(?:AGENTS\.md|CLAUDE\.md|CLAUDE\.local\.md|GEMINI\.md|\.cursorrules|\.windsurfrules|\.mcp\.json|mcp\.json|opencode\.json|\.github\/copilot-instructions\.md|\.claude\/settings(?:\.local)?\.json|\.cursor\/mcp\.json|\.vscode\/mcp\.json|\.gemini\/settings\.json|\.forge\/(?:permissions|policy)\.json)$|^(?:\.claude\/(?:agents|commands|skills|hooks|rules)|\.cursor\/(?:rules|commands)|\.opencode|\.gemini\/commands|\.agents\/skills|\.forge\/(?:skills|hooks|harness)|\.github\/workflows)\/.+\.(?:md|mdc|json|ya?ml|toml|sh|js|mjs|cjs|ts|py)$/;
+const SHIELD_PATH = /^(?:AGENTS\.md|CLAUDE\.md|CLAUDE\.local\.md|GEMINI\.md|\.cursorrules|\.windsurfrules|\.clinerules|\.rules|\.mcp\.json|mcp\.json|opencode\.json|\.github\/copilot-instructions\.md|\.claude\/settings(?:\.local)?\.json|\.cursor\/mcp\.json|\.vscode\/(?:mcp|settings)\.json|\.gemini\/settings\.json|\.codex\/config\.toml|\.zed\/settings\.json|\.kiro\/settings\/mcp\.json|\.roo\/mcp\.json|\.windsurf\/mcp\.json|\.forge\/(?:permissions|policy)\.json)$|^(?:\.claude\/(?:agents|commands|skills|hooks|rules)|\.cursor\/(?:rules|commands)|\.opencode|\.gemini\/commands|\.agents\/skills|\.forge\/(?:skills|hooks|harness)|\.github\/(?:workflows|instructions|prompts|agents)|\.windsurf\/(?:rules|workflows)|\.kiro\/steering|\.clinerules|\.roo\/rules)\/.+\.(?:md|mdc|json|ya?ml|toml|sh|js|mjs|cjs|ts|py)$/;
 const MAX_REMOTE_FILES = 200;
 
 /** Highest-risk surfaces first; FORGE-generated catalog copies last. */
 function shieldPriority(file: string): number {
-  if (!file.includes("/") || /settings(?:\.local)?\.json$|mcp\.json$|permissions\.json$|policy\.json$/.test(file)) return 0;
+  if (!file.includes("/") || /settings(?:\.local)?\.json$|mcp\.json$|config\.toml$|permissions\.json$|policy\.json$/.test(file)) return 0;
   if (file.startsWith(".github/workflows/") || /\/hooks\//.test(file)) return 1;
   if (/(?:^|\/)forge-[\w.-]+(?:\/SKILL)?\.(?:md|mdc|toml)$|^\.forge\/harness\/|^\.(?:claude\/(?:commands|rules)|gemini\/commands)\/forge\//.test(file)) return 3;
   return 2;

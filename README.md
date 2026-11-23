@@ -222,14 +222,30 @@ Safety: every written file is hashed in `.forge/install-state.json`. FORGE never
 
 ## FORGE Shield — agent harness security (2.0)
 
-`forge shield` reviews the configuration that controls your coding agents and scores it 0–100:
+`forge shield` checks the configuration that controls your coding agents against **60 rules** and gives it a score from 0 to 100. It covers Claude Code, Cursor, Codex, OpenCode, Gemini, GitHub Copilot, Windsurf, Kiro, Cline, Zed and Roo.
 
-- **Permissions** — `bypassPermissions`, blanket `Bash(*)`, auto-trusted MCP servers, missing `.env` deny rules (Claude Code settings)
-- **Hooks** — remote code piped into a shell, outbound network calls, destructive or obfuscated commands, catch-all matchers
-- **MCP servers** — plain-HTTP remotes, unpinned `npx` packages, filesystem servers rooted at `/` or `~`, literal secrets in `env`/headers (Claude, Cursor, VS Code, Gemini, OpenCode)
-- **Prompt injection** — invisible/bidi Unicode, "ignore previous instructions" phrases, hidden HTML comments addressed to the agent (defensive guidance that quotes these phrases is not flagged)
-- **Secrets** — known token formats and private keys in agent files (values are never printed)
-- **CI** — `pull_request_target` checking out PR code, `write-all` tokens, event text interpolated into `run:`
+- **Permissions:**
+  - Permission bypasses: `bypassPermissions`, subagents with `permissionMode: bypassPermissions`, and `disableAllHooks`.
+  - Over-broad approvals: blanket `Bash(*)` and dangerous command families such as `Bash(rm:*)`, `Bash(git push:*)` and `Bash(curl:*)`. Also unrestricted `WebFetch`, `Read(~/**)`, and home or root `additionalDirectories`.
+  - Other harnesses: Codex `danger-full-access` and `approval_policy = "never"`, Gemini auto-accept, and VS Code/Copilot `chat.tools.autoApprove`.
+- **Hooks:**
+  - Remote code piped into a shell, network calls, and destructive or obfuscated commands.
+  - Scripts from outside the repo, hooks that write into CLAUDE.md or settings, hooks that read credentials, and unpinned `npx` packages.
+  - Hook script files are scanned too.
+- **MCP servers:**
+  - Plain-HTTP remotes, servers reached through ngrok, tunnel or paste URLs, and credentials in the URL.
+  - Unpinned `npx`, git or tarball packages.
+  - Filesystem servers rooted at `/` or `~`, Docker with `--privileged`, host network or host mounts, and `sudo`.
+  - Cloud credential files handed to a server, the same server name defined differently in two configs, and very large server sets.
+- **Prompt injection:**
+  - Invisible or bidi Unicode, "ignore previous instructions", and hidden HTML comments addressed to the agent.
+  - Instructions to run downloaded code or to send secrets elsewhere, large encoded blobs, advice to use `--dangerously-skip-permissions` or `--no-verify`, and oversized always-on instruction files.
+  - Defensive guidance that quotes these phrases is not flagged.
+- **Secrets:** known token formats, private keys, connection strings with passwords, and Slack/Discord/Teams webhook URLs. Also `.env` files and `settings.local.json` that are not ignored by git. Values are never printed.
+- **CI:**
+  - **AI agent actions (Claude Code, Codex, Gemini, Copilot, OpenCode) that anyone can trigger from an issue or comment**, and agent steps that bypass permissions.
+  - `pull_request_target` checking out PR code, `write-all` or undeclared token permissions, and event text interpolated into `run:`.
+  - Secrets echoed or sent with curl, `curl | sh`, third-party actions not pinned to a SHA, and self-hosted runners on PRs.
 
 ```bash
 forge shield .                       # human report with score and grade

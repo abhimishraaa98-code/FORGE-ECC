@@ -16,6 +16,14 @@
   - Supports validated project-specific rules in `.forge/harness-hooks.json`.
 - **`forge cost`:** exact token usage per session, model and day, with labelled USD estimates and per-project rates.
 - **`forge statusline`** and `forge install --statusline`. FORGE never replaces your own status line.
+- **Shield now has 60 rules (up from 23):**
+  - Covers Codex, Gemini, VS Code/Copilot, Windsurf, Kiro, Cline, Zed and Roo config.
+  - New critical rule: AI-agent GitHub workflows that anyone can trigger from an issue or comment.
+  - New checks for dangerous pre-approved command families, subagent permission bypass, hook persistence and credential reads.
+  - New MCP checks: container escapes, tunnels, credentials in URLs, and shadowed servers.
+  - New secret checks: connection strings, webhooks, and `.env` files not ignored by git.
+  - Two false positives found by scanning real-world harness repos are fixed.
+  - The GitHub App scans the new locations too.
 - Catalog commands: `/scorecard`, `/instincts`, `/evolve`, `/cost`.
 - Transactional installer with a recovery journal, versioned install state with v1 migration, and the harness capability manifest (`forge harnesses`).
 
