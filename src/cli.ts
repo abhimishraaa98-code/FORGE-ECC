@@ -133,7 +133,7 @@ function readAgentDurationBudgets(): Record<string, number> | undefined {
   return budgets;
 }
 
-const VERSION = "2.0.1";
+const VERSION = "3.0.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench

@@ -1,6 +1,27 @@
 # FORGE Changelog
 
-## Unreleased — v3
+## 3.0.0 — Learn, loop and prove
+
+FORGE 3.0 adds learning, unattended agent loops and a readiness score, and checks every result itself. The agent's word that it is done is never enough:
+
+- **10 harnesses** with one install.
+- **60 Shield rules.**
+- **A readiness scorecard.**
+- **Instincts that need your approval** before an agent uses them.
+- **Cost tracking and a status line.**
+- **A verified loop** that will not count a pass when the agent deleted or skipped tests.
+
+Install:
+
+```bash
+npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+```
+
+### Upgrading from 2.x
+- Nothing breaks. The default install targets are the same five as in 2.x, and `.forge/install-state.json` is migrated from schema 1 to 2 automatically.
+- To add the new hooks (prompt secret guard, pre-compact and session-end handoffs, cost tracking), run `forge install --hooks` again. Add `--statusline` for the status line.
+- Shield has many more rules, so existing repos may show new findings. `forge shield --fail-on high` in CI only fails on high and critical findings.
+- `forge loop` needs the agent CLI you choose (`claude`, `codex`, `gemini` or `opencode`) on your PATH.
 
 ### Added
 - **Five new harness targets:** GitHub Copilot, Windsurf, Kiro, Cline and Zed, each in its own native format and listed in the capability manifest. The five original targets stay the default. A new target is added automatically when the project already uses that tool. Use `--target default|all|LIST` to choose.
