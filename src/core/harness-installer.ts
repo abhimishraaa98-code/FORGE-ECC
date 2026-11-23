@@ -661,7 +661,7 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
         const createdFile = state.settings.createdFile;
         actions.push(async () => {
           if (!Object.keys(next).length && createdFile) { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); }
-          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\\n`);
+          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
         });
       }
     } catch (error) {
@@ -680,7 +680,7 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
     };
     const statePath = await resolveInside(root, INSTALL_STATE_PATH);
     if (remainingFiles.length || remainingBlocks.length || remainingSettings) {
-      await atomicWrite(statePath, `${JSON.stringify(remainingState, null, 2)}\\n`);
+      await atomicWrite(statePath, `${JSON.stringify(remainingState, null, 2)}\n`);
     } else {
       await rm(statePath, { force: true });
       await pruneEmptyParents(root, statePath);
