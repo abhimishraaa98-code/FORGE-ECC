@@ -77,3 +77,23 @@ export function listHarnessCapabilities(): HarnessCapability[] {
     notes: [...item.notes],
   }));
 }
+
+/** Human-readable capability matrix for `forge harnesses`. */
+export function formatHarnessCapabilities(): string {
+  const rows = listHarnessCapabilities();
+  const columns = ["agents", "skills", "commands", "rules", "hooks"] as const;
+  const lines = [
+    "FORGE harness capability matrix (native = native format; shared = shared Markdown; unsupported = not integrated)",
+    "",
+    "Harness".padEnd(16) + columns.map(column => column.padEnd(13)).join(""),
+  ];
+  for (const item of rows) {
+    lines.push(item.displayName.padEnd(16) + columns.map(column => item.capabilities[column].padEnd(13)).join(""));
+  }
+  for (const item of rows) {
+    lines.push("", item.displayName + ":");
+    for (const note of item.notes) lines.push("  - " + note);
+  }
+  lines.push("", "Manifest schema: " + HARNESS_CAPABILITY_SCHEMA_VERSION);
+  return lines.join("\n");
+}
