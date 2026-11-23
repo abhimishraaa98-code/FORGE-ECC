@@ -10,6 +10,8 @@ import {
   extractManagedBlock,
   installHarness,
   INSTALL_STATE_PATH,
+  STATE_SCHEMA,
+  loadInstallState,
   HARNESS_TARGETS,
   parseTargets,
   uninstallHarness,
@@ -81,6 +83,37 @@ describe("harness installer", () => {
     })).rejects.toThrow(/Unknown target/);
   });
 
+  it("migrates a valid v1 install state in memory without changing its payload", async () => {
+    const root = await project();
+    const legacy = { schemaVersion: 1, forgeVersion: "2.0.1", installedAt: "2026-01-01T00:00:00.000Z", profile: "minimal", targets: ["claude"], languages: [], files: [], blocks: [] };
+    await mkdir(path.join(root, ".forge"), { recursive: true });
+    const statePath = path.join(root, INSTALL_STATE_PATH);
+    await writeFile(statePath, JSON.stringify(legacy));
+    const migrated = await loadInstallState(root);
+    expect(migrated?.schemaVersion).toBe(STATE_SCHEMA);
+    expect(migrated?.forgeVersion).toBe("2.0.1");
+    expect(JSON.parse(await readFile(statePath, "utf8")).schemaVersion).toBe(1);
+  });
+
+  it("refuses future state schemas without modifying the state file", async () => {
+    const root = await project();
+    await mkdir(path.join(root, ".forge"), { recursive: true });
+    const statePath = path.join(root, INSTALL_STATE_PATH);
+    const future = JSON.stringify({ schemaVersion: STATE_SCHEMA + 1, files: [], blocks: [] });
+    await writeFile(statePath, future);
+    await expect(loadInstallState(root)).rejects.toThrow(/Upgrade FORGE/);
+    expect(await readFile(statePath, "utf8")).toBe(future);
+  });
+
+  it("rejects malformed state entries without deleting the state file", async () => {
+    const root = await project();
+    await mkdir(path.join(root, ".forge"), { recursive: true });
+    const statePath = path.join(root, INSTALL_STATE_PATH);
+    const malformed = JSON.stringify({ schemaVersion: STATE_SCHEMA, forgeVersion: "test", installedAt: "now", profile: "minimal", targets: ["claude"], languages: [], files: [{ path: "../outside", sha256: "bad", targets: ["claude"] }], blocks: [] });
+    await writeFile(statePath, malformed);
+    await expect(loadInstallState(root)).rejects.toThrow();
+    expect(await readFile(statePath, "utf8")).toBe(malformed);
+  });
   it("renders native files for each harness", async () => {
     const root = await project();
     const plan = await buildInstallPlan({ projectPath: root, forgeVersion: "test", profile: "minimal" });
