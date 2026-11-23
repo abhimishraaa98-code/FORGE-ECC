@@ -199,6 +199,13 @@ npm run build
 | `codex` | managed block in `AGENTS.md`, `.agents/skills/forge-*/SKILL.md`, `.forge/harness/**` |
 | `opencode` | `.opencode/agent/forge-*.md`, `.opencode/command/forge-*.md`, managed block in `AGENTS.md` |
 | `gemini` | `.gemini/commands/forge/*.toml`, managed block in `GEMINI.md` |
+| `copilot` | `.github/instructions/*.instructions.md` (with `applyTo`), `.github/prompts/*.prompt.md`, `.github/agents/*.agent.md`, managed block in `.github/copilot-instructions.md` |
+| `windsurf` | `.windsurf/rules/forge-*.md` (always_on / glob / model_decision), `.windsurf/workflows/forge-*.md`, managed block in `AGENTS.md` |
+| `kiro` | `.kiro/steering/forge-*.md` (always / fileMatch / manual), managed `.kiro/steering/forge-harness.md` |
+| `cline` | `.clinerules/forge-*.md`, `.clinerules/workflows/forge-*.md`, managed `.clinerules/forge-harness.md` |
+| `zed` | shared harness plus managed block in `AGENTS.md` |
+
+The first five targets are the default. The other five are added automatically when the project already uses that tool (for example a `.windsurf/` folder), or on request with `--target copilot,kiro`. Use `--target all` for all ten. `forge harnesses` prints what each integration really supports, as native, shared or unsupported.
 
 ```bash
 forge catalog                                  # browse agents, skills, commands, rules
@@ -244,22 +251,67 @@ GitHub Action:
     sarif_file: forge-shield.sarif
 ```
 
+## Harness scorecard (v3)
+
+`forge scorecard` (alias `forge harness-audit`) gives the repository a deterministic score from 0 to 10 in each of nine categories: install health, harness coverage, security (Shield), runtime guards, quality gates, project context, memory, continuous learning and CI. Every point it awards cites its evidence, and every point it withholds comes with the command that would earn it. The same repository always gets the same score.
+
+```bash
+forge scorecard . --verbose          # evidence and actions per category
+forge scorecard . --markdown         # paste into a PR or issue
+forge scorecard . --min 75           # CI gate: exit 4 below 75%
+```
+
+## Instincts and continuous learning (v3)
+
+FORGE learns small project habits from things it can check, such as git co-change history, commit conventions, FORGE Guard denials and verification failures. The same history always produces the same instincts. Learned and imported instincts start as **candidates**. Only a person can promote one to **active**, and only active instincts reach new sessions.
+
+```bash
+forge instinct learn .               # mine history + hook observations
+forge instinct list . --status candidate
+forge instinct promote inst-1a2b3c4d5e
+forge instinct add . --trigger "editing api/**" --action "update openapi.yaml"
+forge evolve . --write               # compile active instincts into the forge-learned skill
+forge instinct export . --out team.json && forge instinct import team.json ../other-repo
+```
+
+An import never changes the status or numbers of instincts that already exist locally. `forge evolve` writes `.claude/skills/forge-learned/SKILL.md` and `.agents/skills/forge-learned/SKILL.md`, and does not overwrite a version you edited.
+
+## Cost and status line (v3)
+
+```bash
+forge cost . --days 7                # tokens per session, model and day, with a USD estimate
+forge install . --hooks --statusline # FORGE ▸ Opus │ ⎇ main │ ✎ 3 unverified │ ✓ test passed │ $0.42
+```
+
+Token counts are read from the Claude Code session transcript and are exact. Dollar amounts are estimates from default per-model rates. Set your exact rates in `.forge/harness-hooks.json` under `cost.pricing`. FORGE never replaces a status line you configured yourself.
+
 ## Runtime hooks and layered memory (2.0)
 
-`forge install --hooks` merges four FORGE hooks into `.claude/settings.json` (your own hooks and settings are kept; uninstall removes only FORGE entries):
+`forge install --hooks` merges FORGE hooks into `.claude/settings.json`. Your own hooks and settings are kept, and uninstall removes only FORGE entries.
 
 | Hook | What it does |
 |---|---|
 | `PreToolUse` → `forge hook pre-tool` | **FORGE Guard** — denies catastrophic commands (`rm -rf ~`, `curl … \| sh`, disk writes, fork bombs, `.git` internals); asks before force-push, pushes to `main`, `git reset --hard`, `DROP TABLE`, publishing, deploys, `sudo`, reading or writing secrets, and edits to agent permissions/MCP/CI files |
 | `PostToolUse` → `forge hook post-edit` | records edited files; when an agent edits its own settings, MCP config or instructions, runs Shield and tells the agent about high-risk changes |
 | `Stop` → `forge hook stop` | optional verification gate: runs configured npm scripts if files changed and sends failures back to the agent (never loops) |
-| `SessionStart` → `forge hook session-start` | injects the latest handoff and relevant project memory |
+| `SessionStart` → `forge hook session-start` | injects the latest handoff, relevant project memory and approved instincts |
+| `UserPromptSubmit` → `forge hook prompt-submit` | blocks a prompt that pastes a live credential (Anthropic, OpenAI, GitHub, Slack, AWS, Stripe, Google or a private key) before it reaches the transcript |
+| `PreCompact` → `forge hook pre-compact` | saves an automatic handoff (edited files and verification status) before context is compacted |
+| `SessionEnd` → `forge hook session-end` | records token usage for `forge cost` and saves a handoff |
+
+Guard also blocks `git commit/push --no-verify`. It asks before hooks are bypassed (`HUSKY=0`, `core.hooksPath`) and before an agent edits lint, format or type-check configs to make a check pass.
 
 Configure in `.forge/harness-hooks.json`:
 
 ```json
 {
-  "guard": { "enabled": true, "allow": ["^rm -rf dist$"] },
+  "guard": {
+    "enabled": true,
+    "allow": ["^rm -rf dist$"],
+    "rules": [{ "id": "USER-NO-PROD-DB", "decision": "deny", "pattern": "psql .*prod", "reason": "Use the staging database." }]
+  },
+  "configGuard": { "enabled": true, "protectQualityConfig": true },
+  "cost": { "pricing": { "claude-opus-5-5": { "input": 5, "output": 25 } } },
   "verifyOnStop": { "scripts": ["typecheck", "test"], "timeoutMs": 180000 },
   "sessionContext": { "enabled": true, "maxTokens": 900 }
 }

@@ -1,5 +1,24 @@
 # FORGE Changelog
 
+## Unreleased — v3
+
+### Added
+- **Five new harness targets:** GitHub Copilot, Windsurf, Kiro, Cline and Zed, each in its own native format and listed in the capability manifest. The five original targets stay the default. A new target is added automatically when the project already uses that tool. Use `--target default|all|LIST` to choose.
+- **`forge scorecard`** (alias `harness-audit`): deterministic 0–10 readiness score across nine categories. Each point cites its evidence, the output lists top actions, and `--min` works as a CI gate. It can also print JSON or Markdown.
+- **Instincts and `forge evolve`:** learns habits from git co-change history, commit conventions, Guard denials and verification failures. Learned and imported instincts stay candidates until a person promotes them. Includes promote, reject, export and import. `forge evolve` compiles active instincts into a `forge-learned` skill, and active instincts are injected at session start.
+- **Lifecycle hooks:**
+  - `prompt-submit` blocks pasted live credentials.
+  - `pre-compact` and `session-end` save automatic handoffs.
+  - `stop` and `session-end` record token usage.
+- **Guard rules:**
+  - Blocks `--no-verify`.
+  - Asks before git hooks are bypassed and before agents edit lint, format or type-check configs.
+  - Supports validated project-specific rules in `.forge/harness-hooks.json`.
+- **`forge cost`:** exact token usage per session, model and day, with labelled USD estimates and per-project rates.
+- **`forge statusline`** and `forge install --statusline`. FORGE never replaces your own status line.
+- Catalog commands: `/scorecard`, `/instincts`, `/evolve`, `/cost`.
+- Transactional installer with a recovery journal, versioned install state with v1 migration, and the harness capability manifest (`forge harnesses`).
+
 ## 2.0.1 — Install and stability fixes
 
 ### Fixed
