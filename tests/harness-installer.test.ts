@@ -423,3 +423,23 @@ describe("opt-in harness targets", () => {
     expect(await exists(path.join(root, ".github/prompts"))).toBe(false);
   });
 });
+
+describe("stack-scoped skills", () => {
+  it("installs stack skills only for detected languages, and all of them with the full profile", async () => {
+    const catalog = await loadHarnessCatalog();
+    const ids = (languages: string[] | undefined, profile: "standard" | "full" = "standard") => new Set(selectCatalogItems(catalog, languages ? { profile, languages } : { profile }).filter(i => i.kind === "skill").map(i => i.id));
+    const python = ids(["python"]);
+    expect(python.has("django-apps")).toBe(true);
+    expect(python.has("go-services")).toBe(false);
+    expect(python.has("postgres-queries")).toBe(true);
+    const ts = ids(["typescript", "react"]);
+    expect(ts.has("nextjs-app-router")).toBe(true);
+    expect(ts.has("django-apps")).toBe(false);
+    expect(ids(undefined, "full").has("go-services")).toBe(true);
+    expect(catalog.items.filter(i => i.kind === "skill").length).toBeGreaterThanOrEqual(50);
+  });
+
+  it("rejects a languages field on rules", () => {
+    expect(() => parseCatalogItem("rule", "x", "---\ndescription: d\nlanguages: python\n---\n# X\nbody", "rules/common/x.md", "common")).toThrow(/languages/);
+  });
+});

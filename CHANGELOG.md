@@ -50,7 +50,12 @@ npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/f
   - New secret checks: connection strings, webhooks, and `.env` files not ignored by git.
   - Two false positives found by scanning real-world harness repos are fixed.
   - The GitHub App scans the new locations too.
-- Catalog commands: `/scorecard`, `/instincts`, `/evolve`, `/cost`.
+- **51 skills (up from 26), matched to your stack.**
+  - 25 new skills:
+    - Language and framework: TypeScript strict mode, Next.js App Router, React, Node.js APIs, Python tooling, FastAPI, Django, Go, Rust, Spring Boot, Rails, Laravel, .NET and SwiftUI.
+    - Cross-stack: PostgreSQL, Kubernetes, Terraform, GraphQL, authentication and sessions, caching, LLM apps, ADRs, codebase onboarding, feature flags and background jobs.
+  - The new `languages:` frontmatter field means a stack skill is installed only when that stack is detected, or with `--profile full`. A Python repo gets the Django skill, not the Spring one.
+- Catalog commands: `/scorecard`, `/instincts`, `/evolve`, `/cost`, `/loop`.
 - Transactional installer with a recovery journal, versioned install state with v1 migration, and the harness capability manifest (`forge harnesses`).
 
 ## 2.0.1 — Install and stability fixes
