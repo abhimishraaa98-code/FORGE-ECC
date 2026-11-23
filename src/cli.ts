@@ -328,7 +328,7 @@ async function main(args: string[]): Promise<void> {
           ? JSON.stringify({ schemaVersion: HARNESS_CAPABILITY_SCHEMA_VERSION, harnesses: manifest }, null, 2) + "\n"
           : formatHarnessCapabilities() + "\n");
       } catch (error) {
-        process.stderr.write("FORGE harness listing failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
+        process.stderr.write("FORGE harness listing failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
