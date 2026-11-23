@@ -553,6 +553,7 @@ export async function loadInstallState(projectPath: string): Promise<InstallStat
 
 export async function installHarness(options: InstallOptions): Promise<InstallResult> {
   const root = await realpath(path.resolve(options.projectPath));
+  await recoverFileTransaction(root);
   const plan = await buildInstallPlan({ ...options, projectPath: root });
   const previous = await loadInstallState(root);
   const previousFiles = new Map((previous?.files ?? []).map(entry => [entry.path, entry]));
@@ -687,6 +688,7 @@ export interface UninstallResult { dryRun: boolean; changes: InstallChange[]; in
 
 export async function uninstallHarness(options: { projectPath: string; dryRun?: boolean; force?: boolean }): Promise<UninstallResult> {
   const root = await realpath(path.resolve(options.projectPath));
+  await recoverFileTransaction(root);
   const state = await loadInstallState(root);
   if (!state) return { dryRun: Boolean(options.dryRun), changes: [], installed: false };
   const changes: InstallChange[] = [];
