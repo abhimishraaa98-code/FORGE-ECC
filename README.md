@@ -1,15 +1,15 @@
 <!-- FORGE: the verified layer for your coding agents -->
 
 <p align="center">
-  <a href="https://forge-ecc.vercel.app/"><img src="docs/readme-hero.jpg" alt="FORGE, the verified layer for your coding agents" width="100%" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.png" alt="FORGE: the verified layer for your coding agents. 41 agents, 51 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/forge-workbench" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;vertical-align:middle"><img src="https://github.com/forge-workbench.png" alt="FORGE WORKBENCH organization logo" width="30" height="30" style="width:30px;height:30px;object-fit:contain;display:block;border:0" /><img src="https://img.shields.io/badge/FORGE%20WORKBENCH-Organization-c47b52?style=flat" alt="FORGE WORKBENCH organization" style="display:block;border:0" /></a>
-  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-forge--ecc.vercel.app-E8B3A2?logo=vercel&logoColor=white" alt="FORGE website" /></a>
-  <a href="https://forge-ecc.vercel.app/api/github/install" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;vertical-align:middle"><img src="https://raw.githubusercontent.com/ansh44233/FORGE-ECC/main/public/forge-mark.svg" alt="FORGE GitHub App logo" width="30" height="30" style="width:30px;height:30px;object-fit:contain;display:block;border:0" /><img src="https://img.shields.io/badge/FORGE-GitHub%20App-181717?style=flat" alt="Get FORGE GitHub App" style="display:block;border:0" /></a>
-  <a href="https://forge-ecc.vercel.app/app/"><img src="https://img.shields.io/badge/Control%20Center-Dashboard-1a171d?logo=githubactions&logoColor=white" alt="FORGE Control Center" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT license" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-forge--ecc.vercel.app-E8B3A2?logo=vercel&logoColor=white" alt="Website" /></a>
+  <a href="https://forge-ecc.vercel.app/api/github/install"><img src="https://img.shields.io/badge/GitHub%20App-Install%20FORGE-181717?logo=github&logoColor=white" alt="Install the FORGE GitHub App" /></a>
+  <a href="https://forge-ecc.vercel.app/app/"><img src="https://img.shields.io/badge/Control%20Center-Open-1a171d?logo=githubactions&logoColor=white" alt="FORGE Control Center" /></a>
+  <a href="https://github.com/forge-workbench"><img src="https://img.shields.io/badge/Org-FORGE%20WORKBENCH-c47b52?logo=github&logoColor=white" alt="FORGE WORKBENCH" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
 </p>
 
 <p align="center">
@@ -40,15 +40,6 @@
   <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-64748b?logo=linux&logoColor=white" alt="Windows macOS Linux" />
   <img src="https://img.shields.io/badge/Architecture-Local--first-0f766e?logo=shield&logoColor=white" alt="Local-first architecture" />
-</p>
-
-<p align="center">
-  <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
-    <img src="https://img.shields.io/badge/GitHub%20Trending-Not%20ranked%20yet-64748b?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Trending — not ranked yet" />
-  </a>
-  <a href="https://www.star-history.com/ansh44233/FORGE-ECC">
-    <img src="https://img.shields.io/badge/Star%20History%20Global%20Rank-Pending-64748b?style=for-the-badge&logo=starship&logoColor=white" alt="Star History global rank — pending" />
-  </a>
 </p>
 
 <p align="center">
@@ -182,6 +173,112 @@ npm link   # puts `forge` on your PATH
 - **[Control Center](#github-app-and-control-center):** fleet view, scorecard, Shield, memory, instincts, loops and harness coverage for every repository.
 
 See the full [CHANGELOG](CHANGELOG.md).
+
+## What's inside
+
+```text
+FORGE-ECC/
+|-- catalog/
+|   |-- agents/       # 41 specialist agents: planner, architect, reviewers per language, security, TDD, release
+|   |-- skills/       # 51 skills: verification, TDD, research, security + stack skills (installed per language)
+|   |-- commands/     # 29 slash commands: /plan /verify /review-pr /scorecard /loop /instincts /shield ...
+|   `-- rules/        # common/ standards + typescript python golang rust java php ruby swift csharp react
+|-- src/
+|   |-- core/         # installer, Shield, hooks, scorecard, instincts, verified loop, memory, cost, statusline
+|   |-- github/       # GitHub App: setup PRs, PR risk, remote Shield, Control Center data
+|   |-- mcp/          # MCP server: memory search/add and Shield scan for every harness
+|   `-- cli.ts        # the `forge` CLI
+|-- api/              # Vercel functions: GitHub App webhook, OAuth, Control Center API
+|-- public/           # website and the hosted Control Center
+|-- action.yml        # GitHub Action (Shield + SARIF)
+`-- tests/            # unit and integration tests, run in CI on every push
+```
+
+The `catalog/` is the single source of truth. `forge install` renders it into each harness's native format, so Claude Code, Cursor, Codex and the others get the same agents and rules without separate copies to maintain.
+
+<details>
+<summary><strong>Agents in the catalog</strong></summary>
+
+| Group | Agents |
+|---|---|
+| Planning and design | `planner` · `architect` · `api-designer` · `migration-planner` · `ui-designer` · `prompt-engineer` |
+| Building | `tdd-guide` · `build-error-resolver` · `refactor-cleaner` · `debugger` · `e2e-runner` |
+| Review | `code-reviewer` · `security-reviewer` · `database-reviewer` · `accessibility-reviewer` · `dependency-auditor` · `performance-engineer` |
+| Language reviewers | `typescript` · `python` · `go` · `rust` · `java` · `kotlin` · `csharp` · `cpp` · `php` · `ruby` · `swift` · `dart-flutter` · `react` · `nextjs` · `vue` · `django` · `fastapi` |
+| Operations | `devops-engineer` · `observability-engineer` · `incident-responder` · `release-manager` |
+| Docs and evaluation | `documentation-writer` · `technical-writer` · `agent-evaluator` |
+
+Browse them with `forge catalog --kind agent`, or in [`catalog/agents`](catalog/agents).
+</details>
+
+## Key concepts
+
+<details>
+<summary><strong>Agents, skills, commands, rules and hooks explained</strong></summary>
+
+### Agents
+
+Specialists the main agent delegates to, with a narrow job and the tools it needs. FORGE writes them as Claude Code subagents, OpenCode agents and Copilot custom agents, and as role files that other harnesses read from `AGENTS.md`.
+
+```markdown
+---
+description: Review a change for correctness, security and maintainability; findings ranked blocker to nit
+tools: Read, Grep, Glob, Bash
+---
+# Code Reviewer
+1. Read the diff and the code around it...
+```
+
+### Skills
+
+Workflows the agent loads on demand when a task matches the description. Stack skills declare the languages they apply to and are installed only when FORGE detects that stack:
+
+```markdown
+---
+description: Build FastAPI endpoints with pydantic models, dependencies, async correctness and tests
+languages: python
+---
+```
+
+### Commands
+
+Entry points you type: `/forge:plan`, `/forge:verify`, `/forge:scorecard`, `/forge:loop` in Claude Code, and their equivalents as Cursor commands, Copilot prompt files, Windsurf and Cline workflows, Gemini TOML commands and OpenCode commands.
+
+### Rules
+
+Always-follow standards. `common/` covers evidence, testing, security, git and documentation. Language folders are scoped with file globs and installed only for the languages in the repo.
+
+### Hooks
+
+Runtime enforcement in Claude Code. FORGE Guard checks every tool call before it runs:
+
+```json
+{ "guard": { "rules": [{ "id": "USER-NO-PROD-DB", "decision": "deny", "pattern": "psql .*prod" }] } }
+```
+
+### Receipts
+
+Every result FORGE reports can be checked: `.forge/install-state.json` (hashes of installed files), `.forge/loops/*.json` (loop iterations and check output), Shield SARIF, scorecard evidence and memory provenance.
+</details>
+
+## Platform support
+
+The FORGE CLI runs on **Linux, macOS and Windows** with Node.js 22+. `forge harnesses` prints the matrix below from the versioned capability manifest. It lists what FORGE actually integrates today, not everything each tool supports.
+
+| Harness | Agents | Skills | Commands | Rules | Runtime hooks | Default |
+|---|---|---|---|---|---|---|
+| Claude Code | native | native | native | native | **native (7 events)** | yes |
+| Cursor | shared | shared | native | native | — | yes |
+| Codex | shared | shared | shared | shared | — | yes |
+| OpenCode | native | shared | native | shared | — | yes |
+| Gemini CLI | shared | shared | native | shared | — | yes |
+| GitHub Copilot | native | shared | native | native | — | when detected |
+| Windsurf | shared | shared | native | native | — | when detected |
+| Kiro | shared | shared | shared | native | — | when detected |
+| Cline | shared | shared | native | native | — | when detected |
+| Zed | shared | shared | shared | shared | — | when detected |
+
+**native** means the tool's own format: subagents, skills, commands, scoped rules. **shared** means FORGE writes common Markdown and indexes it from the tool's instruction file (`AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` and others). Runtime hooks, Guard, the verification gate and cost tracking are Claude Code only for now. The verified loop can drive Claude Code, Codex, Gemini, OpenCode or any command-line agent.
 
 ## Install FORGE into your agent harness
 
@@ -913,6 +1010,44 @@ FORGE's direction is to grow into a complete, local-first agent engineering harn
 - **Operator experience:** unified setup/doctor/status commands, export/import and migration tools.
 
 Shipped in 3.0 from this list: the verified loop with independent check runs, instincts with human approval, more lifecycle hooks, the 60-rule Shield, the harness capability matrix and the scorecard. See [docs/FORGE-CAPABILITY-ROADMAP.md](docs/FORGE-CAPABILITY-ROADMAP.md) for the detailed delivery sequence and non-negotiable product rules.
+
+## FAQ
+
+<details>
+<summary><strong>Is FORGE a fork of another toolkit?</strong></summary>
+
+No. FORGE is an original codebase with its own catalog, installer, Shield rules, hooks, loop and GitHub App. It was built with other agent toolkits, including ECC, as a reference for capabilities. No code, prompts or content were copied.
+</details>
+
+<details>
+<summary><strong>Does FORGE send my code anywhere?</strong></summary>
+
+The CLI, hooks, Shield, memory, scorecard and loop run locally. The only network calls are the ones your agent makes. The optional GitHub App reads file lists, manifests, commit subjects, agent configuration and PR file lists, and does not store source code.
+</details>
+
+<details>
+<summary><strong>Will it overwrite my CLAUDE.md, AGENTS.md or settings?</strong></summary>
+
+No. FORGE edits only text inside its own `<!-- forge:begin -->` block, merges hooks without touching your entries, never replaces your status line, and hashes every file it writes so it can tell your edits apart from its own. `forge uninstall` removes only what FORGE added.
+</details>
+
+<details>
+<summary><strong>How do I use FORGE in CI?</strong></summary>
+
+Use `forge shield --fail-on high --sarif shield.sarif` with the GitHub Action, and `forge scorecard --min 75` as a readiness gate. Both return non-zero exit codes for CI.
+</details>
+
+<details>
+<summary><strong>Which model or provider does FORGE need?</strong></summary>
+
+None for the harness itself. FORGE works with whatever agent you run. The optional local review and evaluation features support Anthropic, OpenAI, Google, Ollama and the Claude Code CLI. See [docs/providers.md](docs/providers.md).
+</details>
+
+<details>
+<summary><strong>Is a good Shield score a security guarantee?</strong></summary>
+
+No. Shield is static analysis of known configuration locations. Guard is rule-based. They catch common, high-impact mistakes, but they do not replace a security review.
+</details>
 
 ## Development
 
