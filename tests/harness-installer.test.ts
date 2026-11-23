@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { detectProjectLanguages, loadHarnessCatalog, parseCatalogItem, selectCatalogItems } from "../src/core/harness-catalog.js";
 import {
+  applyFileTransaction,
   buildInstallPlan,
   doctorHarness,
   extractManagedBlock,
@@ -32,6 +33,18 @@ async function exists(file: string): Promise<boolean> {
 }
 afterEach(async () => {
   await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true })));
+});
+
+describe("installer file transaction", () => {
+  it("restores earlier writes when a later operation fails", async () => {
+    const root = await project({ "blocker": "original" });
+    const blocker = path.join(root, "blocker");
+    await expect(applyFileTransaction([
+      { path: blocker, content: "updated" },
+      { path: path.join(blocker, "child.txt"), content: "cannot-write" },
+    ])).rejects.toThrow("All applied changes were rolled back");
+    await expect(readFile(blocker, "utf8")).resolves.toBe("original");
+  });
 });
 
 describe("harness catalog", () => {
