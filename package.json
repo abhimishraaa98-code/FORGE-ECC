@@ -2,7 +2,7 @@
   "name": "forge-engineering-workbench",
   "version": "2.0.1",
   "private": false,
-  "description": "FORGE: the verified engineering harness for AI coding agents \u2014 universal installer, Shield security scanner, runtime guard hooks, layered memory, GitHub App and codebase intelligence.",
+  "description": "FORGE: the verified engineering harness for AI coding agents — universal installer, Shield security scanner, runtime guard hooks, layered memory, GitHub App and codebase intelligence.",
   "type": "module",
   "bin": {
     "forge": "./dist/cli.js"
@@ -11,7 +11,7 @@
     "dev": "tsx src/cli.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/cli.js",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=4",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "mcp": "node dist/mcp/server.js",
