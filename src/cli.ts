@@ -57,6 +57,7 @@ import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js"
 import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
 import { buildCostReport, formatCostReport } from "./core/session-cost.js";
 import { renderStatusLine } from "./core/statusline.js";
+import { formatLoop, LOOP_AGENTS, listLoops, readLoop, runVerifiedLoop, type LoopAgent } from "./core/verified-loop.js";
 import { buildScorecard, formatScorecard, formatScorecardMarkdown } from "./core/harness-scorecard.js";
 import { formatHarnessCapabilities, HARNESS_CAPABILITY_SCHEMA_VERSION, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
@@ -157,6 +158,9 @@ Commands:
   instinct ACTION  Learned behaviours: learn | list | add | promote ID.. | reject ID.. | remove ID | export | import FILE
                    [path] [--trigger T --action A] [--status S] [--global] [--dry-run] [--json] [--out FILE]
   evolve [path]    Compile approved instincts into a forge-learned skill (Claude Code + .agents) [--write] [--force] [--global]
+  loop ACTION      Verified agent loop: start | status [ID] | list
+                   start [path] --goal TEXT --check CMD [--check CMD...] [--agent claude|codex|gemini|opencode|command]
+                   [--agent-cmd "prog args"] [--agent-arg ARG...] [--max-iterations N] [--allow-dirty] [--dry-run] [--json]
   harnesses        List supported harnesses and their actual FORGE integration capabilities [--json]
   catalog          List the FORGE catalog [--kind agent|skill|command|rule] [--json]
   shield [path]    Security review of agent settings, hooks, MCP servers, instructions and workflows
@@ -419,6 +423,61 @@ async function main(args: string[]): Promise<void> {
         for (const file of result.files) process.stdout.write(`  ${file.action.padEnd(20)} ${file.path}\n`);
       } catch (error) {
         process.stderr.write("FORGE evolve failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "loop": {
+      const [action = "status", ...loopArgs] = rest;
+      try {
+        // Repeatable options are collected before the shared parser sees the rest.
+        const repeated = { checks: [] as string[], agentArgs: [] as string[] };
+        const remaining: string[] = [];
+        for (let i = 0; i < loopArgs.length; i++) {
+          const arg = loopArgs[i] as string;
+          if (arg === "--check" || arg === "--agent-arg") {
+            const value = loopArgs[i + 1];
+            if (value === undefined) throw new Error(arg + " requires a value");
+            (arg === "--check" ? repeated.checks : repeated.agentArgs).push(value);
+            i += 1;
+          } else remaining.push(arg);
+        }
+        const loopId = remaining.find(arg => /^loop-[\w-]+$/.test(arg));
+        const options = parseHarnessArgs(remaining.filter(arg => arg !== loopId), ["--goal", "--agent", "--agent-cmd", "--max-iterations"], ["--allow-dirty", "--dry-run", "--json", "--verbose"]);
+        if (action === "start") {
+          const agent = (options.values.get("--agent") ?? (options.values.has("--agent-cmd") ? "command" : "claude")) as LoopAgent;
+          if (!LOOP_AGENTS.includes(agent)) throw new Error(`--agent must be one of ${LOOP_AGENTS.join(", ")}`);
+          const maxIterations = options.values.has("--max-iterations") ? Number(options.values.get("--max-iterations")) : undefined;
+          if (maxIterations !== undefined && (!Number.isInteger(maxIterations) || maxIterations < 1 || maxIterations > 20)) throw new Error("--max-iterations must be 1-20");
+          const agentCmd = options.values.get("--agent-cmd")?.split(/\s+/).filter(Boolean);
+          const json = options.flags.has("--json");
+          const record = await runVerifiedLoop({
+            projectPath: options.path,
+            goal: options.values.get("--goal") ?? "",
+            checks: repeated.checks,
+            agent,
+            ...(agentCmd ? { agentCommand: agentCmd } : {}),
+            ...(repeated.agentArgs.length ? { agentArgs: repeated.agentArgs } : {}),
+            ...(maxIterations ? { maxIterations } : {}),
+            allowDirty: options.flags.has("--allow-dirty"),
+            dryRun: options.flags.has("--dry-run"),
+            onEvent: message => { if (!json) process.stderr.write(`forge loop: ${message}\n`); },
+          });
+          process.stdout.write((json ? JSON.stringify(record, null, 2) : formatLoop(record, { verbose: true })) + "\n");
+          process.exitCode = record.status === "passed" || record.status === "dry-run" ? 0 : record.status === "needs-review" ? 5 : 1;
+        } else if (action === "status" || action === "show") {
+          const record = await readLoop(options.path, loopId);
+          if (!record) { process.stdout.write("No loops yet. Start one with: forge loop start --goal \"...\" --check \"npm test\"\n"); return; }
+          process.stdout.write((options.flags.has("--json") ? JSON.stringify(record, null, 2) : formatLoop(record, { verbose: true })) + "\n");
+        } else if (action === "list") {
+          const loops = await listLoops(options.path);
+          if (options.flags.has("--json")) process.stdout.write(JSON.stringify(loops.map(l => ({ id: l.id, status: l.status, goal: l.goal, iterations: l.iterations.length, createdAt: l.createdAt })), null, 2) + "\n");
+          else process.stdout.write(loops.length ? loops.map(l => `${l.id}  ${l.status.padEnd(12)} ${String(l.iterations.length).padStart(2)} iter  ${l.goal.split("\n")[0]?.slice(0, 70)}`).join("\n") + "\n" : "No loops yet.\n");
+        } else {
+          throw new Error(`Unknown loop action "${action}". Use start, status or list.`);
+        }
+      } catch (error) {
+        process.stderr.write("FORGE loop failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;

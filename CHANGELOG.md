@@ -16,6 +16,11 @@
   - Supports validated project-specific rules in `.forge/harness-hooks.json`.
 - **`forge cost`:** exact token usage per session, model and day, with labelled USD estimates and per-project rates.
 - **`forge statusline`** and `forge install --statusline`. FORGE never replaces your own status line.
+- **`forge loop`, a verified agent loop:**
+  - Runs Claude Code, Codex, Gemini, OpenCode or any command until checks that FORGE runs itself pass.
+  - Records a baseline, feeds failures back into the next iteration, and keeps a receipt for every iteration.
+  - Stops when the agent stalls.
+  - Integrity gate: stops with `needs-review` when the agent deletes or skips tests or changes test, lint or type configs, package scripts or CI, even if the checks went green.
 - **Shield now has 60 rules (up from 23):**
   - Covers Codex, Gemini, VS Code/Copilot, Windsurf, Kiro, Cline, Zed and Roo config.
   - New critical rule: AI-agent GitHub workflows that anyone can trigger from an issue or comment.

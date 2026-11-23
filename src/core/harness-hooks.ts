@@ -102,7 +102,7 @@ export const COMMAND_RULES: CommandRule[] = [
 const SECRET_FILE = /(?:^|\/)(?:\.env(?:\.(?!example$|sample$|template$)[\w.-]+)?|id_(?:rsa|ed25519|ecdsa|dsa)(?:\.pub)?|[^/]+\.(?:pem|key|p12|pfx)|credentials\.json|\.npmrc|\.pypirc|\.netrc)$/i;
 const AGENT_CONFIG = /(?:^|\/)(?:\.claude\/settings(?:\.local)?\.json|\.mcp\.json|\.cursor\/mcp\.json|\.vscode\/mcp\.json|\.gemini\/settings\.json|\.github\/workflows\/[^/]+\.ya?ml|\.forge\/harness-hooks\.json|\.forge\/permissions\.json)$/;
 
-const QUALITY_CONFIG = /(?:^|\/)(?:\.eslintrc(?:\.[\w]+)?|eslint\.config\.[cm]?[jt]s|\.prettierrc(?:\.[\w]+)?|prettier\.config\.[cm]?js|biome\.jsonc?|\.stylelintrc(?:\.[\w]+)?|ruff\.toml|\.ruff\.toml|\.flake8|\.pylintrc|mypy\.ini|\.golangci\.ya?ml|rustfmt\.toml|\.rustfmt\.toml|clippy\.toml|\.rubocop\.yml|\.editorconfig)$/;
+export const QUALITY_CONFIG = /(?:^|\/)(?:\.eslintrc(?:\.[\w]+)?|eslint\.config\.[cm]?[jt]s|\.prettierrc(?:\.[\w]+)?|prettier\.config\.[cm]?js|biome\.jsonc?|\.stylelintrc(?:\.[\w]+)?|ruff\.toml|\.ruff\.toml|\.flake8|\.pylintrc|mypy\.ini|\.golangci\.ya?ml|rustfmt\.toml|\.rustfmt\.toml|clippy\.toml|\.rubocop\.yml|\.editorconfig)$/;
 
 function relativeInside(root: string, filePath: string): string | undefined {
   const absolute = path.resolve(root, filePath);

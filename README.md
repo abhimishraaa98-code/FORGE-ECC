@@ -292,6 +292,33 @@ forge instinct export . --out team.json && forge instinct import team.json ../ot
 
 An import never changes the status or numbers of instincts that already exist locally. `forge evolve` writes `.claude/skills/forge-learned/SKILL.md` and `.agents/skills/forge-learned/SKILL.md`, and does not overwrite a version you edited.
 
+## Verified loop (v3)
+
+`forge loop` runs a coding agent without supervision until **checks that FORGE runs itself** pass. The agent's own claim that it finished never counts.
+
+```bash
+forge loop start --goal "make the login tests pass" --check "npm test -- login" --check "npm run typecheck" --max-iterations 5
+forge loop start --agent codex --goal "..." --check "cargo test"
+forge loop start --agent-cmd "my-agent --headless" --goal "..." --check "make test"   # prompt arrives on stdin
+forge loop status            # latest receipt, every iteration and every check result
+forge loop list
+```
+
+1. FORGE first runs the checks to record a baseline.
+2. It runs the agent: `claude -p --permission-mode acceptEdits`, `codex exec --sandbox workspace-write`, `gemini -p`, `opencode run`, or your own command.
+3. It runs every check again and feeds the failures into the next iteration.
+
+The loop stops in one of these ways:
+
+| Status | When |
+|---|---|
+| `passed` | every check passes on FORGE's own run |
+| `failed` | the iteration budget is used up |
+| `stalled` | an iteration makes no new changes |
+| `needs-review` | the agent changed what the checks measure, even if the checks went green: it deleted a test, added `.skip`/`.only`/`@pytest.mark.skip`, changed a lint, format, type or test config, edited `package.json` scripts or CI workflows, or edited a file named in a check command |
+
+The loop needs a clean git tree, so the diff contains only the agent's work. It never commits, pushes or bypasses the agent's permission system. Each iteration's receipt is saved in `.forge/loops/<id>.json`.
+
 ## Cost and status line (v3)
 
 ```bash
