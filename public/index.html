@@ -202,6 +202,52 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
 .foot a:hover{color:var(--ink)}
 .legal{margin-top:34px;font-size:12.5px;color:var(--faint)}
 
+/* Hero tiles and metrics panel */
+.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px 18px;max-width:1120px}
+.tile{display:flex;align-items:center;gap:12px;font-weight:650;font-size:15px;color:var(--ink);padding:4px 0;transition:color .15s}
+.tile:hover{color:var(--accent)}
+.tile i{width:38px;height:38px;flex:none;border-radius:10px;display:grid;place-items:center;background:#f4efec;color:#1b1416;font-style:normal;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.tile i .glyph svg{width:60%;height:60%}
+.tile i.logo{background:#fff!important}
+.tile i img{display:none;width:72%;height:72%;object-fit:contain}
+.tile i.logo img{display:block}.tile i.logo .glyph{display:none}
+.metrics{margin-top:40px;border:1px solid var(--line2);border-radius:18px;background:rgba(14,12,17,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow:hidden}
+.mrow{display:grid}
+.mrow.big{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mrow.small{grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--line)}
+.mrow>div{padding:22px 26px;border-left:1px solid var(--line);min-width:0}
+.mrow>div:first-child{border-left:0}
+.mrow.big b{display:block;font-size:40px;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.mrow.big a{font-size:13.5px;color:var(--muted)}
+.mrow.big a:hover{color:var(--ink)}
+.mrow.small>div{display:flex;align-items:baseline;gap:10px;padding:16px 22px}
+.mrow.small b{font-size:24px;letter-spacing:-.01em}
+.mrow.small span{font-size:13px;color:var(--muted)}
+.methods{border-top:1px solid var(--accent);border-top-color:rgba(232,179,162,.55)}
+.methods summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:18px 26px;font-weight:700;font-size:15.5px}
+.methods summary::-webkit-details-marker{display:none}
+.methods summary span:before{content:"▸";display:inline-block;margin-right:10px;color:var(--accent);transition:transform .2s}
+.methods[open] summary span:before{transform:rotate(90deg)}
+.methods summary em{margin-left:auto;font-style:normal;font-weight:500;font-size:12.5px;color:var(--faint)}
+.mtabs{display:flex;gap:4px;flex-wrap:wrap;padding:0 22px;border-bottom:1px solid var(--line)}
+.mtabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font:600 13.5px Inter,system-ui,sans-serif;padding:10px 12px;cursor:pointer}
+.mtabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.mpanel{display:none;padding:20px 26px 24px}
+.mpanel.on{display:block}
+.mpanel p{color:var(--muted);font-size:14.5px;margin-bottom:12px}
+.mpanel pre{margin:0;background:#0d0c10;border:1px solid var(--line);border-radius:12px;padding:16px 18px;font:13px/1.75 var(--mono);overflow-x:auto;color:#ddd6d3}
+.mpanel pre .c{color:var(--faint)}
+.mpanel table{width:100%;border-collapse:collapse;font-size:14px}
+.mpanel td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+.mpanel tr:first-child td{border-top:0}
+.mpanel td:first-child{font-weight:650;white-space:nowrap}
+.mpanel td:last-child{color:var(--muted)}
+.mpanel code{font-size:12.5px;color:var(--accent2)}
+.mpanel ol{margin:0;padding-left:20px;color:var(--muted);font-size:14.5px}
+.mpanel ol li{margin:6px 0}
+.mpanel a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+@media (max-width:1080px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.mrow.small{grid-template-columns:repeat(3,minmax(0,1fr))}.mrow.small>div:nth-child(4){border-left:0}.mrow.small>div:nth-child(n+4){border-top:1px solid var(--line)}}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.mrow.big{grid-template-columns:repeat(2,minmax(0,1fr))}.mrow.big>div:nth-child(3){border-left:0}.mrow.big>div:nth-child(n+3){border-top:1px solid var(--line)}.mrow.big b{font-size:30px}.mrow.small{grid-template-columns:1fr 1fr}.mrow.small>div{border-left:0;border-top:1px solid var(--line)}.methods summary em{display:none}.mpanel td:last-child{display:none}.mpanel{padding:16px}}
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
@@ -248,35 +294,114 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
     <div class="cmd"><span class="p">$</span><code id="install-cmd">npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz &amp;&amp; forge install . --hooks</code><button class="copy" id="copy" type="button">Copy</button></div>
     <div class="tools">
       <p>Install FORGE in your coding tool</p>
-      <div class="toolrow" id="toolrow">
-        <span class="tool"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M12.5 15.5h4"/></svg></span></i>Claude Code</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5c-2 0-3 1-3 3v2c0 1.3-.8 2.5-2 2.5 1.2 0 2 1.2 2 2.5v2c0 2 1 3 3 3"/><path d="M15 4.5c2 0 3 1 3 3v2c0 1.3.8 2.5 2 2.5-1.2 0-2 1.2-2 2.5v2c0 2-1 3-3 3"/></svg></span></i>Codex</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 3.5l13 7.2-5.6 1.6 3.4 6.2-2.6 1.4-3.4-6.2-4.8 3.6z"/></svg></span></i>Cursor</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 4.5l-3 15"/></svg></span></i>OpenCode</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18"/><circle cx="6.3" cy="6.8" r=".4" fill="currentColor"/><circle cx="8.6" cy="6.8" r=".4" fill="currentColor"/><path d="M7 13.5h3.5M7 16h6"/></svg></span></i>Gemini CLI</span>
-        <span class="tool"><i><img data-logo src="/assets/logos/github.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.2"/><circle cx="6.5" cy="18.5" r="2.2"/><circle cx="17.5" cy="8.5" r="2.2"/><path d="M6.5 7.7v8.6"/><path d="M17.5 10.7c0 3.5-4 3.8-9.4 5.9"/></svg></span></i>GitHub</span>
-        <span class="tool"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Co</text></svg></span></i>Copilot</span>
-        <span class="tool"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">W</text></svg></span></i>Windsurf</span>
-        <span class="tool"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">K</text></svg></span></i>Kiro</span>
-        <span class="tool"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Cl</text></svg></span></i>Cline</span>
-        <span class="tool"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Z</text></svg></span></i>Zed</span>
+      <div class="tiles">
+        <a class="tile" href="#install-claude-code"><i><img data-logo src="/assets/logos/claude-code.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M12.5 15.5h4"/></svg></span></i><span>Claude Code</span></a>
+        <a class="tile" href="#install-codex"><i><img data-logo src="/assets/logos/codex.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5c-2 0-3 1-3 3v2c0 1.3-.8 2.5-2 2.5 1.2 0 2 1.2 2 2.5v2c0 2 1 3 3 3"/><path d="M15 4.5c2 0 3 1 3 3v2c0 1.3.8 2.5 2 2.5-1.2 0-2 1.2-2 2.5v2c0 2-1 3-3 3"/></svg></span></i><span>Codex</span></a>
+        <a class="tile" href="#install-cursor"><i><img data-logo src="/assets/logos/cursor.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 3.5l13 7.2-5.6 1.6 3.4 6.2-2.6 1.4-3.4-6.2-4.8 3.6z"/></svg></span></i><span>Cursor</span></a>
+        <a class="tile" href="#install-opencode"><i><img data-logo src="/assets/logos/opencode.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 4.5l-3 15"/></svg></span></i><span>OpenCode</span></a>
+        <a class="tile" href="#install-gemini-cli"><i><img data-logo src="/assets/logos/gemini.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18"/><circle cx="6.3" cy="6.8" r=".4" fill="currentColor"/><circle cx="8.6" cy="6.8" r=".4" fill="currentColor"/><path d="M7 13.5h3.5M7 16h6"/></svg></span></i><span>Gemini CLI</span></a>
+        <a class="tile" href="#install-github"><i><img data-logo src="/assets/logos/github.svg" alt=""><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.2"/><circle cx="6.5" cy="18.5" r="2.2"/><circle cx="17.5" cy="8.5" r="2.2"/><path d="M6.5 7.7v8.6"/><path d="M17.5 10.7c0 3.5-4 3.8-9.4 5.9"/></svg></span></i><span>GitHub</span></a>
+        <a class="tile" href="#install-copilot"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Co</text></svg></span></i><span>Copilot</span></a>
+        <a class="tile" href="#install-windsurf"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">W</text></svg></span></i><span>Windsurf</span></a>
+        <a class="tile" href="#install-kiro"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">K</text></svg></span></i><span>Kiro</span></a>
+        <a class="tile" href="#install-cline"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Cl</text></svg></span></i><span>Cline</span></a>
+        <a class="tile" href="#install-zed"><i><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="16.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="currentColor">Z</text></svg></span></i><span>Zed</span></a>
       </div>
     </div>
-    <div class="stats">
-      <div class="stat"><b>41</b><span>Specialist agents</span></div>
-      <div class="stat"><b>51</b><span>Skills, matched to your stack</span></div>
-      <div class="stat"><b>29</b><span>Slash commands</span></div>
-      <div class="stat"><b>23</b><span>Language rules</span></div>
-      <div class="stat"><b>60</b><span>Shield security rules</span></div>
-      <div class="stat"><b>10</b><span>Harnesses, one install</span></div>
+    <div class="metrics" id="metrics">
+      <div class="mrow big">
+        <div><b data-live="stars">—</b><a href="https://github.com/ansh44233/FORGE-ECC/stargazers">GitHub stars* ↗</a></div>
+        <div><b data-live="forks">—</b><a href="https://github.com/ansh44233/FORGE-ECC/forks">GitHub forks* ↗</a></div>
+        <div><b data-live="downloads">—</b><a href="https://github.com/ansh44233/FORGE-ECC/releases">Release package downloads* ↗</a></div>
+        <div><b data-live="release">—</b><a href="https://github.com/ansh44233/FORGE-ECC/releases/latest">Latest release* ↗</a></div>
+      </div>
+      <div class="mrow small">
+        <div><b>41</b><span>specialist agents</span></div>
+        <div><b>51</b><span>skills, matched to your stack</span></div>
+        <div><b>29</b><span>slash commands</span></div>
+        <div><b>60</b><span>Shield rules</span></div>
+        <div><b>10</b><span>harnesses, one install</span></div>
+      </div>
+      <details class="methods" id="install">
+        <summary><span>Every installation method</span><em>* live from the GitHub API · catalog counts from the v3 repository</em></summary>
+        <div class="mtabs" role="tablist">
+          <button role="tab" class="on" data-tab="cli">CLI</button>
+          <button role="tab" data-tab="harness">Per harness</button>
+          <button role="tab" data-tab="app">GitHub App</button>
+          <button role="tab" data-tab="ci">GitHub Action</button>
+          <button role="tab" data-tab="windows">Windows</button>
+          <button role="tab" data-tab="source">From source</button>
+          <button role="tab" data-tab="remove">Update &amp; remove</button>
+        </div>
+        <div class="mpanel on" data-panel="cli">
+          <p>Install the released package, then add FORGE to a project. Requires Node.js 22+ and Git.</p>
+<pre><span class="c"># 1. install the CLI</span>
+npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+<span class="c"># 2. preview, then install with runtime hooks and the status line</span>
+cd your-project
+forge install . --dry-run
+forge install . --hooks --statusline
+<span class="c"># 3. see where you stand</span>
+forge scorecard . &amp;&amp; forge shield .</pre>
+        </div>
+        <div class="mpanel" data-panel="harness">
+          <p>The first five tools install by default. The others are added when FORGE finds them in the repo, or on request with <code>--target</code>.</p>
+          <table>
+            <tr id="install-claude-code"><td>Claude Code</td><td><code>forge install . --target claude --hooks --statusline</code></td><td>agents, skills, <code>/forge:*</code> commands, rules, 7 hooks</td></tr>
+            <tr id="install-codex"><td>Codex</td><td><code>forge install . --target codex</code></td><td><code>AGENTS.md</code> block, <code>.agents/skills</code></td></tr>
+            <tr id="install-cursor"><td>Cursor</td><td><code>forge install . --target cursor</code></td><td><code>.cursor/rules/*.mdc</code>, commands</td></tr>
+            <tr id="install-opencode"><td>OpenCode</td><td><code>forge install . --target opencode</code></td><td>agents, commands, <code>AGENTS.md</code></td></tr>
+            <tr id="install-gemini-cli"><td>Gemini CLI</td><td><code>forge install . --target gemini</code></td><td>TOML commands, <code>GEMINI.md</code></td></tr>
+            <tr id="install-copilot"><td>Copilot</td><td><code>forge install . --target copilot</code></td><td>instructions, prompt files, custom agents</td></tr>
+            <tr id="install-windsurf"><td>Windsurf</td><td><code>forge install . --target windsurf</code></td><td>rules with triggers, workflows</td></tr>
+            <tr id="install-kiro"><td>Kiro</td><td><code>forge install . --target kiro</code></td><td>steering files</td></tr>
+            <tr id="install-cline"><td>Cline</td><td><code>forge install . --target cline</code></td><td><code>.clinerules</code> and workflows</td></tr>
+            <tr id="install-zed"><td>Zed</td><td><code>forge install . --target zed</code></td><td>shared harness, <code>AGENTS.md</code></td></tr>
+            <tr id="install-github"><td>Everything</td><td><code>forge install . --target all --profile full</code></td><td>all 10 harnesses, every stack skill</td></tr>
+          </table>
+        </div>
+        <div class="mpanel" data-panel="app">
+          <p>No local install needed. The app opens a setup pull request, checks every PR and powers the Control Center.</p>
+          <ol>
+            <li><a href="/api/github/install">Install the FORGE GitHub App ↗</a> on the repositories you choose.</li>
+            <li>Comment <code>/forge analyze</code> on any issue to get a setup pull request written for that repo.</li>
+            <li>Open the <a href="/app/">Control Center</a> to see readiness, Shield, PR risk, memory and loops.</li>
+          </ol>
+        </div>
+        <div class="mpanel" data-panel="ci">
+          <p>Fail CI on risky agent configuration and send findings to GitHub code scanning.</p>
+<pre>- uses: ansh44233/FORGE-ECC@v3.0.0
+  with:
+    operation: shield
+    fail-on: high
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: forge-shield.sarif</pre>
+        </div>
+        <div class="mpanel" data-panel="windows">
+          <p>PowerShell, with Node.js 22+ installed.</p>
+<pre>npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+cd C:\Users\you\Projects\my-project
+forge install . --hooks --statusline
+forge scorecard .</pre>
+        </div>
+        <div class="mpanel" data-panel="source">
+          <p>For contributors, or to run the latest main.</p>
+<pre>git clone https://github.com/ansh44233/FORGE-ECC.git
+cd FORGE-ECC
+npm ci &amp;&amp; npm run build &amp;&amp; npm link
+forge --version</pre>
+        </div>
+        <div class="mpanel" data-panel="remove">
+          <p>Your own files and edits are never overwritten or removed.</p>
+<pre>forge doctor .          <span class="c"># missing, modified or outdated FORGE files</span>
+forge repair .          <span class="c"># restore and update, keep your edits</span>
+forge uninstall . --dry-run
+forge uninstall .       <span class="c"># remove only what FORGE added</span></pre>
+        </div>
+      </details>
     </div>
-    <div class="stats live" aria-live="polite">
-      <div class="stat"><b data-live="stars">—</b><span><a href="https://github.com/ansh44233/FORGE-ECC/stargazers">GitHub stars</a> ↗</span></div>
-      <div class="stat"><b data-live="forks">—</b><span><a href="https://github.com/ansh44233/FORGE-ECC/forks">GitHub forks</a> ↗</span></div>
-      <div class="stat"><b data-live="downloads">—</b><span><a href="https://github.com/ansh44233/FORGE-ECC/releases">Release package downloads</a> ↗</span></div>
-      <div class="stat"><b data-live="release">—</b><span><a href="https://github.com/ansh44233/FORGE-ECC/releases/latest">Latest release</a> ↗</span></div>
-    </div>
-    <p class="footnote">The first row comes from the FORGE v3 catalog and rule set. The second row loads live from the GitHub API.</p>
   </div>
 </section>
 
@@ -641,6 +766,16 @@ forge_memory_search · forge_memory_add</div>
     if (img.complete) show(); else img.addEventListener("load", show, { once: true });
     img.addEventListener("error", () => img.remove(), { once: true });
   });
+
+  document.querySelectorAll(".mtabs button").forEach(button => button.addEventListener("click", () => {
+    document.querySelectorAll(".mtabs button").forEach(b => b.classList.toggle("on", b === button));
+    document.querySelectorAll(".mpanel").forEach(p => p.classList.toggle("on", p.dataset.panel === button.dataset.tab));
+  }));
+  document.querySelectorAll('.tile').forEach(tile => tile.addEventListener("click", () => {
+    const details = document.getElementById("install");
+    details.open = true;
+    document.querySelector('.mtabs button[data-tab="' + (tile.textContent.trim() === "GitHub" ? "app" : "harness") + '"]').click();
+  }));
 
   // Live GitHub numbers (unauthenticated API; values stay "—" if it is rate-limited or offline).
   const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "m" : n >= 1e4 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "k" : n.toLocaleString("en-US");
