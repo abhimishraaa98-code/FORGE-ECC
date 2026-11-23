@@ -33,9 +33,10 @@ function normalizeHarnessTargets(targets: readonly string[]): HarnessTarget[] {
   return [...new Set(targets)] as HarnessTarget[];
 }
 
-export const STATE_SCHEMA = 1;
+export const STATE_SCHEMA = 2;
 export const INSTALL_STATE_PATH = ".forge/install-state.json";
-const STATE_SCHEMA_VERSION = 1;
+const LEGACY_STATE_SCHEMA_VERSION = 1;
+const STATE_SCHEMA_VERSION = STATE_SCHEMA;
 const BLOCK_BEGIN = "<!-- forge:begin (managed by `forge install`; edit outside this block) -->";
 const BLOCK_END = "<!-- forge:end -->";
 
@@ -393,25 +394,54 @@ export async function loadInstallState(projectPath: string): Promise<InstallStat
   const raw = await readIfExists(await resolveInside(root, INSTALL_STATE_PATH));
   if (raw === undefined) return undefined;
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`${INSTALL_STATE_PATH} is not valid JSON.`);
+  try { parsed = JSON.parse(raw); }
+  catch { throw new Error(INSTALL_STATE_PATH + " is not valid JSON. The file was left untouched; restore a valid backup before running install or uninstall."); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(INSTALL_STATE_PATH + " must contain a JSON object. The file was left untouched.");
   }
-  const state = parsed as Partial<InstallState>;
-  if (state.schemaVersion !== STATE_SCHEMA_VERSION || !Array.isArray(state.files) || !Array.isArray(state.blocks)) {
-    throw new Error(`${INSTALL_STATE_PATH} has an unsupported format.`);
+  const candidate = parsed as Record<string, unknown>;
+  const version = candidate.schemaVersion;
+  if (typeof version !== "number" || !Number.isInteger(version)) {
+    throw new Error(INSTALL_STATE_PATH + " is missing a valid schemaVersion. The file was left untouched.");
+  }
+  if (version > STATE_SCHEMA_VERSION) {
+    throw new Error(INSTALL_STATE_PATH + " uses schema version " + version + ", but this FORGE CLI supports up to " + STATE_SCHEMA_VERSION + ". Upgrade FORGE before modifying or uninstalling this installation; the state file was left untouched.");
+  }
+  if (version !== LEGACY_STATE_SCHEMA_VERSION && version !== STATE_SCHEMA_VERSION) {
+    throw new Error(INSTALL_STATE_PATH + " uses unsupported schema version " + version + ". No migration is available; the file was left untouched.");
+  }
+  const state = candidate as unknown as InstallState;
+  if (typeof state.forgeVersion !== "string" || typeof state.installedAt !== "string" ||
+      typeof state.profile !== "string" || !INSTALL_PROFILES.includes(state.profile) ||
+      !Array.isArray(state.targets) || !Array.isArray(state.languages) ||
+      !state.languages.every(value => typeof value === "string") ||
+      !Array.isArray(state.files) || !Array.isArray(state.blocks)) {
+    throw new Error(INSTALL_STATE_PATH + " has an invalid state structure. The file was left untouched.");
+  }
+  for (const target of state.targets) {
+    if (typeof target !== "string" || !HARNESS_TARGETS.includes(target as HarnessTarget)) {
+      throw new Error(INSTALL_STATE_PATH + " contains an unsupported harness target. The file was left untouched.");
+    }
   }
   for (const entry of [...state.files, ...state.blocks]) {
-    if (!entry || typeof entry.path !== "string" || typeof entry.sha256 !== "string") throw new Error(`${INSTALL_STATE_PATH} contains an invalid entry.`);
+    if (!entry || typeof entry.path !== "string" || typeof entry.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/i.test(entry.sha256) || !Array.isArray(entry.targets) ||
+        !entry.targets.every(target => typeof target === "string" && HARNESS_TARGETS.includes(target as HarnessTarget))) {
+      throw new Error(INSTALL_STATE_PATH + " contains an invalid file or block entry. The file was left untouched.");
+    }
     assertRelativeSafe(entry.path);
   }
   if (state.settings !== undefined) {
     const settings = state.settings as Partial<InstallStateSettings>;
-    if (typeof settings.path !== "string" || !Array.isArray(settings.commands) || !Array.isArray(settings.addedDeny)) throw new Error(`${INSTALL_STATE_PATH} has an invalid settings entry.`);
+    if (!settings || typeof settings.path !== "string" || !Array.isArray(settings.commands) ||
+        !settings.commands.every(command => typeof command === "string") || !Array.isArray(settings.addedDeny) ||
+        !settings.addedDeny.every(rule => typeof rule === "string") || typeof settings.createdFile !== "boolean") {
+      throw new Error(INSTALL_STATE_PATH + " has an invalid settings entry. The file was left untouched.");
+    }
     assertRelativeSafe(settings.path);
   }
-  return state as InstallState;
+  // v1 and v2 share the payload shape; normalize v1 in memory. A successful install persists v2.
+  return version === LEGACY_STATE_SCHEMA_VERSION ? { ...state, schemaVersion: STATE_SCHEMA_VERSION } : state;
 }
 
 // ---------------------------------------------------------------------------
