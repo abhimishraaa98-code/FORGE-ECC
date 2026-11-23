@@ -341,6 +341,33 @@ async function atomicWrite(file: string, content: string): Promise<void> {
   }
 }
 
+interface FileTransactionOperation { path: string; content: string | null }
+
+/** Apply file mutations with snapshots and reverse-order rollback on failure. */
+async function applyFileTransaction(operations: FileTransactionOperation[]): Promise<void> {
+  const snapshots = new Map<string, string | undefined>();
+  const applied: string[] = [];
+  try {
+    for (const operation of operations) {
+      if (!snapshots.has(operation.path)) snapshots.set(operation.path, await readIfExists(operation.path));
+      if (operation.content === null) await rm(operation.path, { force: true });
+      else await atomicWrite(operation.path, operation.content);
+      applied.push(operation.path);
+    }
+  } catch (cause) {
+    const rollbackErrors: string[] = [];
+    for (const file of [...new Set(applied)].reverse()) {
+      try {
+        const previous = snapshots.get(file);
+        if (previous === undefined) await rm(file, { force: true });
+        else await atomicWrite(file, previous);
+      } catch (error) { rollbackErrors.push(file + ': ' + (error instanceof Error ? error.message : String(error))); }
+    }
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    throw new Error('FORGE install transaction failed: ' + detail + (rollbackErrors.length ? '. Rollback also failed: ' + rollbackErrors.join('; ') : '. All applied changes were rolled back.'));
+  }
+}
+
 async function pruneEmptyParents(root: string, file: string): Promise<void> {
   let directory = path.dirname(file);
   while (directory.startsWith(root + path.sep) && directory !== root) {
@@ -458,7 +485,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
   const changes: InstallChange[] = [];
   const stateFiles: InstallStateFile[] = [];
   const stateBlocks: InstallStateBlock[] = [];
-  const writes: Array<() => Promise<void>> = [];
+  const writes: FileTransactionOperation[] = [];
 
   for (const file of plan.files) {
     const absolute = await resolveInside(root, file.path);
@@ -482,7 +509,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       continue;
     }
     stateFiles.push(record);
-    writes.push(() => atomicWrite(absolute, file.content));
+    writes.push({ path: absolute, content: file.content });
   }
 
   const planned = new Set(plan.files.map(file => file.path));
@@ -493,7 +520,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
     if (current === undefined) continue;
     if (sha256(current) === entry.sha256) {
       changes.push({ path: stalePath, action: "remove", detail: "no longer selected" });
-      writes.push(async () => { await rm(absolute, { force: true }); await pruneEmptyParents(root, absolute); });
+      writes.push({ path: absolute, content: null });
     } else {
       changes.push({ path: stalePath, action: "keep-modified", detail: "no longer selected but locally modified; kept" });
     }
@@ -513,7 +540,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       continue;
     } else {
       changes.push({ path: block.path, action: current === undefined ? "create" : "update", detail: "managed block" });
-      writes.push(() => atomicWrite(absolute, withBlock(current, block.content)));
+      writes.push({ path: absolute, content: withBlock(current, block.content) });
     }
     stateBlocks.push(record);
   }
@@ -524,11 +551,8 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
     const current = await readIfExists(absolute);
     if (current === undefined) continue;
     changes.push({ path: stalePath, action: "remove", detail: "managed block no longer selected" });
-    writes.push(async () => {
-      const remaining = withoutBlock(current);
-      if (!remaining && entry.createdFile) await rm(absolute, { force: true });
-      else await atomicWrite(absolute, remaining);
-    });
+    const remaining = withoutBlock(current);
+    writes.push({ path: absolute, content: !remaining && entry.createdFile ? null : remaining });
   }
 
   let stateSettings: InstallStateSettings | undefined;
@@ -553,22 +577,19 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
         if (JSON.stringify(next) === JSON.stringify(current.settings)) changes.push({ path: CLAUDE_SETTINGS_PATH, action: "unchanged", detail: "FORGE hooks" });
         else {
           changes.push({ path: CLAUDE_SETTINGS_PATH, action: current.existed ? "update" : "create", detail: "FORGE hooks merged" });
-          writes.push(() => atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`));
+          writes.push({ path: absolute, content: `${JSON.stringify(next, null, 2)}\n` });
         }
       } else if (previous?.settings && current.existed) {
         const next = removeClaudeHooks(current.settings, previousCommands, previous.settings.addedDeny);
         changes.push({ path: CLAUDE_SETTINGS_PATH, action: "remove", detail: "FORGE hooks no longer selected" });
-        writes.push(async () => {
-          if (!Object.keys(next).length && previous.settings?.createdFile) await rm(absolute, { force: true });
-          else await atomicWrite(absolute, `${JSON.stringify(next, null, 2)}\n`);
-        });
+        writes.push({ path: absolute, content: !Object.keys(next).length && previous.settings?.createdFile ? null : `${JSON.stringify(next, null, 2)}\n` });
       }
     }
   }
 
   const conflicts = changes.filter(change => change.action === "conflict").length;
   if (!dryRun) {
-    for (const write of writes) await write();
+
     const state: InstallState = {
       schemaVersion: STATE_SCHEMA_VERSION,
       forgeVersion: options.forgeVersion,
@@ -580,7 +601,8 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       blocks: stateBlocks.sort((a, b) => a.path.localeCompare(b.path)),
       ...(stateSettings ? { settings: stateSettings } : {}),
     };
-    await atomicWrite(await resolveInside(root, INSTALL_STATE_PATH), `${JSON.stringify(state, null, 2)}\n`);
+    writes.push({ path: await resolveInside(root, INSTALL_STATE_PATH), content: `${JSON.stringify(state, null, 2)}\n` });
+    await applyFileTransaction(writes);
   }
   return { dryRun, plan, changes, conflicts, statePath: INSTALL_STATE_PATH };
 }
