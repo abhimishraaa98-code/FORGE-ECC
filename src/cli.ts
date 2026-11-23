@@ -54,6 +54,7 @@ import { applyBeforeAgentHooks, loadHooks } from "./core/hook-engine.js";
 import { assertSupportedAgentPolicy, loadPermissionPolicy } from "./core/permission-policy.js";
 import { doctorHarness, formatDoctorReport, formatInstallResult, formatUninstallResult, installHarness, parseProfile, parseTargets, uninstallHarness } from "./core/harness-installer.js";
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
+import { formatHarnessCapabilities, listHarnessCapabilities } from "./core/harness-capabilities.js";
 import { applyShieldFixes, formatShieldMarkdown, formatShieldReport, parseSeverity, runShield, severityAtLeast, toSarif } from "./core/forge-shield.js";
 import { writeFile as writeTextFile } from "node:fs/promises";
 import { ModelRouter } from "./core/model-router.js";
@@ -144,6 +145,7 @@ Commands:
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
   doctor [path]    Check installed harness files for missing, modified or outdated entries
   repair [path]    Restore missing and outdated harness files (keeps local edits)
+  harnesses        List supported harnesses and their actual FORGE integration capabilities [--json]
   catalog          List the FORGE catalog [--kind agent|skill|command|rule] [--json]
   shield [path]    Security review of agent settings, hooks, MCP servers, instructions and workflows
                    [--json] [--markdown] [--sarif FILE] [--fix] [--dry-run] [--fail-on critical|high|medium|low]
@@ -314,6 +316,19 @@ async function main(args: string[]): Promise<void> {
         if (report.installed && !report.healthy) process.exitCode = 2;
       } catch (error) {
         process.stderr.write("FORGE doctor failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "harnesses": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--json"]);
+        const manifest = listHarnessCapabilities();
+        process.stdout.write(options.flags.has("--json")
+          ? JSON.stringify({ schemaVersion: 1, harnesses: manifest }, null, 2) + "\\n"
+          : formatHarnessCapabilities() + "\\n");
+      } catch (error) {
+        process.stderr.write("FORGE harness listing failed: " + (error instanceof Error ? error.message : String(error)) + "\\n");
         process.exitCode = 1;
       }
       return;
