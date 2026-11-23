@@ -368,6 +368,82 @@ export async function applyFileTransaction(operations: FileTransactionOperation[
   }
 }
 
+const TRANSACTION_JOURNAL_PATH = ".forge/transaction-journal.json";
+interface TransactionJournal {
+  schemaVersion: 1;
+  snapshots: Array<{ path: string; contentBase64: string | null }>;
+}
+
+async function restoreJournal(root: string, journal: TransactionJournal): Promise<void> {
+  for (const snapshot of [...journal.snapshots].reverse()) {
+    assertRelativeSafe(snapshot.path);
+    const absolute = await resolveInside(root, snapshot.path);
+    if (snapshot.contentBase64 === null) await rm(absolute, { force: true });
+    else await atomicWrite(absolute, Buffer.from(snapshot.contentBase64, "base64").toString("utf8"));
+  }
+}
+
+/** Recover an interrupted install/uninstall by restoring durable pre-transaction snapshots. */
+export async function recoverFileTransaction(projectPath: string): Promise<boolean> {
+  const root = await realpath(path.resolve(projectPath));
+  const journalPath = path.join(root, TRANSACTION_JOURNAL_PATH);
+  const raw = await readIfExists(journalPath);
+  if (raw === undefined) return false;
+  let journal: TransactionJournal;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || (parsed as TransactionJournal).schemaVersion !== 1 ||
+        !Array.isArray((parsed as TransactionJournal).snapshots)) throw new Error("invalid journal shape");
+    journal = parsed as TransactionJournal;
+    for (const item of journal.snapshots) {
+      if (!item || typeof item.path !== "string" ||
+          !(item.contentBase64 === null || typeof item.contentBase64 === "string")) throw new Error("invalid snapshot entry");
+      assertRelativeSafe(item.path);
+    }
+  } catch (error) {
+    throw new Error("FORGE transaction recovery journal is invalid; it was left untouched: " + (error instanceof Error ? error.message : String(error)));
+  }
+  await restoreJournal(root, journal);
+  await rm(journalPath, { force: true });
+  return true;
+}
+
+/** Persist snapshots before mutations so a later CLI invocation can recover after a process crash. */
+async function applyDurableFileTransaction(projectPath: string, operations: FileTransactionOperation[]): Promise<void> {
+  const root = await realpath(path.resolve(projectPath));
+  await recoverFileTransaction(root);
+  const snapshots = new Map<string, string | undefined>();
+  for (const operation of operations) {
+    const relative = path.relative(root, operation.path);
+    assertRelativeSafe(relative);
+    if (!snapshots.has(relative)) snapshots.set(relative, await readIfExists(await resolveInside(root, relative)));
+  }
+  const journal: TransactionJournal = {
+    schemaVersion: 1,
+    snapshots: [...snapshots].map(([file, content]) => ({
+      path: file,
+      contentBase64: content === undefined ? null : Buffer.from(content, "utf8").toString("base64"),
+    })),
+  };
+  const journalPath = path.join(root, TRANSACTION_JOURNAL_PATH);
+  await atomicWrite(journalPath, JSON.stringify(journal, null, 2) + "\n");
+  try {
+    await applyDurableFileTransaction(root, operations);
+    await rm(journalPath, { force: true });
+  } catch (error) {
+    try {
+      await restoreJournal(root, journal);
+      await rm(journalPath, { force: true });
+    } catch (recoveryError) {
+      throw new Error((error instanceof Error ? error.message : String(error)) +
+        ". Durable recovery journal retained at " + TRANSACTION_JOURNAL_PATH +
+        "; next FORGE install/uninstall will retry recovery. Recovery error: " +
+        (recoveryError instanceof Error ? recoveryError.message : String(recoveryError)));
+    }
+    throw error;
+  }
+}
+
 async function pruneEmptyParents(root: string, file: string): Promise<void> {
   let directory = path.dirname(file);
   while (directory.startsWith(root + path.sep) && directory !== root) {
@@ -602,7 +678,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       ...(stateSettings ? { settings: stateSettings } : {}),
     };
     writes.push({ path: await resolveInside(root, INSTALL_STATE_PATH), content: `${JSON.stringify(state, null, 2)}\n` });
-    await applyFileTransaction(writes);
+    await applyDurableFileTransaction(root, writes);
   }
   return { dryRun, plan, changes, conflicts, statePath: INSTALL_STATE_PATH };
 }
