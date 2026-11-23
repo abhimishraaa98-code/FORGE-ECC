@@ -240,7 +240,7 @@ export async function runRemoteSetup(context: AppContext, owner: string, repo: s
 export interface RemoteDoctor {
   installed: boolean;
   healthy: boolean;
-  state?: Pick<InstallState, "forgeVersion" | "profile" | "targets" | "installedAt">;
+  state?: Pick<InstallState, "forgeVersion" | "profile" | "targets" | "installedAt"> & { languages?: string[]; hooks?: boolean };
   missing: string[];
   outdated: string[];
   added: string[];
@@ -259,7 +259,7 @@ export async function computeRemoteDoctor(context: AppContext, owner: string, re
   const missing = state.files.filter(file => !blobs.has(file.path)).map(file => file.path);
   const outdated = plan.files.filter(file => blobs.has(file.path) && blobs.get(file.path) !== gitBlobSha(file.content)).map(file => file.path);
   const added = plan.files.filter(file => !blobs.has(file.path) && !state.files.some(entry => entry.path === file.path)).map(file => file.path);
-  return { installed: true, healthy: !missing.length && !outdated.length && !added.length, state: { forgeVersion: state.forgeVersion, profile: state.profile, targets: state.targets, installedAt: state.installedAt }, missing, outdated, added };
+  return { installed: true, healthy: !missing.length && !outdated.length && !added.length, state: { forgeVersion: state.forgeVersion, profile: state.profile, targets: state.targets, installedAt: state.installedAt, ...(Array.isArray(state.languages) ? { languages: state.languages } : {}), hooks: Boolean(state.settings) }, missing, outdated, added };
 }
 
 export function formatRemoteDoctor(doctor: RemoteDoctor, forgeVersion: string): string {
