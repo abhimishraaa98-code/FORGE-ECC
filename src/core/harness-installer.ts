@@ -310,6 +310,12 @@ const TARGET_BLOCK_FILES: Partial<Record<HarnessTarget, string[]>> = {
   zed: ["AGENTS.md"],
 };
 
+/** First clause of a description, capped, for always-loaded indexes. */
+function brief(description: string, max = 72): string {
+  const clause = description.split(/(?<=[a-z0-9)])[;:.](?:\s|$)| — /)[0]?.trim() ?? description;
+  return clause.length <= max ? clause : clause.slice(0, max - 1).replace(/[\s,]+\S*$/, "") + "…";
+}
+
 function instructionsBlock(items: CatalogItem[], skillsPath: string): string {
   const agents = items.filter(i => i.kind === "agent");
   const commands = items.filter(i => i.kind === "command");
@@ -327,19 +333,19 @@ function instructionsBlock(items: CatalogItem[], skillsPath: string): string {
     for (const rule of languageRules) lines.push(`- ${rule.language}: **${rule.name}**${rule.globs ? ` [${rule.globs.join(", ")}]` : ""} — \`.forge/harness/rules/${rule.language}/${rule.id}.md\``);
     lines.push("");
   }
+  // A lean index: this block loads into every session of every tool that reads it,
+  // so it names each item with a short "when to use" and points at the file for the rest.
   if (agents.length) {
-    lines.push("### Specialist roles", "", "When a task matches a role, read its file and follow it.", "");
-    for (const agent of agents) lines.push(`- **${agent.name}** — ${agent.description} (\`.forge/harness/agents/${agent.id}.md\`)`);
+    lines.push("### Specialist roles", "", "When a task matches a role, read `.forge/harness/agents/<role>.md` and follow it.", "");
+    for (const agent of agents) lines.push(`- **${agent.id}**: ${brief(agent.description)}`);
     lines.push("");
   }
   if (commands.length) {
-    lines.push("### Workflows", "");
-    for (const command of commands) lines.push(`- **${command.id}** — ${command.description} (\`.forge/harness/commands/${command.id}.md\`)`);
-    lines.push("");
+    lines.push("### Workflows", "", `Run a workflow by reading \`.forge/harness/commands/<name>.md\`: ${commands.map(command => `\`${command.id}\``).join(", ")}.`, "");
   }
   if (skills.length) {
-    lines.push(`### Skills (in \`${skillsPath}\`)`, "");
-    for (const skill of skills) lines.push(`- **forge-${skill.id}** — ${skill.description}`);
+    lines.push(`### Skills (in \`${skillsPath}\`, load when relevant)`, "");
+    for (const skill of skills) lines.push(`- **forge-${skill.id}**: ${brief(skill.description)}`);
     lines.push("");
   }
   return lines.join("\n").trimEnd();

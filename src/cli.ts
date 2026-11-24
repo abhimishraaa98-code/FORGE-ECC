@@ -57,6 +57,7 @@ import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallR
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
 import { buildCostReport, formatCostReport } from "./core/session-cost.js";
+import { analyzeContext, formatContextReport } from "./core/context-budget.js";
 import { consult, formatConsult } from "./core/consult.js";
 import { detectProjectLanguages as detectStacks } from "./core/harness-catalog.js";
 import { MCP_CATALOG, MCP_TARGETS, addMcpServers, detectMcpTargets, formatChanges, formatMatrix, mcpMatrix, readSyncSource, removeMcpServers, type McpTarget } from "./core/mcp-sync.js";
@@ -149,6 +150,8 @@ Usage:
 
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
+  context [path]   Context budget: what each harness loads before the first prompt, per file, with fixes
+                   [--verbose] [--json] [--max TOKENS]  (exit 4 when the heaviest harness exceeds --max)
   consult "TASK"   Find the agents, skills, commands, rules and MCP servers for a task, with the command to add them
                    [--kind agent,skill,command,rule,mcp] [--limit N] [--path DIR] [--json]
   install [path]   Install FORGE agents, skills, commands and rules (Claude Code, Cursor, Codex, OpenCode, Gemini; Copilot, Windsurf, Kiro, Cline, Zed opt-in)
@@ -637,6 +640,22 @@ async function main(args: string[]): Promise<void> {
         throw new Error(`Unknown mcp action "${action}". Use catalog, list, add, sync or remove.`);
       } catch (error) {
         process.stderr.write("FORGE mcp failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "context": {
+      try {
+        const options = parseHarnessArgs(rest, ["--max"], ["--json", "--verbose"]);
+        const report = await analyzeContext(options.path);
+        process.stdout.write((options.flags.has("--json") ? JSON.stringify(report, null, 2) : formatContextReport(report, { verbose: options.flags.has("--verbose") })) + "\n");
+        if (options.values.has("--max")) {
+          const max = Number(options.values.get("--max"));
+          if (!Number.isInteger(max) || max < 1) throw new Error("--max must be a positive number of tokens");
+          if (report.worst > max) { process.stderr.write(`Context budget exceeded: heaviest harness ≈${report.worst} tokens > ${max}.\n`); process.exitCode = 4; }
+        }
+      } catch (error) {
+        process.stderr.write("FORGE context failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;
