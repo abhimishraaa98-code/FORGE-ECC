@@ -83,6 +83,8 @@ export interface InstallPlan {
   files: PlannedFile[];
   blocks: PlannedBlock[];
   itemCount: number;
+  /** Extra items requested with --with. */
+  extras: string[];
 }
 
 export interface InstallStateFile { path: string; sha256: string; targets: HarnessTarget[]; item?: string }
@@ -105,6 +107,8 @@ export interface InstallState {
   settings?: InstallStateSettings;
   /** Native hook configs for Cursor, Codex and Gemini CLI written by `--hooks`. */
   nativeHooks?: InstallStateNativeHooks[];
+  /** Extra catalog items added with --with ("kind:id"). */
+  extras?: string[];
 }
 
 export type FileAction = "create" | "update" | "unchanged" | "conflict" | "remove" | "keep-modified" | "overwrite";
@@ -136,6 +140,8 @@ export interface InstallOptions {
   statusLine?: boolean;
   /** Executable used in hook commands. Default "forge". */
   hookCommand?: string;
+  /** Extra catalog items installed regardless of profile or stack, as "kind:id" (e.g. "skill:django-patterns"). */
+  extras?: string[];
 }
 
 const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
@@ -345,7 +351,18 @@ export async function buildInstallPlan(options: InstallOptions): Promise<Install
   const profile = options.profile ?? "standard";
   const targets = options.targets?.length ? normalizeHarnessTargets(options.targets) : [...DEFAULT_TARGETS];
   const languages = options.languages ?? (profile === "full" ? undefined : await detectProjectLanguages(projectRoot));
-  const items = selectCatalogItems(catalog, languages ? { profile, languages } : { profile });
+  const selected = selectCatalogItems(catalog, languages ? { profile, languages } : { profile });
+  const extras = [...new Set(options.extras ?? [])].sort();
+  const extraItems: CatalogItem[] = [];
+  for (const extra of extras) {
+    const match = /^(agent|skill|command|rule):([a-z0-9][a-z0-9/-]{0,80})$/.exec(extra);
+    if (!match) throw new Error(`--with expects kind:id (e.g. skill:django-patterns), got "${extra}".`);
+    const [, kind, id] = match;
+    const item = catalog.items.find(candidate => candidate.kind === kind && (candidate.id === id || `${candidate.language ?? ""}/${candidate.id}` === id));
+    if (!item) throw new Error(`No ${kind} "${id}" in the FORGE catalog. Try \`forge consult\` or \`forge catalog --kind ${kind}\`.`);
+    extraItems.push(item);
+  }
+  const items = [...selected, ...extraItems.filter(item => !selected.includes(item))];
   const resolvedLanguages = languages ?? [...new Set(items.filter(i => i.kind === "rule" && i.language && i.language !== "common").map(i => i.language as string))].sort();
 
   const files = new Map<string, PlannedFile>();
@@ -376,6 +393,7 @@ export async function buildInstallPlan(options: InstallOptions): Promise<Install
     files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)),
     blocks: [...blocks.values()].sort((a, b) => a.path.localeCompare(b.path)),
     itemCount: items.length,
+    extras,
   };
 }
 
@@ -652,6 +670,9 @@ export async function loadInstallState(projectPath: string): Promise<InstallStat
     }
     assertRelativeSafe(settings.path);
   }
+  if (state.extras !== undefined && (!Array.isArray(state.extras) || !state.extras.every(extra => typeof extra === "string" && /^(?:agent|skill|command|rule):[a-z0-9][a-z0-9/-]{0,80}$/.test(extra)))) {
+    throw new Error(INSTALL_STATE_PATH + " has an invalid extras list. The file was left untouched.");
+  }
   if (state.nativeHooks !== undefined) {
     if (!Array.isArray(state.nativeHooks) || !state.nativeHooks.every(entry => entry && typeof entry === "object" &&
         (NATIVE_HOOK_HARNESSES as readonly string[]).includes((entry as InstallStateNativeHooks).target) &&
@@ -827,6 +848,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       profile: plan.profile,
       targets: plan.targets,
       languages: plan.languages,
+      ...(plan.extras.length ? { extras: plan.extras } : {}),
       files: stateFiles.sort((a, b) => a.path.localeCompare(b.path)),
       blocks: stateBlocks.sort((a, b) => a.path.localeCompare(b.path)),
       ...(stateSettings ? { settings: stateSettings } : {}),
@@ -953,6 +975,8 @@ export interface DoctorReport {
   hooks?: boolean;
   /** Harnesses with FORGE runtime hooks installed. */
   hookTargets?: HarnessTarget[];
+  /** Extra catalog items added with --with. */
+  extras?: string[];
   entries: DoctorEntry[];
   summary: Record<DoctorStatus, number>;
   recommendations: string[];
@@ -965,7 +989,7 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
   if (!state) {
     return { installed: false, healthy: false, currentVersion: options.forgeVersion, entries: [], summary, recommendations: ["Run `forge install` to add FORGE agents, skills, commands and rules to your harnesses."] };
   }
-  const plan = await buildInstallPlan({ projectPath: root, forgeVersion: options.forgeVersion, profile: state.profile, targets: state.targets, languages: state.languages, ...(options.catalog ? { catalog: options.catalog } : {}) });
+  const plan = await buildInstallPlan({ projectPath: root, forgeVersion: options.forgeVersion, profile: state.profile, targets: state.targets, languages: state.languages, ...(state.extras?.length ? { extras: state.extras } : {}), ...(options.catalog ? { catalog: options.catalog } : {}) });
   const expected = new Map(plan.files.map(file => [file.path, sha256(file.content)]));
   const expectedBlocks = new Map(plan.blocks.map(block => [block.path, sha256(block.content)]));
   const entries: DoctorEntry[] = [];
@@ -1026,6 +1050,7 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
     targets: state.targets,
     languages: state.languages,
     hooks: Boolean(state.settings) || Boolean(state.nativeHooks?.length),
+    ...(state.extras?.length ? { extras: state.extras } : {}),
     hookTargets: [...(state.settings ? ["claude" as HarnessTarget] : []), ...(state.nativeHooks ?? []).map(entry => entry.target as HarnessTarget)],
     entries: entries.sort((a, b) => a.path.localeCompare(b.path)),
     summary,
