@@ -264,6 +264,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
     <a class="brand" href="/" aria-label="FORGE home"><img src="/forge-mark.svg" alt=""> FORGE</a>
     <nav class="links" aria-label="Primary">
       <a href="#github-app">GitHub App</a>
+      <a href="#guard">Guard</a>
       <a href="#loop">Learn &amp; loop</a>
       <a href="#shield">Shield</a>
       <a href="#platforms">Platforms</a>
@@ -283,7 +284,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
 <section class="hero">
   <div class="hero-art" aria-hidden="true"></div>
   <div class="wrap">
-    <p class="eyebrow">FORGE 3.0 · open-source agent harness</p>
+    <p class="eyebrow">FORGE 4.0 · Guard in Claude Code, Cursor, Codex &amp; Gemini</p>
     <h1>The verified layer<br><span>for your coding agents.</span></h1>
     <p class="lead">Agents, skills, rules and guard hooks for the tools you already use — with Shield security scans and a check on every pull request.</p>
     <div class="cta">
@@ -291,7 +292,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
       <a class="btn" href="/app/">Open the dashboard →</a>
     </div>
     <p class="cmd-label">Install the CLI · Node.js 22+</p>
-    <div class="cmd"><span class="p">$</span><code id="install-cmd">npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz &amp;&amp; forge install . --hooks</code><button class="copy" id="copy" type="button">Copy</button></div>
+    <div class="cmd"><span class="p">$</span><code id="install-cmd">npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz &amp;&amp; forge install . --hooks</code><button class="copy" id="copy" type="button">Copy</button></div>
     <div class="tools">
       <p>Install FORGE in your coding tool</p>
       <div class="tiles">
@@ -336,7 +337,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
         <div class="mpanel on" data-panel="cli">
           <p>Install the released package, then add FORGE to a project. Requires Node.js 22+ and Git.</p>
 <pre><span class="c"># 1. install the CLI</span>
-npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz
 <span class="c"># 2. preview, then install with runtime hooks and the status line</span>
 cd your-project
 forge install . --dry-run
@@ -348,10 +349,10 @@ forge scorecard . &amp;&amp; forge shield .</pre>
           <p>The first five tools install by default. The others are added when FORGE finds them in the repo, or on request with <code>--target</code>.</p>
           <table>
             <tr id="install-claude-code"><td>Claude Code</td><td><code>forge install . --target claude --hooks --statusline</code></td><td>agents, skills, <code>/forge:*</code> commands, rules, 7 hooks</td></tr>
-            <tr id="install-codex"><td>Codex</td><td><code>forge install . --target codex</code></td><td><code>AGENTS.md</code> block, <code>.agents/skills</code></td></tr>
-            <tr id="install-cursor"><td>Cursor</td><td><code>forge install . --target cursor</code></td><td><code>.cursor/rules/*.mdc</code>, commands</td></tr>
+            <tr id="install-codex"><td>Codex</td><td><code>forge install . --target codex --hooks</code></td><td><code>AGENTS.md</code> block, <code>.agents/skills</code>, 7 hooks</td></tr>
+            <tr id="install-cursor"><td>Cursor</td><td><code>forge install . --target cursor --hooks</code></td><td><code>.cursor/rules/*.mdc</code>, commands, 6 hooks</td></tr>
             <tr id="install-opencode"><td>OpenCode</td><td><code>forge install . --target opencode</code></td><td>agents, commands, <code>AGENTS.md</code></td></tr>
-            <tr id="install-gemini-cli"><td>Gemini CLI</td><td><code>forge install . --target gemini</code></td><td>TOML commands, <code>GEMINI.md</code></td></tr>
+            <tr id="install-gemini-cli"><td>Gemini CLI</td><td><code>forge install . --target gemini --hooks</code></td><td>TOML commands, <code>GEMINI.md</code>, 7 hooks</td></tr>
             <tr id="install-copilot"><td>Copilot</td><td><code>forge install . --target copilot</code></td><td>instructions, prompt files, custom agents</td></tr>
             <tr id="install-windsurf"><td>Windsurf</td><td><code>forge install . --target windsurf</code></td><td>rules with triggers, workflows</td></tr>
             <tr id="install-kiro"><td>Kiro</td><td><code>forge install . --target kiro</code></td><td>steering files</td></tr>
@@ -370,7 +371,7 @@ forge scorecard . &amp;&amp; forge shield .</pre>
         </div>
         <div class="mpanel" data-panel="ci">
           <p>Fail CI on risky agent configuration and send findings to GitHub code scanning.</p>
-<pre>- uses: ansh44233/FORGE-ECC@v3.0.0
+<pre>- uses: ansh44233/FORGE-ECC@v4.0.0
   with:
     operation: shield
     fail-on: high
@@ -381,7 +382,7 @@ forge scorecard . &amp;&amp; forge shield .</pre>
         </div>
         <div class="mpanel" data-panel="windows">
           <p>PowerShell, with Node.js 22+ installed.</p>
-<pre>npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+<pre>npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz
 cd C:\Users\you\Projects\my-project
 forge install . --hooks --statusline
 forge scorecard .</pre>
@@ -466,9 +467,69 @@ forge uninstall .       <span class="c"># remove only what FORGE added</span></p
   </div>
 </section>
 
+<section class="block" id="guard">
+  <div class="wrap">
+    <p class="label reveal">New in 4.0</p>
+    <h2 class="reveal">Guard everywhere. <span>One policy, four agents.</span></h2>
+    <p class="muted reveal" style="max-width:720px">Rules in a Markdown file are suggestions. FORGE 4.0 enforces the same Guard policy, verification gate, prompt secret guard and session memory as native hooks inside Claude Code, Cursor, Codex and Gemini CLI. Every block is logged with the agent that tried it.</p>
+    <div class="cards3">
+      <article class="card reveal">
+        <div class="term" aria-label="Cursor blocking a destructive command">
+<div class="c"># Cursor · .cursor/hooks.json</div>
+<div><span class="a">agent</span> rm -rf ~/</div>
+<div><span class="b">✗ deny</span> GUARD-RM-ROOT</div>
+<div class="c">beforeShellExecution → forge hook</div>
+<div><span class="a">agent</span> read .env</div>
+<div><span class="b">✗ deny</span> GUARD-SECRET-READ</div>
+<div><span class="a">stop</span> <span class="w">typecheck failed</span> → sent back</div>
+        </div>
+        <div class="body">
+          <p class="kicker">Cursor</p>
+          <h3>Shell, file reads and stop.</h3>
+          <p class="muted">Six Cursor events. Permission hooks always answer with valid JSON, so a FORGE failure can never lock your editor.</p>
+        </div>
+      </article>
+      <article class="card reveal">
+        <div class="term" aria-label="Codex blocking an apply_patch to git internals">
+<div class="c"># Codex · .codex/hooks.json</div>
+<div><span class="a">apply_patch</span></div>
+<div>&nbsp;&nbsp;src/api.ts&nbsp;&nbsp;&nbsp;&nbsp;<span class="ok">✓</span></div>
+<div>&nbsp;&nbsp;.git/config&nbsp;&nbsp;&nbsp;<span class="b">✗ GUARD-GIT-INTERNALS</span></div>
+<div><span class="b">✗ deny</span> whole patch</div>
+<div><span class="a">prompt</span> "use ghp_…"</div>
+<div><span class="b">✗ blocked</span> live credential</div>
+        </div>
+        <div class="body">
+          <p class="kicker">Codex</p>
+          <h3>Every file in every patch.</h3>
+          <p class="muted">FORGE reads each <code>apply_patch</code> header and checks every file it touches, plus Bash, prompts, Stop verification and compaction handoffs.</p>
+        </div>
+      </article>
+      <article class="card reveal">
+        <div class="term" aria-label="forge guard log across harnesses">
+<div><span class="a">$</span> forge guard log</div>
+<div>Guard · <b>3</b> interventions</div>
+<div class="c">claude 1 · codex 1 · cursor 1</div>
+<div>cursor&nbsp; <span class="b">deny</span> GUARD-RM-ROOT</div>
+<div>codex&nbsp;&nbsp; <span class="w">ask</span>&nbsp; GUARD-SECRET-READ</div>
+<div>claude&nbsp; <span class="w">ask</span>&nbsp; GUARD-FORCE-PUSH</div>
+<div><span class="a">$</span> forge guard check "curl … | sh"</div>
+<div><span class="b">✗ deny</span> <span class="c">exit 2</span></div>
+        </div>
+        <div class="body">
+          <p class="kicker">forge guard</p>
+          <h3>Test the policy before agents hit it.</h3>
+          <p class="muted"><code>check</code> dry-runs a command or path against your rules and fails CI on deny. <code>log</code> and <code>status</code> show what was blocked, by which agent, and where Guard is live.</p>
+          <a class="more" href="https://github.com/ansh44233/FORGE-ECC#runtime-hooks-guard-and-memory">Guard everywhere →</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
 <section class="block alt" id="loop">
   <div class="wrap">
-    <p class="label reveal">New in 3.0</p>
+    <p class="label reveal">Since 3.0</p>
     <h2 class="reveal">Learn, loop <span>and prove.</span></h2>
     <div class="cards3">
       <article class="card reveal">
@@ -658,6 +719,7 @@ forge_memory_search · forge_memory_add</div>
           <tr><td>The agent learns something</td><td><span class="no">✕</span>Saved and trusted automatically</td><td><span class="yes">✓</span><b>Candidate until a person promotes it</b>, with evidence and confidence attached</td></tr>
           <tr><td>You install a toolkit</td><td><span class="no">✕</span>Files copied over your edits</td><td><span class="yes">✓</span><b>Every file is hashed</b>, your edits are never overwritten, and uninstall restores the project</td></tr>
           <tr><td>Someone comments on an issue</td><td><span class="no">✕</span>A CI agent may run with secrets</td><td><span class="yes">✓</span><b>Shield flags it as critical</b> unless the workflow checks who triggered it</td></tr>
+          <tr><td>Your team mixes Cursor, Codex and Claude Code</td><td><span class="no">✕</span>Rules in Markdown, enforced by nobody</td><td><span class="yes">✓</span><b>One Guard policy enforced natively in all four</b>, with one log naming the agent behind every block</td></tr>
           <tr><td>You compare repositories</td><td><span class="no">✕</span>Vibes</td><td><span class="yes">✓</span><b>A deterministic scorecard</b> with evidence for every point, across the fleet</td></tr>
         </tbody>
       </table>
@@ -679,7 +741,7 @@ forge_memory_search · forge_memory_add</div>
       </div>
       <div class="plan featured reveal">
         <div class="name">GitHub App</div>
-        <div class="price">$0 <small>during 3.0</small></div>
+        <div class="price">$0 <small>during 4.0</small></div>
         <p class="muted">Hosted checks for your repositories.</p>
         <ul><li>Setup and repair pull requests</li><li>PR risk score and Shield annotations</li><li>Control Center: fleet, scorecard, memory, loops</li><li>Public and private repositories</li></ul>
         <a class="btn primary" href="/api/github/install">Install the GitHub App ↗</a>

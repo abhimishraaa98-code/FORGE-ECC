@@ -47,6 +47,7 @@ import { analyzeDependencies, formatDependencyIntelligence } from "./core/depend
 import { generateRemediationPlan, formatRemediationPlan } from "./core/remediation-planner.js";
 import { addProjectMemory, buildProjectMemoryContext, globalMemoryRoot, latestHandoff, listProjectMemory, PROJECT_MEMORY_KINDS, removeProjectMemory, searchMemory, type ProjectMemoryKind } from "./core/project-memory.js";
 import { HOOK_EVENTS, runHarnessHook, type HookEventName } from "./core/harness-hooks.js";
+import { NATIVE_HOOK_HARNESSES, runNativeHook, type NativeHookHarness } from "./core/hook-adapters.js";
 import { analyzeRepository, collectLocalRepository, formatRepoProfile, renderProjectSkill } from "./github/repo-analysis.js";
 import { mkdir as mkdirAsync } from "node:fs/promises";
 import { formatSkillContext, loadSkillRegistry, selectSkills } from "./core/skill-registry.js";
@@ -56,6 +57,7 @@ import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallR
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
 import { buildCostReport, formatCostReport } from "./core/session-cost.js";
+import { buildGuardReport, checkGuard, formatGuardCheck, formatGuardReport, readGuardEvents } from "./core/guard-report.js";
 import { renderStatusLine } from "./core/statusline.js";
 import { formatLoop, LOOP_AGENTS, listLoops, readLoop, runVerifiedLoop, type LoopAgent } from "./core/verified-loop.js";
 import { buildScorecard, formatScorecard, formatScorecardMarkdown } from "./core/harness-scorecard.js";
@@ -133,7 +135,7 @@ function readAgentDurationBudgets(): Record<string, number> | undefined {
   return budgets;
 }
 
-const VERSION = "3.0.0";
+const VERSION = "4.0.0";
 
 const HELP = `
 FORGE — The AI Engineering Workbench
@@ -145,9 +147,13 @@ Commands:
   init [path]      Create a safe, local-first .forge starter workspace
   install [path]   Install FORGE agents, skills, commands and rules (Claude Code, Cursor, Codex, OpenCode, Gemini; Copilot, Windsurf, Kiro, Cline, Zed opt-in)
                    [--target claude,cursor,codex,opencode,gemini|all] [--profile minimal|standard|full] [--lang ts,python] [--hooks] [--dry-run] [--force]
+                   --hooks wires Guard into Claude Code, Cursor, Codex and Gemini CLI
   analyze [path]   Learn the repo (stack, scripts, tests, commit style) and generate a project skill [--write] [--json]
   hook EVENT       Claude Code runtime hook (pre-tool, post-edit, stop, session-start, prompt-submit, pre-compact,
                    session-end); reads hook JSON on stdin
+  hook --harness cursor|codex|gemini NATIVE_EVENT
+                   The same hooks in Cursor, Codex and Gemini CLI's own formats (installed by install --hooks)
+  guard ACTION     FORGE Guard: check "CMD" | check --file PATH [--write] | log [--days N] | status [--json]
   statusline       Claude Code status line: model, branch, unverified edits, last verification, guard blocks, cost
   cost [path]      Token usage and estimated spend per session, model and day [--json] [--days N]
   uninstall [path] Remove unmodified FORGE harness files and managed blocks [--dry-run] [--force]
@@ -552,6 +558,68 @@ async function main(args: string[]): Promise<void> {
       process.stdout.write(await renderStatusLine(Buffer.concat(chunks).toString("utf8"), process.cwd()) + "\n");
       return;
     }
+    case "guard": {
+      const sub = rest[0] ?? "log";
+      const usage = "Usage: forge guard check \"<command>\" [--path DIR] [--json]\n       forge guard check --file PATH [--write] [--path DIR] [--json]\n       forge guard log [path] [--days N] [--limit N] [--json]\n       forge guard status [path] [--json]\n";
+      try {
+        if (sub === "--help" || sub === "help") { process.stdout.write(usage); return; }
+        if (sub === "check") {
+          const args = rest.slice(1);
+          let projectPath = ".";
+          let file: string | undefined;
+          let write = false;
+          let json = false;
+          const words: string[] = [];
+          for (let i = 0; i < args.length; i += 1) {
+            const arg = args[i] ?? "";
+            if (arg === "--path") { projectPath = args[++i] ?? "."; }
+            else if (arg === "--file") { file = args[++i]; if (!file) throw new Error("--file requires a path"); }
+            else if (arg === "--write") write = true;
+            else if (arg === "--json") json = true;
+            else if (arg === "--") { words.push(...args.slice(i + 1)); break; }
+            else words.push(arg);
+          }
+          if (!file && !words.length) throw new Error("Give a command to check, or --file PATH");
+          const result = await checkGuard(path.resolve(projectPath), file ? { file, write } : { command: words.join(" ") });
+          process.stdout.write((json ? JSON.stringify(result, null, 2) : formatGuardCheck(result)) + "\n");
+          process.exitCode = result.verdict.decision === "deny" ? 2 : 0;
+          return;
+        }
+        if (sub === "log" || sub === "status") {
+          const options = parseHarnessArgs(rest.slice(1), ["--days", "--limit"], ["--json"]);
+          if (sub === "status") {
+            const doctor = await doctorHarness({ projectPath: options.path, forgeVersion: VERSION });
+            const targets = doctor.hookTargets ?? [];
+            const events = await readGuardEvents(options.path);
+            const status = { installed: doctor.installed, guarded: targets, unguarded: (doctor.targets ?? []).filter(target => !targets.includes(target)), interventions: events.length };
+            if (options.flags.has("--json")) process.stdout.write(JSON.stringify(status, null, 2) + "\n");
+            else process.stdout.write([
+              "FORGE Guard",
+              "  live in:   " + (targets.length ? targets.join(", ") : "none (run `forge install --hooks`)"),
+              ...(status.unguarded.length ? ["  no hooks:  " + status.unguarded.join(", ") + " (instructions only)"] : []),
+              "  blocked or asked so far: " + events.length,
+            ].join("\n") + "\n");
+            return;
+          }
+          let since: Date | undefined;
+          if (options.values.has("--days")) {
+            const days = Number(options.values.get("--days"));
+            if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error("--days must be a whole number of days");
+            since = new Date(Date.now() - days * 86_400_000);
+          }
+          const limit = options.values.has("--limit") ? Number(options.values.get("--limit")) : 10;
+          if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error("--limit must be between 1 and 500");
+          const report = buildGuardReport(await readGuardEvents(options.path), { ...(since ? { since } : {}), limit });
+          process.stdout.write((options.flags.has("--json") ? JSON.stringify(report, null, 2) : formatGuardReport(report)) + "\n");
+          return;
+        }
+        throw new Error("Unknown guard subcommand " + sub + "\n" + usage);
+      } catch (error) {
+        process.stderr.write("FORGE guard failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
     case "cost":
     case "cost-report": {
       try {
@@ -571,9 +639,17 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     case "hook": {
-      const event = rest[0] as HookEventName | undefined;
-      if (!event || !HOOK_EVENTS.includes(event)) {
-        process.stderr.write("Usage: forge hook " + HOOK_EVENTS.join("|") + "  (reads Claude Code hook JSON on stdin)\n");
+      const harnessAt = rest.indexOf("--harness");
+      const harness = harnessAt >= 0 ? rest[harnessAt + 1] : undefined;
+      const positional = harnessAt >= 0 ? rest.filter((_, i) => i !== harnessAt && i !== harnessAt + 1) : rest;
+      const event = positional[0];
+      if (harness !== undefined && !(NATIVE_HOOK_HARNESSES as readonly string[]).includes(harness)) {
+        process.stderr.write("Usage: forge hook --harness " + NATIVE_HOOK_HARNESSES.join("|") + " <native event>\n");
+        process.exitCode = 1;
+        return;
+      }
+      if (!harness && (!event || !HOOK_EVENTS.includes(event as HookEventName))) {
+        process.stderr.write("Usage: forge hook " + HOOK_EVENTS.join("|") + "  (reads Claude Code hook JSON on stdin)\n       forge hook --harness " + NATIVE_HOOK_HARNESSES.join("|") + " <native event>\n");
         process.exitCode = 1;
         return;
       }
@@ -587,7 +663,10 @@ async function main(args: string[]): Promise<void> {
           chunks.push(part);
         }
       }
-      const output = await runHarnessHook(event, Buffer.concat(chunks).toString("utf8"));
+      const raw = Buffer.concat(chunks).toString("utf8");
+      const output = harness
+        ? await runNativeHook(harness as NativeHookHarness, event ?? "", raw)
+        : await runHarnessHook(event as HookEventName, raw);
       if (output.json) process.stdout.write(JSON.stringify(output.json) + "\n");
       process.exitCode = output.exitCode;
       return;

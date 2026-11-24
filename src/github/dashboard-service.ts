@@ -35,7 +35,7 @@ export interface RepoOverview {
 export interface MemoryCard { id: string; kind: string; content: string; source?: string; evidence: string[]; tags: string[]; updatedAt: string }
 export interface InstinctCard { id: string; trigger: string; action: string; status: string; confidence: number; source: string; domain: string; occurrences: number }
 export interface LoopCard { id: string; status: string; goal: string; agent: string; checks: string[]; iterations: number; lastChecks: Array<{ command: string; passed: boolean }>; integrity: string[]; createdAt: string; finishedAt?: string; reason: string }
-export interface HarnessCard { target: string; name: string; detected: boolean; installed: boolean; capabilities: Record<string, CapabilitySupport> }
+export interface HarnessCard { target: string; name: string; detected: boolean; installed: boolean; guarded: boolean; capabilities: Record<string, CapabilitySupport> }
 
 type TreeEntry = { path: string; type: string; sha?: string; size?: number };
 
@@ -52,12 +52,13 @@ const HARNESS_MARKERS: Record<string, RegExp> = {
   zed: /^(?:\.zed\/|\.rules$)/,
 };
 
-export function harnessCoverage(paths: string[], installedTargets: string[]): HarnessCard[] {
+export function harnessCoverage(paths: string[], installedTargets: string[], hookTargets: string[] = []): HarnessCard[] {
   return HARNESS_CAPABILITIES.map(cap => ({
     target: cap.target,
     name: cap.displayName,
     detected: paths.some(p => HARNESS_MARKERS[cap.target]?.test(p) ?? false),
     installed: installedTargets.includes(cap.target),
+    guarded: hookTargets.includes(cap.target),
     capabilities: { ...cap.capabilities },
   }));
 }
@@ -118,7 +119,7 @@ export function doctorFromRemote(setup: RemoteDoctor, forgeVersion: string): Doc
     installed: setup.installed,
     healthy: setup.healthy,
     currentVersion: forgeVersion,
-    ...(setup.state ? { forgeVersion: setup.state.forgeVersion, profile: setup.state.profile, targets: setup.state.targets, ...(setup.state.languages ? { languages: setup.state.languages } : {}), hooks: Boolean(setup.state.hooks) } : {}),
+    ...(setup.state ? { forgeVersion: setup.state.forgeVersion, profile: setup.state.profile, targets: setup.state.targets, ...(setup.state.languages ? { languages: setup.state.languages } : {}), hooks: Boolean(setup.state.hooks), ...(setup.state.hookTargets ? { hookTargets: setup.state.hookTargets as NonNullable<DoctorReport["hookTargets"]> } : {}) } : {}),
     entries: [],
     summary: { ok: 0, missing: setup.missing.length, modified: 0, outdated: setup.outdated.length },
     recommendations: [],
@@ -184,7 +185,7 @@ export async function buildRepoOverview(context: AppContext, owner: string, repo
     memory: { committed: blobPaths.has(".forge/memory.json"), entries: parseMemoryCards(memoryRaw) },
     instincts: { committed: blobPaths.has(".forge/instincts.json"), items: parseInstinctCards(instinctsRaw) },
     loops: loopRaws.map(parseLoopCard).filter((l): l is LoopCard => Boolean(l)),
-    harnesses: harnessCoverage([...blobPaths], setup.state?.targets ?? []),
+    harnesses: harnessCoverage([...blobPaths], setup.state?.targets ?? [], setup.state?.hookTargets ?? []),
   };
 }
 

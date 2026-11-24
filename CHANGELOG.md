@@ -1,5 +1,37 @@
 # FORGE Changelog
 
+## 4.0.0 — Guard everywhere
+
+In FORGE 3.0, the runtime layer (Guard, the verification gate, the prompt secret guard, session memory and handoffs) ran only inside Claude Code. FORGE 4.0 runs the same policy natively in **Cursor, Codex and Gemini CLI**. One rule set and one log now cover four agents. Previously the other tools got instructions and no enforcement.
+
+Install:
+
+```bash
+npm install -g https://github.com/ansh44233/FORGE-ECC/releases/download/v4.0.0/forge-engineering-workbench-4.0.0.tgz
+forge install . --hooks
+```
+
+### Upgrading from 3.x
+- Nothing breaks. Rerun `forge install --hooks` to add native hooks for the Cursor, Codex and Gemini targets you already install. Claude Code hooks are unchanged.
+- `.forge/install-state.json` gains an optional `nativeHooks` list. Older FORGE versions ignore it, and `forge uninstall` removes only FORGE's entries.
+- **Codex** asks you to trust project hooks the first time. Run `/hooks` in Codex and approve the FORGE entries.
+- **Approval prompts:** Codex, Gemini and Cursor's `beforeReadFile` cannot pause for approval. Where Claude Code would ask, FORGE blocks the action there and tells the agent to get your explicit approval. Use allow patterns in `.forge/harness-hooks.json` for commands you trust.
+
+### Added
+- **Native hook adapters** (`forge hook --harness cursor|codex|gemini <event>`):
+  - **Cursor:** writes `.cursor/hooks.json` with `beforeShellExecution`, `beforeReadFile`, `afterFileEdit`, `beforeSubmitPrompt`, `stop` and `sessionStart`.
+  - **Codex:** writes `.codex/hooks.json`. Guard covers `Bash` and every file in an `apply_patch`, and adds the prompt guard, the Stop verification gate, session memory, and pre-compact and session-end handoffs.
+  - **Gemini CLI:** merges into `.gemini/settings.json` with `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `SessionStart`, `PreCompress` and `SessionEnd`.
+  - Every adapter translates the native payload, runs the same handler Claude Code uses, and answers in that tool's schema. Cursor permission hooks always get valid JSON, so a FORGE failure never locks the editor.
+- **`forge guard`:**
+  - `check "CMD"` or `check --file PATH [--write]` dry-runs Guard with the project's own rules. It exits with code 2 on deny, so you can test policy in CI.
+  - `log` shows interventions by harness and rule.
+  - `status` shows which harnesses have Guard running.
+- **Guard log per harness:** every block records which agent attempted it. Blocked prompts that contain credentials are logged as `GUARD-PROMPT-SECRET`, with the secret left out.
+- **Shield now scans native hook configs.** Commands in `.cursor/hooks.json`, `.codex/hooks.json` and `.gemini/settings.json` get the same checks as Claude Code hooks: remote code execution, network calls, credential reads, catch-all matchers and unpinned packages. The GitHub App reviews pull requests that touch these files.
+- **Control Center:** the Harnesses tab shows a "guarded" badge per tool. It also offers the install command when a tool that supports hooks is installed without them. The repository header shows how many harnesses are guarded.
+- The capability manifest lists hooks as **native** for Claude Code, Cursor, Codex and Gemini CLI.
+
 ## 3.0.0 — Learn, loop and prove
 
 FORGE 3.0 adds learning, unattended agent loops and a readiness score, and checks every result itself. The agent's word that it is done is never enough:

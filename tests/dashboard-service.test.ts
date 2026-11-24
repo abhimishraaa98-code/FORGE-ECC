@@ -25,10 +25,12 @@ describe("dashboard data", () => {
   });
 
   it("reports which harnesses a repo uses and which FORGE covers", () => {
-    const cards = harnessCoverage(["CLAUDE.md", ".windsurf/rules/a.md", ".github/copilot-instructions.md", "src/a.ts"], ["claude"]);
+    const cards = harnessCoverage(["CLAUDE.md", ".windsurf/rules/a.md", ".github/copilot-instructions.md", "src/a.ts"], ["claude", "cursor"], ["claude", "cursor"]);
     const by = Object.fromEntries(cards.map(c => [c.target, c]));
     expect(cards).toHaveLength(10);
-    expect(by.claude).toMatchObject({ detected: true, installed: true });
+    expect(by.claude).toMatchObject({ detected: true, installed: true, guarded: true });
+    expect(by.cursor).toMatchObject({ installed: true, guarded: true });
+    expect(by.windsurf?.guarded).toBe(false);
     expect(by.windsurf).toMatchObject({ detected: true, installed: false });
     expect(by.copilot?.detected).toBe(true);
     expect(by.kiro?.detected).toBe(false);

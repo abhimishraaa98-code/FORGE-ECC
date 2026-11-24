@@ -156,6 +156,8 @@ details.catd summary::-webkit-details-marker{display:none}
 .hcard.on{border-color:rgba(159,213,164,.35)}
 .hcard .t{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:10px}
 .hcard .t span{margin-left:auto}
+.hcard .t span.guard{margin-left:auto;color:#ffcf8a;border-color:rgba(255,207,138,.35);background:rgba(255,207,138,.08)}
+.hcard .t span.guard + span{margin-left:0}
 .caps{display:grid;grid-template-columns:auto auto;gap:4px 12px;font-size:12px}
 .loopc{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--panel);margin-bottom:12px}
 .loopc .g{font-weight:650;margin:6px 0}
@@ -382,7 +384,7 @@ function kpiNumber(title, value, sub, ringValue) {
 }
 function kpiSetup(setup) {
   const sub = !setup.installed ? "Open a setup PR to add FORGE"
-    : setup.healthy ? "Profile " + setup.state.profile + " · " + setup.state.targets.length + " harnesses" + (setup.state.hooks ? " · guards on" : "")
+    : setup.healthy ? "Profile " + setup.state.profile + " · " + setup.state.targets.length + " harnesses" + (setup.state.hooks ? " · Guard on " + ((setup.state.hookTargets || []).length || 1) + " harness" + (((setup.state.hookTargets || []).length || 1) === 1 ? "" : "es") : "")
     : setup.missing.length + " missing · " + setup.outdated.length + " changed · " + setup.added.length + " new";
   return h("div", { class: "card" }, h("h3", {}, "FORGE setup"), h("div", { class: "kpi" }, h("div", {}, h("div", { style: "font-size:18px" }, setupLabel(setup)), h("div", { class: "sub" }, sub))));
 }
@@ -572,11 +574,14 @@ function loopsTab(data) {
 function harnessesTab(data) {
   const installed = data.harnesses.filter(x => x.installed).length;
   const uncovered = data.harnesses.filter(x => x.detected && !x.installed);
+  const guarded = data.harnesses.filter(x => x.guarded).length;
+  const guardable = data.harnesses.filter(x => x.installed && !x.guarded && x.capabilities.hooks === "native");
   return [
-    h("p", { class: "section-intro" }, installed + " of " + data.harnesses.length + " harnesses installed. Capability labels are FORGE's tested integration level, not everything the tool supports."),
+    h("p", { class: "section-intro" }, installed + " of " + data.harnesses.length + " harnesses installed · FORGE Guard live in " + guarded + ". Capability labels are FORGE's tested integration level, not everything the tool supports."),
+    guardable.length ? h("div", { class: "banner" }, "FORGE Guard can run inside " + guardable.map(x => x.name).join(", ") + " too: dangerous commands, secret reads and unverified stops get blocked natively.", copyCmd("forge install --hooks")) : null,
     uncovered.length ? h("div", { class: "banner" }, "This repo uses " + uncovered.map(x => x.name).join(", ") + " but FORGE isn't installed for " + (uncovered.length === 1 ? "it" : "them") + ".", copyCmd("forge install --target " + [...new Set([...(data.setup.state ? data.setup.state.targets : []), ...uncovered.map(x => x.target)])].join(","))) : null,
     h("div", { class: "hgrid" }, data.harnesses.map(x => h("div", { class: "hcard" + (x.installed ? " on" : "") },
-      h("div", { class: "t" }, x.name, h("span", { class: "chip " + (x.installed ? "st-active" : x.detected ? "st-candidate" : "st-stalled") }, x.installed ? "installed" : x.detected ? "detected" : "not used")),
+      h("div", { class: "t" }, x.name, x.guarded ? h("span", { class: "chip guard", title: "FORGE Guard hooks are installed for this harness" }, "guarded") : null, h("span", { class: "chip " + (x.installed ? "st-active" : x.detected ? "st-candidate" : "st-stalled") }, x.installed ? "installed" : x.detected ? "detected" : "not used")),
       h("div", { class: "caps" }, Object.entries(x.capabilities).map(([k, v]) => [h("span", { class: "muted" }, k), h("span", { class: "st-" + v }, v)]))))),
   ];
 }

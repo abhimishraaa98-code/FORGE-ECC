@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { addClaudeHooks, claudeHookEntries, readSettingsFile, removeClaudeHooks, statusLineCommand } from "./harness-hooks.js";
+import { NATIVE_HOOK_FILES, NATIVE_HOOK_HARNESSES, addNativeHooks, nativeHookCommandsPresent, nativeHookEntries, removeNativeHooks, type NativeHookHarness } from "./hook-adapters.js";
 import { HARNESS_CAPABILITIES } from "./harness-capabilities.js";
 import {
   detectProjectLanguages,
@@ -88,6 +89,8 @@ export interface InstallStateFile { path: string; sha256: string; targets: Harne
 export interface InstallStateBlock { path: string; sha256: string; targets: HarnessTarget[]; createdFile: boolean }
 
 export interface InstallStateSettings { path: string; commands: string[]; addedDeny: string[]; createdFile: boolean }
+/** FORGE hook commands merged into another harness's native hook config (Cursor, Codex, Gemini). */
+export interface InstallStateNativeHooks { target: NativeHookHarness; path: string; commands: string[]; createdFile: boolean }
 
 export interface InstallState {
   schemaVersion: number;
@@ -100,6 +103,8 @@ export interface InstallState {
   blocks: InstallStateBlock[];
   /** Claude Code hook commands merged into .claude/settings.json by `--hooks`. */
   settings?: InstallStateSettings;
+  /** Native hook configs for Cursor, Codex and Gemini CLI written by `--hooks`. */
+  nativeHooks?: InstallStateNativeHooks[];
 }
 
 export type FileAction = "create" | "update" | "unchanged" | "conflict" | "remove" | "keep-modified" | "overwrite";
@@ -647,6 +652,15 @@ export async function loadInstallState(projectPath: string): Promise<InstallStat
     }
     assertRelativeSafe(settings.path);
   }
+  if (state.nativeHooks !== undefined) {
+    if (!Array.isArray(state.nativeHooks) || !state.nativeHooks.every(entry => entry && typeof entry === "object" &&
+        (NATIVE_HOOK_HARNESSES as readonly string[]).includes((entry as InstallStateNativeHooks).target) &&
+        (entry as InstallStateNativeHooks).path === NATIVE_HOOK_FILES[(entry as InstallStateNativeHooks).target] &&
+        Array.isArray((entry as InstallStateNativeHooks).commands) && (entry as InstallStateNativeHooks).commands.every(command => typeof command === "string") &&
+        typeof (entry as InstallStateNativeHooks).createdFile === "boolean")) {
+      throw new Error(INSTALL_STATE_PATH + " has an invalid nativeHooks entry. The file was left untouched.");
+    }
+  }
   // v1 and v2 share the payload shape; normalize v1 in memory. A successful install persists v2.
   return version === LEGACY_STATE_SCHEMA_VERSION ? { ...state, schemaVersion: STATE_SCHEMA_VERSION } : state;
 }
@@ -771,6 +785,38 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
     }
   }
 
+  const stateNativeHooks: InstallStateNativeHooks[] = [];
+  for (const target of NATIVE_HOOK_HARNESSES) {
+    const previousEntry = previous?.nativeHooks?.find(entry => entry.target === target);
+    const want = Boolean(options.hooks) && plan.targets.includes(target);
+    if (!want && !previousEntry) continue;
+    const file = NATIVE_HOOK_FILES[target];
+    const absolute = await resolveInside(root, file);
+    let current: Awaited<ReturnType<typeof readSettingsFile>> | undefined;
+    try {
+      current = await readSettingsFile(absolute);
+    } catch (error) {
+      changes.push({ path: file, action: "conflict", detail: `cannot merge ${target} hooks: ${error instanceof Error ? error.message : String(error)}` });
+      if (previousEntry) stateNativeHooks.push(previousEntry);
+      continue;
+    }
+    const previousCommands = previousEntry?.commands ?? [];
+    if (want) {
+      const entries = nativeHookEntries(target, options.hookCommand);
+      const next = addNativeHooks(target, current.settings, entries, previousCommands);
+      stateNativeHooks.push({ target, path: file, commands: entries.map(entry => entry.command), createdFile: previousEntry?.createdFile ?? !current.existed });
+      if (JSON.stringify(next) === JSON.stringify(current.settings)) changes.push({ path: file, action: "unchanged", detail: `FORGE ${target} hooks` });
+      else {
+        changes.push({ path: file, action: current.existed ? "update" : "create", detail: `FORGE ${target} hooks merged` });
+        writes.push({ path: absolute, content: `${JSON.stringify(next, null, 2)}\n` });
+      }
+    } else if (previousEntry && current.existed) {
+      const next = removeNativeHooks(target, current.settings, previousCommands);
+      changes.push({ path: file, action: "remove", detail: `FORGE ${target} hooks no longer selected` });
+      writes.push({ path: absolute, content: !Object.keys(next).length && previousEntry.createdFile ? null : `${JSON.stringify(next, null, 2)}\n` });
+    }
+  }
+
   const conflicts = changes.filter(change => change.action === "conflict").length;
   if (!dryRun) {
 
@@ -784,6 +830,7 @@ export async function installHarness(options: InstallOptions): Promise<InstallRe
       files: stateFiles.sort((a, b) => a.path.localeCompare(b.path)),
       blocks: stateBlocks.sort((a, b) => a.path.localeCompare(b.path)),
       ...(stateSettings ? { settings: stateSettings } : {}),
+      ...(stateNativeHooks.length ? { nativeHooks: stateNativeHooks } : {}),
     };
     writes.push({ path: await resolveInside(root, INSTALL_STATE_PATH), content: `${JSON.stringify(state, null, 2)}\n` });
     await applyDurableFileTransaction(root, writes);
@@ -853,15 +900,35 @@ export async function uninstallHarness(options: { projectPath: string; dryRun?: 
     }
   }
 
+  const remainingNativeHooks: InstallStateNativeHooks[] = [];
+  for (const entry of state.nativeHooks ?? []) {
+    const absolute = await resolveInside(root, entry.path);
+    try {
+      const current = await readSettingsFile(absolute);
+      if (current.existed) {
+        const next = removeNativeHooks(entry.target, current.settings, entry.commands);
+        changes.push({ path: entry.path, action: "remove", detail: `FORGE ${entry.target} hooks` });
+        const drop = !Object.keys(next).length && entry.createdFile;
+        operations.push({ path: absolute, content: drop ? null : `${JSON.stringify(next, null, 2)}\n` });
+        if (drop) pruneAfterCommit.push(absolute);
+      }
+    } catch (error) {
+      changes.push({ path: entry.path, action: "keep-modified", detail: `could not remove FORGE ${entry.target} hooks: ${error instanceof Error ? error.message : String(error)}` });
+      remainingNativeHooks.push(entry);
+    }
+  }
+
   if (!options.dryRun) {
+    const { nativeHooks: _installedNativeHooks, ...stateWithoutNative } = state;
     const remainingState: InstallState = {
-      ...state,
+      ...stateWithoutNative,
       files: remainingFiles,
       blocks: remainingBlocks,
       ...(remainingSettings ? { settings: remainingSettings } : {}),
+      ...(remainingNativeHooks.length ? { nativeHooks: remainingNativeHooks } : {}),
     };
     const statePath = await resolveInside(root, INSTALL_STATE_PATH);
-    if (remainingFiles.length || remainingBlocks.length || remainingSettings) {
+    if (remainingFiles.length || remainingBlocks.length || remainingSettings || remainingNativeHooks.length) {
       operations.push({ path: statePath, content: `${JSON.stringify(remainingState, null, 2)}\n` });
     } else {
       operations.push({ path: statePath, content: null });
@@ -884,6 +951,8 @@ export interface DoctorReport {
   targets?: HarnessTarget[];
   languages?: string[];
   hooks?: boolean;
+  /** Harnesses with FORGE runtime hooks installed. */
+  hookTargets?: HarnessTarget[];
   entries: DoctorEntry[];
   summary: Record<DoctorStatus, number>;
   recommendations: string[];
@@ -934,6 +1003,15 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
       entries.push({ path: state.settings.path, status: "modified", detail: error instanceof Error ? error.message : String(error) });
     }
   }
+  for (const entry of state.nativeHooks ?? []) {
+    try {
+      const current = await readSettingsFile(await resolveInside(root, entry.path));
+      const missing = nativeHookCommandsPresent(current.settings, entry.commands);
+      entries.push(missing.length ? { path: entry.path, status: "missing", detail: `FORGE ${entry.target} hooks missing: ${missing.join(", ")}` } : { path: entry.path, status: "ok", detail: `FORGE ${entry.target} hooks` });
+    } catch (error) {
+      entries.push({ path: entry.path, status: "modified", detail: error instanceof Error ? error.message : String(error) });
+    }
+  }
   for (const entry of entries) summary[entry.status] += 1;
   const recommendations: string[] = [];
   if (summary.missing || summary.outdated) recommendations.push("Run `forge install` (or `forge repair`) to restore missing files and apply catalog updates.");
@@ -947,7 +1025,8 @@ export async function doctorHarness(options: { projectPath: string; forgeVersion
     profile: state.profile,
     targets: state.targets,
     languages: state.languages,
-    hooks: Boolean(state.settings),
+    hooks: Boolean(state.settings) || Boolean(state.nativeHooks?.length),
+    hookTargets: [...(state.settings ? ["claude" as HarnessTarget] : []), ...(state.nativeHooks ?? []).map(entry => entry.target as HarnessTarget)],
     entries: entries.sort((a, b) => a.path.localeCompare(b.path)),
     summary,
     recommendations,
