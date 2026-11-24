@@ -198,7 +198,7 @@ const COLORS = ["#e8b3a2","#a9c5d2","#c7d5b2","#d8b4e2","#f0c77a","#8fb8a8","#c9
 const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
 const TABS = [
   ["overview", "Overview"], ["scorecard", "Scorecard"], ["shield", "Shield"], ["pulls", "Pull requests"],
-  ["memory", "Memory"], ["instincts", "Instincts"], ["loops", "Loops"], ["harnesses", "Harnesses"], ["activity", "Activity"],
+  ["memory", "Memory"], ["instincts", "Instincts"], ["loops", "Loops"], ["context", "Context"], ["harnesses", "Harnesses"], ["activity", "Activity"],
 ];
 
 function h(tag, attrs, ...children) {
@@ -571,6 +571,41 @@ function loopsTab(data) {
   ];
 }
 
+const GRADE_COLOR = { A: "var(--ok)", B: "#c7d5b2", C: "#f0c77a", D: "#e8a27a", F: "#e8867a" };
+const fmtTok = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n);
+
+function contextTab(data) {
+  const cx = data.context;
+  if (!cx) return [h("div", { class: "card" }, h("p", { class: "muted" }, "The context budget could not be computed for this repository."))];
+  const max = Math.max(1, ...cx.harnesses.map(x => x.tokens));
+  const saving = cx.findings.reduce((sum, f) => sum + (f.savings || 0), 0);
+  return [
+    h("p", { class: "section-intro" }, "What each agent loads before your first prompt: instruction files, always-on rules, skill, agent and command indexes, and MCP servers. Token counts are estimates (about 4 characters per token)." + (cx.partial ? " Large repo: the first 120 files were measured." : "")),
+    h("div", { class: "grid2" },
+      h("div", { class: "card" },
+        h("h3", {}, "Per harness · grade ", h("span", { style: "color:" + (GRADE_COLOR[cx.grade] || "inherit") }, cx.grade), " · heaviest ≈ " + fmtTok(cx.worst) + " tokens"),
+        cx.harnesses.length ? cx.harnesses.map(x => h("details", { class: "catd" },
+          h("summary", {}, h("div", { class: "cat" }, h("b", {}, x.harness), h("div", { class: "bar" }, h("i", { style: "width:" + Math.max(2, x.tokens / max * 100) + "%;background:" + (x.tokens > 8000 ? "#f0c77a" : "var(--ok)") })), h("span", { class: "s" }, fmtTok(x.tokens)))),
+          h("ul", { class: "plain ev" },
+            x.top.map(t => h("li", {}, h("code", {}, t.file), " ≈ " + fmtTok(t.tokens))),
+            h("li", { class: "muted" }, x.items + " item(s)" + (x.mcpServers ? " · " + x.mcpServers + " MCP server(s)" : ""))))) : h("p", { class: "muted" }, "No agent instructions, rules, skills or MCP servers are committed.")),
+      h("div", { class: "stack" },
+        h("div", { class: "card" }, h("h3", {}, "Findings" + (saving ? " · up to ≈" + fmtTok(saving) + " tokens per session to save" : "")),
+          cx.findings.length ? h("ul", { class: "plain ev" }, cx.findings.map(f => h("li", { class: f.severity === "high" ? "todo" : "" }, h("span", { class: "chip sev-" + f.severity }, f.severity), " ", mdText(f.message), h("div", { class: "muted", style: "font-size:12.5px;margin-top:3px" }, "→ " + f.fix)))) : h("p", { class: "muted" }, "No context waste found.")),
+        h("div", { class: "card" }, h("h3", {}, "Run it locally"), h("p", { class: "muted", style: "margin:0;font-size:13px" }, "Local runs also see uncommitted files and @imports."), copyCmd("forge context --verbose"), copyCmd("forge context --max 8000   # CI gate")))),
+  ];
+}
+
+function mcpMatrixCard(rows) {
+  if (!rows || !rows.length) return h("div", { class: "card" }, h("h3", {}, "MCP servers"), h("p", { class: "muted" }, "No MCP servers are committed."), copyCmd("forge mcp add context7 playwright"));
+  const cols = ["claude", "cursor", "codex", "gemini", "copilot", "opencode", "kiro"].filter(t => rows.some(r => r.targets[t]));
+  const gaps = rows.filter(r => cols.some(t => !r.targets[t])).length;
+  return h("div", { class: "card" }, h("h3", {}, "MCP servers · " + rows.length),
+    h("table", { class: "findings" }, h("thead", {}, h("tr", {}, h("th", {}, "Server"), cols.map(c => h("th", {}, c)))),
+      h("tbody", {}, rows.map(r => h("tr", {}, h("td", {}, h("code", {}, r.name)), cols.map(c => h("td", { style: "color:" + (r.targets[c] ? "var(--ok)" : "var(--faint)") }, r.targets[c] ? "✓" : "·")))))),
+    gaps ? h("div", { class: "banner", style: "margin-top:12px" }, gaps + " server(s) are missing from some harnesses.", copyCmd("forge mcp sync")) : null);
+}
+
 function harnessesTab(data) {
   const installed = data.harnesses.filter(x => x.installed).length;
   const uncovered = data.harnesses.filter(x => x.detected && !x.installed);
@@ -583,6 +618,7 @@ function harnessesTab(data) {
     h("div", { class: "hgrid" }, data.harnesses.map(x => h("div", { class: "hcard" + (x.installed ? " on" : "") },
       h("div", { class: "t" }, x.name, x.guarded ? h("span", { class: "chip guard", title: "FORGE Guard hooks are installed for this harness" }, "guarded") : null, h("span", { class: "chip " + (x.installed ? "st-active" : x.detected ? "st-candidate" : "st-stalled") }, x.installed ? "installed" : x.detected ? "detected" : "not used")),
       h("div", { class: "caps" }, Object.entries(x.capabilities).map(([k, v]) => [h("span", { class: "muted" }, k), h("span", { class: "st-" + v }, v)]))))),
+    h("div", { style: "margin-top:18px" }, mcpMatrixCard(data.mcp)),
   ];
 }
 
@@ -646,6 +682,7 @@ function counts(data) {
     memory: [data.memory.entries.length, false],
     instincts: [data.instincts.items.filter(i => i.status === "candidate").length, false],
     loops: [data.loops.length, data.loops.some(l => l.status === "needs-review")],
+    context: [data.context ? data.context.findings.length : 0, Boolean(data.context && data.context.findings.some(f => f.severity === "high"))],
     harnesses: [data.harnesses.filter(x => x.installed).length, data.harnesses.some(x => x.detected && !x.installed)],
   };
 }
@@ -658,7 +695,7 @@ function renderRepo(data) {
   const c = counts(data);
   const tabs = h("nav", { class: "tabs", "aria-label": "Repository sections" }, TABS.map(([id, label]) => h("a", { href: "#/" + name + "/" + id, class: current.tab === id ? "on" : "", "aria-current": current.tab === id ? "page" : null },
     label, c[id] && c[id][0] ? h("span", { class: "count" + (c[id][1] ? " alert" : "") }, c[id][0]) : null)));
-  const views = { overview: overviewTab, scorecard: scorecardTab, shield: shieldTab, pulls: d => [h("div", { class: "card" }, h("h3", {}, "Change risk · open pull requests"), pullsList(d.pulls))], memory: memoryTab, instincts: instinctsTab, loops: loopsTab, harnesses: harnessesTab, activity: activityTab };
+  const views = { overview: overviewTab, scorecard: scorecardTab, shield: shieldTab, pulls: d => [h("div", { class: "card" }, h("h3", {}, "Change risk · open pull requests"), pullsList(d.pulls))], memory: memoryTab, instincts: instinctsTab, loops: loopsTab, context: contextTab, harnesses: harnessesTab, activity: activityTab };
   main.replaceChildren(
     h("div", { class: "head" },
       h("div", {}, h("h1", {}, name), h("div", { class: "meta" }, "Default branch ", h("code", {}, data.repository.defaultBranch), data.repository.private ? " · private" : " · public", " · scanned " + ago(data.generatedAt))),

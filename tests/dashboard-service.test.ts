@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doctorFromRemote, harnessCoverage, parseInstinctCards, parseLoopCard, parseMemoryCards, parseRepoFullName } from "../src/github/dashboard-service.js";
+import { remoteContext, doctorFromRemote, harnessCoverage, parseInstinctCards, parseLoopCard, parseMemoryCards, parseRepoFullName } from "../src/github/dashboard-service.js";
 
 describe("dashboard data", () => {
   it("parses committed memory newest first and ignores malformed entries", () => {
@@ -42,5 +42,23 @@ describe("dashboard data", () => {
     expect(doctor.summary).toEqual({ ok: 0, missing: 1, modified: 0, outdated: 2 });
     expect(parseRepoFullName("ansh44233/FORGE-ECC")).toEqual({ owner: "ansh44233", repo: "FORGE-ECC" });
     expect(parseRepoFullName("../etc")).toBeUndefined();
+  });
+
+  it("builds the context budget and MCP matrix from committed files", async () => {
+    const files: Record<string, string> = {
+      "AGENTS.md": "a".repeat(12_000),
+      "CLAUDE.md": "# hi",
+      ".mcp.json": JSON.stringify({ mcpServers: { context7: { command: "npx" } } }),
+      ".cursor/mcp.json": JSON.stringify({ mcpServers: {} }),
+      "src/index.ts": "ignored",
+    };
+    const fetched: string[] = [];
+    const client = { getFileText: async (_o: string, _r: string, file: string) => { fetched.push(file); return files[file]; } };
+    const entries = Object.keys(files).map(file => ({ path: file, type: "blob", size: files[file]!.length }));
+    const { context, mcp } = await remoteContext(client as never, "o", "r", "main", entries);
+    expect(fetched.includes("src/index.ts")).toBe(false);
+    expect(context.worst).toBe(3000);
+    expect(context.findings[0]?.id).toBe("CTX-INSTRUCTIONS-LARGE");
+    expect(mcp.map(row => [row.name, row.targets.claude, row.targets.cursor])).toEqual([["context7", true, false]]);
   });
 });
