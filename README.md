@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/ansh44233/FORGE-ECC/actions/workflows/ci.yml"><img src="https://github.com/ansh44233/FORGE-ECC/actions/workflows/ci.yml/badge.svg?branch=main" alt="Build status" /></a>
-  <a href="https://github.com/ansh44233/FORGE-ECC/releases"><img src="https://img.shields.io/badge/release-v4.0.0-E3B468?style=flat" alt="Latest release: v4.0.0" /></a>
+  <a href="https://github.com/ansh44233/FORGE-ECC/releases"><img src="docs/badges/release.svg" alt="Latest release: v4.0.0" height="20" /></a>
 </p>
 
 <p align="center">
