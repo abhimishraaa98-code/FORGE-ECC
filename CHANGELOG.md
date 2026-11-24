@@ -4,6 +4,13 @@
 
 In FORGE 3.0, the runtime layer (Guard, the verification gate, the prompt secret guard, session memory and handoffs) ran only inside Claude Code. FORGE 4.0 runs the same policy natively in **Cursor, Codex and Gemini CLI**. One rule set and one log now cover four agents. Previously the other tools got instructions and no enforcement.
 
+4.0 also adds:
+- **`forge race`:** agents compete on your task in isolated worktrees, and your checks pick the winner.
+- **`forge mcp`:** one pinned MCP config written for seven harnesses.
+- **`forge context`:** measures what each tool loads before the first prompt.
+- **`forge consult`:** finds the right components for a task.
+- **A larger catalog:** 49 agents, 76 skills, 34 commands and 26 rules.
+
 Install:
 
 ```bash
@@ -31,6 +38,30 @@ forge install . --hooks
 - **Shield now scans native hook configs.** Commands in `.cursor/hooks.json`, `.codex/hooks.json` and `.gemini/settings.json` get the same checks as Claude Code hooks: remote code execution, network calls, credential reads, catch-all matchers and unpinned packages. The GitHub App reviews pull requests that touch these files.
 - **Control Center:** the Harnesses tab shows a "guarded" badge per tool. It also offers the install command when a tool that supports hooks is installed without them. The repository header shows how many harnesses are guarded.
 - The capability manifest lists hooks as **native** for Claude Code, Cursor, Codex and Gemini CLI.
+- **`forge race`:**
+  - Runs the same goal and checks for several agents (`--agents claude,codex,gemini,opencode` or `--contestant name="cmd"`) in parallel, each in its own detached git worktree, through the verified loop.
+  - Ranks them with FORGE's own checks and the integrity gate.
+  - `pick` applies the winner with a 3-way merge, and `clean` removes the worktrees.
+  - Receipts are kept in `.forge/races/`.
+- **`forge mcp`:**
+  - `catalog` lists 12 curated servers with pinned packages.
+  - `add`, `sync`, `list` and `remove` write Claude Code, Cursor, Codex (TOML managed block), Gemini CLI, Copilot, OpenCode and Kiro configs, each with its own env reference syntax.
+  - Literal secrets and plain-HTTP remotes are refused. User-owned entries are kept, and `.forge/mcp-state.json` tracks what FORGE wrote.
+- **`forge context`:**
+  - Estimates, per harness, what loads before the first prompt: instructions and `@imports`, always-on rules, skill, agent and command indexes, and MCP servers.
+  - Reports findings with savings, and `--max` works as a CI gate (exit code 4).
+- **`forge consult "TASK"`:**
+  - A deterministic, stack-aware advisor over the catalog and MCP servers.
+  - `forge install --with kind:id` and `--without` manage the extra items, which persist across reinstalls.
+- **Catalog:**
+  - 25 new skills: MCP server development, agent workflow design, RAG, LLM evals, Redis, MongoDB, payments, realtime, web performance, i18n, secrets, Actions hardening, supply chain, load testing, flaky tests, property-based testing, strategic compaction, git worktrees, Vue/Nuxt, Flutter, React Native, Kotlin Android, AWS serverless, data pipelines and ML training.
+  - 8 new agents.
+  - Kotlin, Dart and Vue rules, with stack detection for each.
+  - New commands: `/race`, `/consult`, `/context-budget`, `/mcp-sync` and `/guard`.
+- **Control Center:** a Context tab (budget per harness with findings) and an MCP server × harness matrix in the Harnesses tab.
+
+### Changed
+- The managed instruction block is a lean index with short "when to use" lines. A full-profile `AGENTS.md` drops from about 4.8k to about 2.6k tokens.
 
 ## 3.0.0 — Learn, loop and prove
 

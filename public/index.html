@@ -265,6 +265,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
     <nav class="links" aria-label="Primary">
       <a href="#github-app">GitHub App</a>
       <a href="#guard">Guard</a>
+      <a href="#race">Race &amp; MCP</a>
       <a href="#loop">Learn &amp; loop</a>
       <a href="#shield">Shield</a>
       <a href="#platforms">Platforms</a>
@@ -317,9 +318,9 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px;margin-top:40px;font
         <div><b data-live="release">—</b><a href="https://github.com/ansh44233/FORGE-ECC/releases/latest">Latest release* ↗</a></div>
       </div>
       <div class="mrow small">
-        <div><b>41</b><span>specialist agents</span></div>
-        <div><b>51</b><span>skills, matched to your stack</span></div>
-        <div><b>29</b><span>slash commands</span></div>
+        <div><b>49</b><span>specialist agents</span></div>
+        <div><b>76</b><span>skills, matched to your stack</span></div>
+        <div><b>34</b><span>slash commands</span></div>
         <div><b>60</b><span>Shield rules</span></div>
         <div><b>10</b><span>harnesses, one install</span></div>
       </div>
@@ -467,7 +468,7 @@ forge uninstall .       <span class="c"># remove only what FORGE added</span></p
   </div>
 </section>
 
-<section class="block" id="guard">
+<section class="block alt" id="guard">
   <div class="wrap">
     <p class="label reveal">New in 4.0</p>
     <h2 class="reveal">Guard everywhere. <span>One policy, four agents.</span></h2>
@@ -521,6 +522,67 @@ forge uninstall .       <span class="c"># remove only what FORGE added</span></p
           <h3>Test the policy before agents hit it.</h3>
           <p class="muted"><code>check</code> dry-runs a command or path against your rules and fails CI on deny. <code>log</code> and <code>status</code> show what was blocked, by which agent, and where Guard is live.</p>
           <a class="more" href="https://github.com/ansh44233/FORGE-ECC#runtime-hooks-guard-and-memory">Guard everywhere →</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="race">
+  <div class="wrap">
+    <p class="label reveal">Also new in 4.0</p>
+    <h2 class="reveal">Race the agents. <span>Sync the tools. Measure the context.</span></h2>
+    <div class="cards3">
+      <article class="card reveal">
+        <div class="term" aria-label="forge race output">
+<div><span class="a">$</span> forge race --agents claude,codex,gemini</div>
+<div>1  codex&nbsp;  <span class="ok">✓ passed</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +6 -2</div>
+<div>2  claude  <span class="ok">✓ passed</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +19 -4</div>
+<div>3  gemini  <span class="w">⚠ needs-review</span> +2 -31</div>
+<div class="c">&nbsp;&nbsp;&nbsp;deleted-test: tests/date.test.ts</div>
+<div>Winner: <b>codex</b>, verified by FORGE</div>
+<div><span class="a">$</span> forge race pick</div>
+        </div>
+        <div class="body">
+          <p class="kicker">forge race</p>
+          <h3>Your checks pick the best agent.</h3>
+          <p class="muted">The same task for every agent, each in its own git worktree. FORGE runs your checks and the integrity gate, ranks the results and merges the winner when you say so.</p>
+          <a class="more" href="https://github.com/ansh44233/FORGE-ECC#agent-race">Agent race →</a>
+        </div>
+      </article>
+      <article class="card reveal">
+        <div class="term" aria-label="forge mcp sync output">
+<div><span class="a">$</span> forge mcp sync</div>
+<div class="c">from .mcp.json →</div>
+<div><span class="ok">add</span>&nbsp; context7&nbsp;&nbsp; .cursor/mcp.json</div>
+<div><span class="ok">add</span>&nbsp; context7&nbsp;&nbsp; .codex/config.toml</div>
+<div><span class="ok">add</span>&nbsp; github&nbsp;&nbsp;&nbsp;&nbsp; .gemini/settings.json</div>
+<div><span class="ok">add</span>&nbsp; github&nbsp;&nbsp;&nbsp;&nbsp; .vscode/mcp.json</div>
+<div><span class="b">not copied</span> leaky: literal secret</div>
+        </div>
+        <div class="body">
+          <p class="kicker">forge mcp</p>
+          <h3>One MCP config, seven tools.</h3>
+          <p class="muted">Pinned servers written in each tool's own format and env syntax, from Claude Code to Codex TOML. Secrets stay references; FORGE never copies a value.</p>
+          <a class="more" href="https://github.com/ansh44233/FORGE-ECC#mcp-sync">MCP sync →</a>
+        </div>
+      </article>
+      <article class="card reveal">
+        <div class="term" aria-label="forge context output">
+<div><span class="a">$</span> forge context</div>
+<div>grade <b>C</b> · heaviest ≈ <b>11.8k</b> tokens</div>
+<div>codex&nbsp; <span class="w">███████████████</span> 11.8k</div>
+<div>claude <span class="ok">████████</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6.2k</div>
+<div><span class="b">[high]</span> AGENTS.md ≈ 9.9k tokens</div>
+<div class="c">→ move how-tos into skills</div>
+<div><span class="a">$</span> forge consult "slow queries"</div>
+<div>skill:postgres-queries …</div>
+        </div>
+        <div class="body">
+          <p class="kicker">forge context · consult</p>
+          <h3>Pay for less context.</h3>
+          <p class="muted">See what every tool loads before your first prompt, file by file, with the fix for each finding. <code>forge consult</code> finds the components for a task, ranked for your stack.</p>
+          <a class="more" href="https://github.com/ansh44233/FORGE-ECC#context-budget">Context budget →</a>
         </div>
       </article>
     </div>
@@ -720,6 +782,8 @@ forge_memory_search · forge_memory_add</div>
           <tr><td>You install a toolkit</td><td><span class="no">✕</span>Files copied over your edits</td><td><span class="yes">✓</span><b>Every file is hashed</b>, your edits are never overwritten, and uninstall restores the project</td></tr>
           <tr><td>Someone comments on an issue</td><td><span class="no">✕</span>A CI agent may run with secrets</td><td><span class="yes">✓</span><b>Shield flags it as critical</b> unless the workflow checks who triggered it</td></tr>
           <tr><td>Your team mixes Cursor, Codex and Claude Code</td><td><span class="no">✕</span>Rules in Markdown, enforced by nobody</td><td><span class="yes">✓</span><b>One Guard policy enforced natively in all four</b>, with one log naming the agent behind every block</td></tr>
+          <tr><td>You wonder which agent is best for your repo</td><td><span class="no">✕</span>Benchmarks on someone else's code</td><td><span class="yes">✓</span><b>forge race</b> runs them on your task and ranks them by your checks</td></tr>
+          <tr><td>Each tool needs its own MCP config</td><td><span class="no">✕</span>Copy JSON, TOML and secrets five times</td><td><span class="yes">✓</span><b>forge mcp sync</b> writes every format, pinned, with env references only</td></tr>
           <tr><td>You compare repositories</td><td><span class="no">✕</span>Vibes</td><td><span class="yes">✓</span><b>A deterministic scorecard</b> with evidence for every point, across the fleet</td></tr>
         </tbody>
       </table>
