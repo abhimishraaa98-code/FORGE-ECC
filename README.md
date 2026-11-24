@@ -189,7 +189,7 @@ Each step leaves something you can check. Installs are hashed, every Guard decis
 
 ## See it work
 
-Real output from FORGE 4.0, shortened:
+Output from FORGE 4.0 on a sample repository, shortened:
 
 ```console
 $ forge install . --hooks --statusline
