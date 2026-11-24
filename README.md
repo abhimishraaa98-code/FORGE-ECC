@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-forge--ecc.vercel.app-E8B3A2?logo=vercel&logoColor=white" alt="Website" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="https://img.shields.io/badge/Website-forge--ecc.vercel.app-E3B468?logo=vercel&logoColor=white" alt="Website" /></a>
   <a href="https://forge-ecc.vercel.app/api/github/install"><img src="https://img.shields.io/badge/GitHub%20App-Install%20FORGE-181717?logo=github&logoColor=white" alt="Install the FORGE GitHub App" /></a>
   <a href="https://forge-ecc.vercel.app/app/"><img src="https://img.shields.io/badge/Control%20Center-Open-1a171d?logo=githubactions&logoColor=white" alt="FORGE Control Center" /></a>
   <a href="https://github.com/forge-workbench"><img src="https://img.shields.io/badge/Org-FORGE%20WORKBENCH-c47b52?logo=github&logoColor=white" alt="FORGE WORKBENCH" /></a>
