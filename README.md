@@ -1,7 +1,7 @@
 <!-- FORGE: the verified layer for your coding agents -->
 
 <p align="center">
-  <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.jpg" alt="FORGE: the verified layer for your coding agents. 41 agents, 51 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
+  <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.jpg" alt="FORGE 4.0: the verified layer for your coding agents. One Guard policy enforced in Claude Code, Cursor, Codex and Gemini CLI. 49 agents, 76 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
 </p>
 
 <p align="center">
@@ -49,12 +49,14 @@
 
 <p align="center">
   <a href="#install-forge">Install</a> ·
+  <a href="#quick-start-in-60-seconds">Quick start</a> ·
   <a href="#why-forge">Why FORGE</a> ·
-  <a href="#how-forge-works">How it works</a> ·
-  <a href="#harness-scorecard">Scorecard</a> ·
+  <a href="#runtime-hooks-guard-and-memory">Guard</a> ·
+  <a href="#agent-race">Agent race</a> ·
+  <a href="#mcp-sync">MCP sync</a> ·
+  <a href="#context-budget">Context</a> ·
   <a href="#forge-shield">Shield</a> ·
   <a href="#verified-loop">Verified loop</a> ·
-  <a href="#instincts-and-continuous-learning">Instincts</a> ·
   <a href="#github-app-and-control-center">Control Center</a> ·
   <a href="#cli-reference">CLI</a>
 </p>
@@ -78,6 +80,24 @@ Install once, and every session in every harness follows the same process, with 
 
 FORGE is MIT-licensed and local-first. The CLI, hooks, Shield, memory and loop run entirely on your machine. The GitHub App and the hosted Control Center are optional.
 
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>⛨ <a href="#runtime-hooks-guard-and-memory">Guard everywhere</a></b><br /><sub>One policy, enforced as native hooks in Claude Code, Cursor, Codex and Gemini CLI. Destructive commands, secret reads and unverified stops are blocked, and one log names the agent behind each block.</sub></td>
+    <td width="33%" valign="top"><b>🏁 <a href="#agent-race">Agent race</a></b><br /><sub>The same task for Claude, Codex and Gemini in isolated worktrees. Your checks rank them, and an agent that deletes tests can't win.</sub></td>
+    <td width="33%" valign="top"><b>✓ <a href="#verified-loop">Verified loop</a></b><br /><sub>Agents iterate until FORGE's own check run passes, with a receipt for every iteration and an integrity gate against gamed tests.</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><b>⇄ <a href="#mcp-sync">MCP sync</a></b><br /><sub>One pinned MCP config written for 7 tools in each tool's own format. Secrets stay as environment references.</sub></td>
+    <td valign="top"><b>◔ <a href="#context-budget">Context budget</a></b><br /><sub>What each tool loads before your first prompt, file by file, with the fix for each finding and a CI gate.</sub></td>
+    <td valign="top"><b>🛡 <a href="#forge-shield">Shield</a></b><br /><sub>60 rules for agent permissions, hooks, MCP, prompt injection, secrets and CI across 11 tools, with SARIF output.</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><b>📊 <a href="#harness-scorecard">Scorecard</a></b><br /><sub>A deterministic 0–90 readiness score where every point cites its evidence. Works as a CI gate.</sub></td>
+    <td valign="top"><b>🧠 <a href="#instincts-and-continuous-learning">Memory and instincts</a></b><br /><sub>Handoffs, decisions and learned habits with provenance. Nothing reaches an agent until a person approves it.</sub></td>
+    <td valign="top"><b>🖥 <a href="#github-app-and-control-center">Control Center</a></b><br /><sub>Fleet view, scorecard, Shield, context, MCP, memory, loops and PR risk for every repository.</sub></td>
+  </tr>
+</table>
+
 | Included | Count | What it gives you |
 |---|---:|---|
 | Agents | **49** | Planning, review, security, build repair, testing, docs, architecture, data, ML, mobile, payments and MCP specialists |
@@ -92,7 +112,7 @@ FORGE is MIT-licensed and local-first. The CLI, hooks, Shield, memory and loop r
 | MCP sync | **7 harnesses** | One pinned MCP config written in each tool's own format, without copying secrets |
 
 <p align="center">
-  <a href="https://forge-ecc.vercel.app/app/"><img src="docs/control-center.jpg" alt="FORGE Control Center: readiness scorecard, Shield, setup health, pull request risk, handoffs, instincts and loop receipts" width="100%" /></a>
+  <a href="https://forge-ecc.vercel.app/app/"><img src="docs/control-center.jpg" alt="FORGE Control Center: readiness, Shield, setup, pull requests, Guard, context budget, MCP servers, next actions, handoffs, instincts and loop receipts" width="100%" /></a>
   <br /><sub>FORGE Control Center (sample data)</sub>
 </p>
 
@@ -151,6 +171,20 @@ npm link   # puts `forge` on your PATH
 
 `forge uninstall .` removes only the FORGE files you did not edit and FORGE's managed blocks and hooks. Your own files and settings stay. Add `--dry-run` to preview it.
 </details>
+
+## Quick start in 60 seconds
+
+After installing, these five commands show most of what FORGE does:
+
+```bash
+forge status                                     # one screen: install, Guard, context, MCP and what to do next
+forge guard check "git push --force origin main" # ask Guard before an agent tries it
+forge consult "add e2e tests for checkout"       # the agents, skills and MCP servers for this task
+forge mcp add context7 playwright                # pinned servers, written for every tool you use
+forge race --goal "fix the failing test" --check "npm test" --agents claude,codex
+```
+
+Inside an agent, the same features are slash commands (`/forge:race`, `/forge:guard`, `/forge:consult`, `/forge:context-budget`) and MCP tools (`forge_guard_check`, `forge_consult`, `forge_context_budget`).
 
 ## Why FORGE
 
@@ -345,7 +379,7 @@ Always-follow standards. `common/` covers evidence, testing, security, git and d
 
 ### Hooks
 
-Runtime enforcement in Claude Code. FORGE Guard checks every tool call before it runs:
+Runtime enforcement in Claude Code, Cursor, Codex and Gemini CLI. FORGE Guard checks every tool call before it runs, using one policy for all four:
 
 ```json
 { "guard": { "rules": [{ "id": "USER-NO-PROD-DB", "decision": "deny", "pattern": "psql .*prod" }] } }
@@ -1044,8 +1078,13 @@ The current MCP server exposes nine bounded, read-only tools:
 | `forge_git_intelligence` | Analyze Git changes and impact |
 | `forge_list_agents` | List built-in and workspace agent roles |
 | `forge_create_review_plan` | Create a draft engineering review plan |
+| `forge_memory_search` / `forge_memory_add` | Search and save project memory with provenance |
+| `forge_shield_scan` | Run Shield on the workspace |
+| `forge_guard_check` | Ask Guard whether a command or file access would be allowed |
+| `forge_consult` | Find agents, skills, commands, rules and MCP servers for a task |
+| `forge_context_budget` | Measure what each tool loads before the first prompt |
 
-MCP workspace paths are constrained to the configured workspace root. Hidden paths, generated/dependency directories, secret-like filenames and symlinks are excluded or rejected. Reads are bounded. The MCP server does not expose arbitrary shell execution, project-file writes, patch application or test execution.
+MCP workspace paths are constrained to the configured workspace root. Hidden paths, generated/dependency directories, secret-like filenames and symlinks are excluded or rejected. Reads are bounded. The MCP server does not expose arbitrary shell execution, patch application or test execution. The only write is `forge_memory_add`, which appends to `.forge/memory.json` and rejects credentials.
 
 Some workspace browsing/search operations require an explicit restricted-mode allowlist in `.forge/permissions.json`; the default proposal-only policy denies them.
 
