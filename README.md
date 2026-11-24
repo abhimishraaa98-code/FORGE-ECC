@@ -1,4 +1,4 @@
-<!-- FORGE: the verified layer for your coding agents -->
+<!-- lyra: the verified layer for your coding agents -->
 
 <p align="center">
   <a href="https://forge-ecc.vercel.app/"><img src="docs/forge-hero.jpg" alt="FORGE 4.0: the verified layer for your coding agents. One Guard policy enforced in Claude Code, Cursor, Codex and Gemini CLI. 49 agents, 76 skills, 60 Shield rules, 10 harnesses." width="100%" /></a>
