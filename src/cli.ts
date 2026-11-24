@@ -57,6 +57,7 @@ import { detectHarnessTargets, doctorHarness, formatDoctorReport, formatInstallR
 import { loadHarnessCatalog, type CatalogKind } from "./core/harness-catalog.js";
 import { addManualInstinct, evolveInstincts, exportInstincts, formatInstinctList, importInstincts, learnInstincts, loadInstincts, removeInstinct, setInstinctStatus, type InstinctStatus } from "./core/instincts.js";
 import { buildCostReport, formatCostReport } from "./core/session-cost.js";
+import { forgeStatus, formatStatus } from "./core/forge-status.js";
 import { analyzeContext, formatContextReport } from "./core/context-budget.js";
 import { consult, formatConsult } from "./core/consult.js";
 import { detectProjectLanguages as detectStacks } from "./core/harness-catalog.js";
@@ -150,6 +151,8 @@ Usage:
 
 Commands:
   init [path]      Create a safe, local-first .forge starter workspace
+  status [path]    One screen: install health, where Guard is live, context budget, MCP coverage, last loop and race,
+                   and the next commands to run [--json]
   context [path]   Context budget: what each harness loads before the first prompt, per file, with fixes
                    [--verbose] [--json] [--max TOKENS]  (exit 4 when the heaviest harness exceeds --max)
   consult "TASK"   Find the agents, skills, commands, rules and MCP servers for a task, with the command to add them
@@ -640,6 +643,17 @@ async function main(args: string[]): Promise<void> {
         throw new Error(`Unknown mcp action "${action}". Use catalog, list, add, sync or remove.`);
       } catch (error) {
         process.stderr.write("FORGE mcp failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
+        process.exitCode = 1;
+      }
+      return;
+    }
+    case "status": {
+      try {
+        const options = parseHarnessArgs(rest, [], ["--json"]);
+        const status = await forgeStatus(options.path, VERSION);
+        process.stdout.write((options.flags.has("--json") ? JSON.stringify(status, null, 2) : formatStatus(status)) + "\n");
+      } catch (error) {
+        process.stderr.write("FORGE status failed: " + (error instanceof Error ? error.message : String(error)) + "\n");
         process.exitCode = 1;
       }
       return;

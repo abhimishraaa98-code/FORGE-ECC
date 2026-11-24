@@ -58,6 +58,7 @@ forge install . --hooks
   - 8 new agents.
   - Kotlin, Dart and Vue rules, with stack detection for each.
   - New commands: `/race`, `/consult`, `/context-budget`, `/mcp-sync` and `/guard`.
+- **`forge status`:** one screen for install health, where Guard is live, the context budget, MCP coverage, and the latest loop and race, with the next commands to run.
 - **Control Center:** a Context tab (budget per harness with findings) and an MCP server × harness matrix in the Harnesses tab.
 
 ### Changed
